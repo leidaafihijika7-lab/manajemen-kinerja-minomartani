@@ -3303,7 +3303,7 @@
 
                 <div class="form-group">
                   <label>5. Tahapan Kegiatan PKA:</label>
-                  <select id="fTahapAPBKal">
+                  <select id="fTahapAPBKal" onchange="aturKelengkapanPasal52APB_()">
                     <option value="">-- Pilih Tahapan (Sesuai Pasal) --</option>
                     <option value="APB_47">1. Tahap Persiapan (Pasal 47)</option>
                     <option value="APB_51">2. Tahap Pelaksanaan (Pasal 51)</option>
@@ -3331,6 +3331,76 @@
                 </div>
                 <div class="form-group"><label>9. Lokasi / Tempat:</label><input type="text" id="fLokasiAPBKal"
                     placeholder="..."></div>
+
+                <div id="grupAPBKalPasal52" class="tugas-umum-box" style="display:none; margin-top:14px; border-left:5px solid #0ea5e9; background:#f8fbff;">
+                  <h3 style="margin-top:0; color:var(--text-main); font-size:15px;">Kelengkapan Laporan APBKal — Pasal 52</h3>
+                  <small style="display:block; margin-bottom:12px; color:#475569; line-height:1.55;">
+                    Diisi khusus untuk <b>Tahap Pelaporan & Pertanggungjawaban (Pasal 54)</b>.
+                    Sesuai Pasal 52, laporan memuat dokumentasi visual, bukti transaksi/serah terima bila ada, laporan keluaran,
+                    serta undangan dan daftar hadir bila menghadirkan orang.
+                  </small>
+
+                  <div class="form-group">
+                    <label>10. Foto/Video Pelaksanaan Kegiatan:</label>
+                    <input type="file" id="fAPB52FotoPelaksanaan" accept="image/*,video/*,application/pdf" onchange="tampilkanNamaFile(this)">
+                    <span class="info-file" style="font-size:12px; display:block; margin-top:5px;"></span>
+                  </div>
+
+                  <div class="form-group">
+                    <label>11. Laporan Keterangan dan Keluaran:</label>
+                    <input type="file" id="fAPB52LaporanKeluaran" accept="image/*,application/pdf" onchange="tampilkanNamaFile(this)">
+                    <span class="info-file" style="font-size:12px; display:block; margin-top:5px;"></span>
+                  </div>
+
+                  <div class="form-group">
+                    <label>12. Apakah ada pengadaan/dokumentasi barang?</label>
+                    <select id="fAPB52AdaBarang" onchange="aturKelengkapanPasal52APB_()">
+                      <option value="">-- Pilih --</option>
+                      <option value="YA">Ya, ada dokumentasi barang</option>
+                      <option value="TIDAK">Tidak ada</option>
+                    </select>
+                  </div>
+                  <div class="form-group" id="fgAPB52DokBarang" style="display:none;">
+                    <label>Dokumentasi Visual Pengadaan Barang:</label>
+                    <input type="file" id="fAPB52DokBarang" accept="image/*,video/*,application/pdf" onchange="tampilkanNamaFile(this)">
+                    <span class="info-file" style="font-size:12px; display:block; margin-top:5px;"></span>
+                  </div>
+
+                  <div class="form-group">
+                    <label>13. Apakah ada transaksi/pembayaran?</label>
+                    <select id="fAPB52AdaTransaksi" onchange="aturKelengkapanPasal52APB_()">
+                      <option value="">-- Pilih --</option>
+                      <option value="YA">Ya, ada transaksi/pembayaran</option>
+                      <option value="TIDAK">Tidak ada</option>
+                    </select>
+                  </div>
+                  <div class="form-group" id="fgAPB52BuktiTransaksi" style="display:none;">
+                    <label>Bukti Transaksi / Nota / Serah Terima Pembayaran:</label>
+                    <input type="file" id="fAPB52BuktiTransaksi" accept="image/*,application/pdf" onchange="tampilkanNamaFile(this)">
+                    <span class="info-file" style="font-size:12px; display:block; margin-top:5px;"></span>
+                  </div>
+
+                  <div class="form-group">
+                    <label>14. Apakah kegiatan menghadirkan orang/peserta?</label>
+                    <select id="fAPB52HadirOrang" onchange="aturKelengkapanPasal52APB_()">
+                      <option value="">-- Pilih --</option>
+                      <option value="YA">Ya, menghadirkan orang/peserta</option>
+                      <option value="TIDAK">Tidak</option>
+                    </select>
+                  </div>
+                  <div id="fgAPB52Peserta" style="display:none;">
+                    <div class="form-group">
+                      <label>Undangan Kegiatan:</label>
+                      <input type="file" id="fAPB52Undangan" accept="image/*,application/pdf" onchange="tampilkanNamaFile(this)">
+                      <span class="info-file" style="font-size:12px; display:block; margin-top:5px;"></span>
+                    </div>
+                    <div class="form-group">
+                      <label>Daftar Hadir:</label>
+                      <input type="file" id="fAPB52DaftarHadir" accept="image/*,application/pdf" onchange="tampilkanNamaFile(this)">
+                      <span class="info-file" style="font-size:12px; display:block; margin-top:5px;"></span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div id="grupAPBKalCarik" class="tugas-umum-box" style="display:none; border-left: 5px solid #f59e0b;">
@@ -3805,7 +3875,50 @@
         </div>
 
         <div id="halAdminKinerja" class="page-section">
-          <div class="form-card" style="max-width:none; margin-bottom:18px;">
+          
+          <div id="panelTutupPeriodeLaporanAdmin" class="form-card" style="display:none; max-width:none; margin-bottom:18px; border-left:5px solid #dc2626;">
+            <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+              <span class="material-symbols-outlined" style="color:#dc2626; font-size:28px;">event_busy</span>
+              <div style="flex:1; min-width:240px;">
+                <div style="font-weight:800; font-family:var(--font-heading); font-size:18px;">Pengaturan Tutup Periode Laporan</div>
+                <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">
+                  Menutup input laporan baru untuk periode tertentu setelah batas akhir final. Revisi laporan yang sudah ditolak admin tetap diperbolehkan.
+                </div>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;">
+              <div class="form-group">
+                <label>Periode Laporan</label>
+                <input type="month" id="fTutupPeriodeLaporan" onchange="muatStatusTutupPeriodeLaporanUI()">
+              </div>
+              <div class="form-group">
+                <label>Tanggal Batas Akhir</label>
+                <input type="date" id="fTanggalTutupPeriodeLaporan">
+              </div>
+              <div class="form-group">
+                <label>Jam Batas Akhir</label>
+                <input type="time" id="fJamTutupPeriodeLaporan" value="18:00">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Alasan / Catatan Admin</label>
+              <textarea id="fAlasanTutupPeriodeLaporan" rows="2" placeholder="Contoh: Pelaporan periode Mei 2026 berakhir pada 26 Mei 2026 pukul 18.00 WIB."></textarea>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button type="button" id="btnTutupPeriodeLaporan" class="btn-unduh"
+                style="background:linear-gradient(135deg,#dc2626,#b91c1c);" onclick="simpanTutupPeriodeLaporanUI()">
+                <span class="material-symbols-outlined" style="font-size:18px;">lock</span> Tutup Periode
+              </button>
+              <button type="button" id="btnBukaPeriodeLaporan" class="btn-modal-cancel" onclick="bukaPeriodeLaporanUI()">
+                Buka Kembali Periode
+              </button>
+              <button type="button" class="btn-modal-cancel" onclick="muatStatusTutupPeriodeLaporanUI()">Cek Status</button>
+            </div>
+            <div id="statusTutupPeriodeLaporan" class="disposisi-muted-box" style="margin-top:12px;">
+              Pilih periode untuk melihat status tutup periode laporan.
+            </div>
+          </div>
+<div class="form-card" style="max-width:none; margin-bottom:18px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
               <span class="material-symbols-outlined" style="color:var(--primary);">password</span>
               <div>
@@ -6429,6 +6542,45 @@
       if (!fKategori) return;
       var detail = payload || {};
 
+      // PATCH v2026.05.12.04:
+      // Jika backend mengembalikan route disposisi aktual "TU" saat mode revisi,
+      // maka formulir revisi diarahkan ke Laporan Tugas Umum walaupun payload lama
+      // sebelumnya terbentuk dari kategori yang keliru.
+      var routeRevisiDisposisi = String(data.routeFormDisposisi || '').toUpperCase();
+      if (routeRevisiDisposisi === 'TU') {
+        fKategori.value = 'Laporan Tugas Umum';
+        prosesLevel1();
+        setTimeout(function () {
+          var d = detail.detailTU || detail.detailPimpinan || detail.detailStafInstruksi || detail.detailReguler || {};
+          var ringkas = payload.ringkasanUmum || {};
+
+          pilihNilaiJikaAda_('fTugasUmumJenis', d.jenis || 'Pelaksanaan tugas umum berdasarkan disposisi');
+          pilihNilaiJikaAda_('fDasarHadir', d.dasarOpsi || d.dasarPilihan || d.dasar || ringkas.dasarKegiatan || 'Surat Tugas/Disposisi');
+          if ((d.dasarOpsi || d.dasarPilihan || d.dasar || ringkas.dasarKegiatan) === 'Lainnya') {
+            setValueRevisi_('fDasarHadirLainnya', d.dasarLainnya || d.dasarManual || d.dasarKehadiranLainnya || '');
+          }
+          pilihNilaiJikaAda_('fPemberiPerintahTU', d.pemberi || ringkas.pemberi || 'Lurah');
+          setValueRevisi_('fNamaKegiatan', d.namaKeg || ringkas.namaKegiatan || data.namaKegiatan || '');
+          setValueRevisi_('fTanggalKegiatan', d.tanggal || ringkas.tanggalKegiatan || data.tanggalKegiatan || '');
+          setValueRevisi_('fLokasiTU', d.lokasi || ringkas.lokasiKegiatan || data.lokasi || '');
+          setValueRevisi_('fPenyelenggara', d.penyelenggara || ringkas.penyelenggara || '');
+          pilihNilaiJikaAda_('fPeran', d.peran || ringkas.peran || '');
+          setValueRevisi_('fDeskripsi', data.deskripsi || '');
+          terapkanBuktiLamaUtamaRevisi_();
+
+          var dasar = document.getElementById('fBuktiDasar');
+          if (dasar && data.urlDasarRaw) {
+            tandaiInputFilePakaiBuktiLama_(dasar, 'Dokumen dasar lama tersedia. Pilih file baru hanya jika ingin mengganti.');
+          }
+
+          var bannerText = document.getElementById('revisiLaporanText');
+          if (bannerText) {
+            bannerText.innerHTML += '<br><br><b>Info koreksi disposisi:</b> Jenis disposisi aktual terbaca sebagai <b>Tugas Umum</b>. Form revisi otomatis diarahkan ke <b>Laporan Tugas Umum</b>.';
+          }
+        }, 140);
+        return;
+      }
+
       if (data.isPHL || detail.detailPHL) {
         fKategori.value = 'Laporan Harian PHL';
         prosesLevel1();
@@ -6728,13 +6880,19 @@
               highlightedRow = tr;
             }
             var deskripsi = r.deskripsiRingkas || r.deskripsi || '-';
+            var statusDitolakRiwayat = String(stat || '').toLowerCase().indexOf('ditolak') === 0;
+            var alasanRevisi = (!r.bisaRevisi && statusDitolakRiwayat && r.alasanTidakBisaRevisi)
+              ? '<div style="margin-top:7px; font-size:11px; line-height:1.45; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:7px 9px;">' +
+                escapeHTML(r.alasanTidakBisaRevisi) +
+                '</div>'
+              : '';
             var tombolRevisi = r.bisaRevisi ? '<button type="button" class="btn-action btn-acc" style="width:auto; margin-top:8px; margin-left:6px;" onclick="mulaiRevisiLaporan_(\'' + escapeJsSingleQuote_(safeId) + '\')">Perbaiki Laporan</button>' : '';
             tr.innerHTML = '' +
               '<td><small>' + escapeHTML(r.waktu || '-') + '</small></td>' +
               '<td><b>' + escapeHTML(r.kategori || '-') + '</b><br>' + escapeHTML(deskripsi).replace(/\n/g, '<br>') + '</td>' +
               '<td><span class="badge ' + bg + '">' + escapeHTML(stat) + '</span><br><b>' + (Number(r.poinFinal) || 0) + ' Poin</b></td>' +
               '<td><small>' + escapeHTML(r.catatan || '-') + '</small><br>' +
-              '<button type="button" class="btn-action btn-edit" style="width:auto; margin-top:8px;" onclick="toggleDetailRiwayat_(\'' + escapeJsSingleQuote_(safeId) + '\')">Detail</button>' + tombolRevisi + '</td>';
+              '<button type="button" class="btn-action btn-edit" style="width:auto; margin-top:8px;" onclick="toggleDetailRiwayat_(\'' + escapeJsSingleQuote_(safeId) + '\')">Detail</button>' + tombolRevisi + alasanRevisi + '</td>';
             fragment.appendChild(tr);
           });
           tb.appendChild(fragment);
@@ -6909,6 +7067,75 @@
         .ambilDetailRiwayatLaporan(idLaporan, sToken);
     }
 
+    var klasemenState = {
+      offset: 0,
+      limit: 20,
+      total: 0,
+      hasMore: false,
+      loading: false,
+      kelompok: 'Semua'
+    };
+
+    function renderKlasemenRows_(rows, appendMode) {
+      const tb = document.getElementById('tbRekap');
+      const filter = document.getElementById('filterKelompok').value;
+      const formatRp = function (n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); };
+
+      if (!appendMode) tb.innerHTML = '';
+
+      if (!rows || rows.length === 0) {
+        if (!appendMode) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada data.</td></tr>';
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+
+      rows.forEach(function (r, i) {
+        const teksPeringkat = (filter === "Semua") ? "" : (r.peringkat || (klasemenState.offset + i + 1));
+        const lencanaPredikat = hitungPredikat(r.totalPoin, r.kelompok);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="text-align:center; font-weight:bold; font-size:16px; color:var(--text-muted);">${teksPeringkat}</td>
+          <td><b>${escapeHTML(r.nama)}</b><br><small>${escapeHTML(r.jabatan)}</small></td>
+          <td style="text-align:center;">${r.jumlahLaporan} Lap</td>
+          <td><span class="badge bg-gray">${r.totalPoin} Poin Triwulan</span></td>
+          <td><span class="badge bg-green">${formatRp(r.estimasiTunjangan)}</span></td>
+          <td><span class="badge ${lencanaPredikat.warna}">${lencanaPredikat.label}</span></td>
+        `;
+        fragment.appendChild(tr);
+      });
+
+      tb.appendChild(fragment);
+    }
+
+    function updateKlasemenLoadMore_(hasMore, total) {
+      var wrap = document.getElementById('klasemenLoadMoreWrap');
+      if (!wrap) {
+        var table = document.getElementById('tbRekap');
+        if (table && table.parentNode) {
+          wrap = document.createElement('div');
+          wrap.id = 'klasemenLoadMoreWrap';
+          wrap.style.padding = '14px';
+          wrap.style.textAlign = 'center';
+          table.parentNode.appendChild(wrap);
+        }
+      }
+      if (!wrap) return;
+
+      var loaded = Math.min(klasemenState.offset, total || klasemenState.total || 0);
+      if (!hasMore) {
+        wrap.innerHTML = total ? '<small style="color:var(--text-muted);">Menampilkan ' + loaded + ' dari ' + total + ' data klasemen.</small>' : '';
+        return;
+      }
+
+      wrap.innerHTML =
+        '<button type="button" class="btn-modal-cancel" onclick="muatRekapLagi()" ' + (klasemenState.loading ? 'disabled' : '') + '>' +
+        'Muat ' + klasemenState.limit + ' data berikutnya' +
+        '</button>' +
+        '<div style="margin-top:8px;"><small style="color:var(--text-muted);">Menampilkan ' + loaded + ' dari ' + total + ' data.</small></div>';
+    }
+
     function muatRekap() {
       const tb = document.getElementById('tbRekap');
       tb.innerHTML = '<tr><td colspan="6" style="text-align:center;">Memuat Data...</td></tr>';
@@ -6919,34 +7146,54 @@
         thPeringkat.textContent = (filter === "Semua") ? "" : "Peringkat";
       }
 
-      google.script.run.withSuccessHandler(function (data) {
-        tb.innerHTML = '';
-        const fData = filter === "Semua" ? data : data.filter(function (r) { return r.kelompok === filter; });
-        if (!fData || fData.length === 0) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada data.</td></tr>'; return; }
+      klasemenState.offset = 0;
+      klasemenState.total = 0;
+      klasemenState.hasMore = false;
+      klasemenState.kelompok = filter;
+      updateKlasemenLoadMore_(false, 0);
 
-        const formatRp = function (n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); };
-        const fragment = document.createDocumentFragment();
+      muatRekapPage_(false);
+    }
 
-        fData.forEach(function (r, i) {
-          const teksPeringkat = (filter === "Semua") ? "" : (i + 1);
-          const lencanaPredikat = hitungPredikat(r.totalPoin, r.kelompok);
+    function muatRekapLagi() {
+      if (klasemenState.loading || !klasemenState.hasMore) return;
+      muatRekapPage_(true);
+    }
 
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td style="text-align:center; font-weight:bold; font-size:16px; color:var(--text-muted);">${teksPeringkat}</td>
-            <td><b>${escapeHTML(r.nama)}</b><br><small>${escapeHTML(r.jabatan)}</small></td>
-            <td style="text-align:center;">${r.jumlahLaporan} Lap</td>
-            <td><span class="badge bg-gray">${r.totalPoin} Poin Triwulan</span></td>
-            <td><span class="badge bg-green">${formatRp(r.estimasiTunjangan)}</span></td>
-            <td><span class="badge ${lencanaPredikat.warna}">${lencanaPredikat.label}</span></td>
-          `;
-          fragment.appendChild(tr);
-        });
-        tb.appendChild(fragment);
+    function muatRekapPage_(appendMode) {
+      const tb = document.getElementById('tbRekap');
+      const filter = document.getElementById('filterKelompok').value;
+      klasemenState.loading = true;
+      updateKlasemenLoadMore_(klasemenState.hasMore, klasemenState.total);
+
+      google.script.run.withSuccessHandler(function (res) {
+        klasemenState.loading = false;
+
+        if (!res || res.sukses === false) {
+          if (!appendMode) tb.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--danger);">' + escapeHTML((res && res.pesan) || 'Gagal memuat data klasemen.') + '</td></tr>';
+          updateKlasemenLoadMore_(false, 0);
+          return;
+        }
+
+        const rows = res.rows || [];
+        klasemenState.total = Number(res.total || 0);
+        klasemenState.hasMore = !!res.hasMore;
+        klasemenState.offset = Number(res.offset || 0) + rows.length;
+
+        renderKlasemenRows_(rows, appendMode);
+        updateKlasemenLoadMore_(klasemenState.hasMore, klasemenState.total);
       }).withFailureHandler(function (err) {
-        tb.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--danger);">Gagal memuat data klasemen.</td></tr>';
+        klasemenState.loading = false;
+        if (!appendMode) {
+          tb.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--danger);">Gagal memuat data klasemen: ' + escapeHTML((err && err.message) ? err.message : err) + '</td></tr>';
+        }
+        updateKlasemenLoadMore_(false, klasemenState.total);
         console.error("Gagal memuat klasemen:", err);
-      }).ambilDataRekap();
+      }).ambilDataRekapPaged({
+        kelompok: filter,
+        offset: klasemenState.offset,
+        limit: klasemenState.limit
+      }, sToken);
     }
 
 
@@ -6965,11 +7212,9 @@
     }
 
     function userIsAdminUtama() {
-      // Cek field isAdminUtama dari server (lebih akurat dari jabatan string)
+      // Kebijakan akses Admin Kinerja dan Review Bukti Admin:
+      // hanya jabatan Lurah dan Carik.
       if (sData && sData.isAdminUtama === true) return true;
-      // Cek kolom akses = "Admin" di database pegawai
-      if (sData && (sData.akses === "Admin")) return true;
-      // Fallback: deteksi dari jabatan (untuk kompatibilitas)
       return userIsCarikTunjangan() || userIsLurahTunjangan();
     }
 
@@ -7345,7 +7590,7 @@
           '<td>' + renderCapaianKomponenTunjangan_(r, 'prod') + '</td>' +
           '<td>' + renderCapaianKomponenTunjangan_(r, 'tu') + '</td>' +
           '<td><span class="badge bg-green">' + formatRupiahID(r.rpTotal || 0) + '</span></td>' +
-          '<td><span class="badge ' + statusBadgeClass(r.status) + '">' + escapeHTML(r.status || '-') + '</span></td>';
+          '<td><span class="badge ' + statusBadgeClass(r.status) + '">' + escapeHTML(statusReviewNormalisasiTampilan_(r.status) || '-') + '</span></td>';
         frag.appendChild(tr);
       });
       tb.appendChild(frag);
@@ -7661,6 +7906,10 @@
     let adminReviewPegawaiList = [];
     let adminReviewAktifPegawai = null;
     let adminReviewServerSummary = null;
+    let adminReviewNextOffset = 0;
+    let adminReviewHasMore = false;
+    let adminReviewPageSize = 10;
+    let adminReviewLoadingMore = false;
     let currentRevisiId = null;
     var adminReviewStateKey = 'ADMIN_REVIEW_STAGE3_V1';
 
@@ -7690,6 +7939,13 @@
       if (s.indexOf('Ditolak') === 0) return 'bg-red';
       if (s.indexOf('Menunggu') === 0 || s.indexOf('Banding') === 0) return 'bg-yellow';
       return 'bg-gray';
+    }
+
+
+    function statusReviewNormalisasiTampilan_(status) {
+      var s = String(status || '');
+      if (s.indexOf('Disetujui - Lewat Cut-off') === 0) return 'Disetujui';
+      return s;
     }
 
     function isPendingReviewStatus(status) {
@@ -7834,13 +8090,17 @@
 
       var groups = Object.keys(map).map(function (key) {
         var g = map[key];
-        g.reports.sort(function (a, b) { return Number(b.waktuSort || 0) - Number(a.waktuSort || 0); });
+        g.reports.sort(function (a, b) { return Number(a.waktuSort || 0) - Number(b.waktuSort || 0); });
         return g;
       });
 
       groups.sort(function (a, b) {
         if ((b.totalMenunggu || 0) !== (a.totalMenunggu || 0)) return (b.totalMenunggu || 0) - (a.totalMenunggu || 0);
-        if ((b.latestTs || 0) !== (a.latestTs || 0)) return (b.latestTs || 0) - (a.latestTs || 0);
+
+        var aOldest = (a.reports || []).length ? Number(a.reports[0].waktuSort || 0) : Number(a.latestTs || 0);
+        var bOldest = (b.reports || []).length ? Number(b.reports[0].waktuSort || 0) : Number(b.latestTs || 0);
+        if (aOldest !== bOldest) return aOldest - bOldest;
+
         return String(a.nama || '').localeCompare(String(b.nama || ''), 'id', { sensitivity: 'base' });
       });
       return groups;
@@ -7938,6 +8198,7 @@
       adminReviewGroups = [];
       adminReviewAktifPegawai = null;
       adminReviewServerSummary = null;
+      resetAdminReviewPagination_();
     }
 
     function getSelectedAdminPegawai_() {
@@ -8080,6 +8341,54 @@
       return raw;
     }
 
+
+    function labelBuktiWajibPamongDariItemAdmin_(item, index) {
+      try {
+        var payload = adminPayloadFromReviewItem_(item);
+        var tasks = payload && payload.detailWajibPamong && Array.isArray(payload.detailWajibPamong.tugasData)
+          ? payload.detailWajibPamong.tugasData
+          : [];
+        var t = tasks[index] || {};
+        var nomor = index + 1;
+        var nama = t.namaTugas || t.nama || ('Tugas ' + nomor);
+        return 'Bukti Tugas ' + nomor + ' - ' + nama;
+      } catch (e) {
+        return 'Bukti Tugas ' + (index + 1);
+      }
+    }
+
+    function itemAdminPunyaWajibPamong_(item) {
+      try {
+        var payload = adminPayloadFromReviewItem_(item);
+        return !!(payload && payload.detailWajibPamong && Array.isArray(payload.detailWajibPamong.tugasData) && payload.detailWajibPamong.tugasData.length);
+      } catch (e) {
+        return false;
+      }
+    }
+
+
+    function adminPayloadAPB52Docs_(item) {
+      try {
+        var payload = adminPayloadFromReviewItem_(item);
+        var docs = payload && payload.detailAPBKal && payload.detailAPBKal.pasal52 && Array.isArray(payload.detailAPBKal.pasal52.dokumen)
+          ? payload.detailAPBKal.pasal52.dokumen
+          : [];
+        return docs || [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function itemAdminPunyaAPB52_(item) {
+      return adminPayloadAPB52Docs_(item).length > 0;
+    }
+
+    function labelBuktiAPB52DariItemAdmin_(item, index) {
+      var docs = adminPayloadAPB52Docs_(item);
+      var doc = docs[index] || {};
+      return doc.label || ('Dokumen Pasal 52 ' + (index + 1));
+    }
+
     function normalisasiBuktiVisualAdmin_(item) {
       var sumber = [];
       if (item && Array.isArray(item.buktiVisualMeta) && item.buktiVisualMeta.length) {
@@ -8097,7 +8406,18 @@
           if (!rawUrl) continue;
 
           var fileId = raw.fileId || extractDriveFileIdFromUrl_(rawUrl);
-          raw.label = raw.label || raw.fileName || (sumber.length > 1 ? 'Bukti Visual ' + (i + 1) : 'Bukti Visual');
+          var wajibPamongItem = itemAdminPunyaWajibPamong_(item);
+          var apb52Item = itemAdminPunyaAPB52_(item);
+          var labelWajibPamong = wajibPamongItem ? labelBuktiWajibPamongDariItemAdmin_(item, i) : '';
+          var labelAPB52 = apb52Item ? labelBuktiAPB52DariItemAdmin_(item, i) : '';
+          var labelAsal = raw.label || raw.fileName || '';
+          if (wajibPamongItem && (!labelAsal || /^Bukti Visual/i.test(labelAsal))) {
+            raw.label = labelWajibPamong;
+          } else if (apb52Item && i < adminPayloadAPB52Docs_(item).length && (!labelAsal || /^Bukti Visual/i.test(labelAsal))) {
+            raw.label = labelAPB52;
+          } else {
+            raw.label = labelAsal || (sumber.length > 1 ? 'Bukti Visual ' + (i + 1) : 'Bukti Visual');
+          }
           raw.urlRaw = rawUrl;
           raw.openUrl = raw.openUrl || rawUrl;
           raw.fullUrl = raw.fullUrl || (fileId ? buildDriveFullUrlFromId_(fileId) : raw.openUrl);
@@ -8127,7 +8447,7 @@
         if (!url) continue;
         var fileId2 = extractDriveFileIdFromUrl_(url);
         hasil.push({
-          label: rawList.length > 1 ? 'Bukti Visual ' + (j + 1) : 'Bukti Visual',
+          label: itemAdminPunyaWajibPamong_(item) ? labelBuktiWajibPamongDariItemAdmin_(item, j) : (itemAdminPunyaAPB52_(item) && j < adminPayloadAPB52Docs_(item).length ? labelBuktiAPB52DariItemAdmin_(item, j) : (rawList.length > 1 ? 'Bukti Visual ' + (j + 1) : 'Bukti Visual')),
           urlRaw: url,
           openUrl: url,
           fullUrl: fileId2 ? buildDriveFullUrlFromId_(fileId2) : url,
@@ -8181,13 +8501,13 @@
               '<button type="button" class="admin-bukti-thumb" onclick="event.stopPropagation(); bukaFotoAdmin(\'' + escapeJsSingleQuote_(imageUrl) + '\', \'' + escapeJsSingleQuote_(targetUrl || openUrl || imageUrl) + '\', \''
               + escapeJsSingleQuote_(label) + '\')">' +
               '<img src="' + escapeHTML(thumbUrl) + '" alt="' + escapeHTML(label) + '" loading="lazy">' +
-              '<span class="admin-bukti-thumb-label">' + escapeHTML(label) + '</span>' +
+              '<span class="admin-bukti-thumb-label">' + escapeHTML(label) + (media.taskDescription ? '<br><small style="font-weight:600; color:#64748b; line-height:1.35;">' + escapeHTML(media.taskDescription).substring(0, 95) + '</small>' : '') + '</span>' +
               '</button>';
           } else if (targetUrl) {
             html += '' +
               '<a class="admin-bukti-file" href="' + escapeHTML(targetUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">' +
               '<span class="admin-bukti-file-title">' + (media.isPdf ? '📄 ' : '📎 ') + escapeHTML(label) + '</span>' +
-              '<span class="admin-bukti-file-meta">' + escapeHTML(media.fileName || media.mimeType || (media.isPdf ? 'Buka PDF di tab baru' : 'Buka lampiran di tab baru')) + '</span>' +
+              '<span class="admin-bukti-file-meta">' + escapeHTML(media.taskDescription || media.fileName || media.mimeType || (media.isPdf ? 'Buka PDF di tab baru' : 'Buka lampiran di tab baru')) + '</span>' +
               '</a>';
           }
         }
@@ -8728,6 +9048,37 @@
       tulisStateAdminReview_(state);
     }
 
+
+    function resetAdminReviewPagination_() {
+      adminReviewNextOffset = 0;
+      adminReviewHasMore = false;
+      adminReviewLoadingMore = false;
+    }
+
+    function renderAdminReviewPaginationControls_() {
+      var summary = adminReviewServerSummary || {};
+      var totalFiltered = Number(summary.totalFiltered || 0);
+      var loaded = adminReviewItems.length || 0;
+      var infoText = totalFiltered
+        ? ('Menampilkan ' + loaded + ' dari ' + totalFiltered + ' laporan sesuai filter.')
+        : ('Menampilkan ' + loaded + ' laporan.');
+
+      return '' +
+        '<div class="admin-review-pagination" style="display:flex; flex-direction:column; align-items:center; gap:8px; margin:16px 0 2px;">' +
+          '<div style="font-size:12px; color:var(--text-muted); text-align:center; line-height:1.5;">' +
+            escapeHTML(infoText) + '<br>Urutan review: laporan lama di atas, laporan terbaru di bawah.' +
+          '</div>' +
+          (adminReviewHasMore
+            ? '<button type="button" id="btnAdminReviewLoadMore" class="btn-unduh" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);" onclick="muatAdminBerikutnya()"><span class="material-symbols-outlined" style="font-size:18px;">expand_more</span> Muat 10 laporan berikutnya</button>'
+            : '<span class="badge bg-gray">Semua laporan sesuai filter sudah dimuat</span>') +
+        '</div>';
+    }
+
+    function muatAdminBerikutnya() {
+      if (adminReviewLoadingMore || !adminReviewHasMore) return;
+      muatAdmin(false, true);
+    }
+
     function renderAdminReviewView() {
       var wrap = document.getElementById('tbAdmin');
       if (!wrap) return;
@@ -8748,6 +9099,8 @@
       adminReviewGroups.forEach(function (group) {
         var reports = (group.reports || []).filter(function (item) {
           return adminItemMatchesKeyword_(item, keyword);
+        }).sort(function (a, b) {
+          return Number(a.waktuSort || 0) - Number(b.waktuSort || 0);
         });
 
         var groupMatches = !keyword || ((String(group.nama || '') + ' ' + String(group.jabatan || '')).toLowerCase().indexOf(keyword) !== -1);
@@ -8859,7 +9212,7 @@
               '</div>' +
               '<div>' +
               '<div class="admin-review-report-label">Bukti & Deskripsi</div>' +
-              '<div><b>' + escapeHTML(r.kategori || '-') + '</b>' + buatPreviewBuktiAdmin_(r) + '<br><small>' + escapeHTML(r.deskripsi || '-').replace(/\n/g, '<br>') + '</small></div>' +
+              renderAdminMainBuktiDeskripsi_(r) +
               '</div>' +
               '<div>' +
               '<div class="admin-review-report-label">Evaluasi Sistem</div>' +
@@ -8879,6 +9232,7 @@
         html += '</div></div>';
       });
 
+      html += renderAdminReviewPaginationControls_();
       wrap.innerHTML = html;
       tulisStateAdminReview_(state);
       setTimeout(function () {
@@ -9025,7 +9379,7 @@
           html += '<div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc;">' +
             '<div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">' +
             '<div><b>' + escapeHTML(item.kategori || '-') + '</b><br><small>' + escapeHTML(item.waktu || '-') + '</small></div>' +
-            '<div><span class="badge ' + statusBadgeClass(item.status || '') + '">' + escapeHTML(item.status || '-') + '</span></div>' +
+            '<div><span class="badge ' + statusBadgeClass(item.status || '') + '">' + escapeHTML(statusReviewNormalisasiTampilan_(item.status) || '-') + '</span></div>' +
             '</div>' +
             '<div style="margin-top:8px;">' + escapeHTML(item.deskripsi || '-').replace(/\n/g, '<br>') + '</div>' +
             '<div style="margin-top:8px; color:var(--text-muted);">Poin Final: <b>' + (item.poinFinal || 0) + '</b> • Catatan: ' + escapeHTML(item.catatan || '-') + '</div>' +
@@ -9040,6 +9394,11 @@
     function muatDashboardAdminKinerja() {
       var tb = document.getElementById('tbAdminKinerja');
       var panel = document.getElementById('panelDetailAdminKinerja');
+      aturVisibilitasPanelTutupPeriodeLaporan_();
+      if (userBolehKelolaTutupPeriodeLaporan_()) {
+        sinkronkanFormTutupPeriodeLaporan_(false);
+        muatStatusTutupPeriodeLaporanUI();
+      }
       muatDaftarPegawaiPin();
       if (!tb) return;
       if (!userIsAdminUtama()) {
@@ -9072,7 +9431,7 @@
         adminKinerjaPayloadAktif = null;
         renderRingkasanAdminKinerja({});
         renderInfoPeriodeAdminKinerja(null);
-        tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">Gagal memuat data.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">Gagal memuat data: ' + escapeHTML((err && err.message) ? err.message : err) + '</td></tr>';
       }).ambilDashboardAdminKinerja(periode, kelompok, keyword, sToken);
     }
 
@@ -9323,10 +9682,12 @@
       }).ambilTimelinePublik(sToken, timelineState.offset, timelineState.limit);
     }
 
-    function muatAdmin(forceReloadList) {
+    function muatAdmin(forceReloadList, appendMode) {
       const wrap = document.getElementById('tbAdmin');
       const selectEl = document.getElementById('adminPegawaiSelect');
       if (!wrap || !selectEl) return;
+
+      appendMode = appendMode === true;
 
       pulihkanKontrolAdminReview_();
       ensureAdminReviewDateRangeDefaults_();
@@ -9347,20 +9708,52 @@
 
       var filterStatus = ((document.getElementById('adminFilterStatus') || {}).value || 'semua').toLowerCase();
       var rentang = getAdminReviewDateRange_();
-      wrap.innerHTML = '<div class="admin-review-empty">Memuat laporan pegawai terpilih...</div>';
-      resetAdminReviewPayload_();
-      simpanStateAdminReview();
+      var offset = appendMode ? adminReviewNextOffset : 0;
+
+      if (appendMode) {
+        adminReviewLoadingMore = true;
+        var btnMore = document.getElementById('btnAdminReviewLoadMore');
+        if (btnMore) {
+          btnMore.disabled = true;
+          btnMore.innerHTML = '<span class="spinner"></span> Memuat laporan berikutnya...';
+        }
+      } else {
+        wrap.innerHTML = '<div class="admin-review-empty">Memuat laporan pegawai terpilih...</div>';
+        resetAdminReviewPayload_();
+        simpanStateAdminReview();
+      }
 
       google.script.run.withSuccessHandler(function (res) {
+        adminReviewLoadingMore = false;
+
         if (!res || res.sukses === false) {
-          renderAdminReviewSummary_([], 0);
+          if (!appendMode) renderAdminReviewSummary_([], 0);
           wrap.innerHTML = '<div class="admin-review-empty">' + escapeHTML((res && res.pesan) || 'Gagal memuat laporan pegawai.') + '</div>';
           return;
         }
 
         adminReviewAktifPegawai = res.pegawai || getSelectedAdminPegawai_();
         adminReviewServerSummary = res.summary || null;
-        adminReviewItems = Array.isArray(res.items) ? res.items : [];
+        adminReviewServerSummary.totalFiltered = Number(res.totalFiltered || 0);
+        adminReviewServerSummary.loaded = (appendMode ? adminReviewItems.length : 0) + (Array.isArray(res.items) ? res.items.length : 0);
+        adminReviewNextOffset = Number(res.nextOffset || 0);
+        adminReviewHasMore = !!res.hasMore;
+
+        var incoming = Array.isArray(res.items) ? res.items : [];
+        if (appendMode) {
+          var existingMap = {};
+          adminReviewItems.forEach(function (item) {
+            if (item && item.idLaporan) existingMap[String(item.idLaporan)] = true;
+          });
+          incoming.forEach(function (item) {
+            if (!item || !item.idLaporan) return;
+            if (existingMap[String(item.idLaporan)]) return;
+            adminReviewItems.push(item);
+          });
+        } else {
+          adminReviewItems = incoming;
+        }
+
         adminReviewGroups = buildAdminReviewGroups_(adminReviewItems);
 
         if (!adminReviewItems.length) {
@@ -9376,9 +9769,10 @@
 
         renderAdminReviewView();
       }).withFailureHandler(function (err) {
-        renderAdminReviewSummary_([], 0);
+        adminReviewLoadingMore = false;
+        if (!appendMode) renderAdminReviewSummary_([], 0);
         wrap.innerHTML = '<div class="admin-review-empty">Gagal memuat laporan pegawai: ' + escapeHTML((err && err.message) ? err.message : err) + '</div>';
-      }).ambilLaporanAdminPerPegawai(selectedId, filterStatus, rentang.tanggalMulai, rentang.tanggalAkhir, sToken);
+      }).ambilLaporanAdminPerPegawai(selectedId, filterStatus, rentang.tanggalMulai, rentang.tanggalAkhir, offset, adminReviewPageSize, sToken);
     }
 
     function accAdmin(id, poinFinal) {
@@ -10502,6 +10896,118 @@
       return document.getElementById('fBuktiDasar') ? document.getElementById('fBuktiDasar').files[0] : null;
     }
 
+
+    function setTampilElemen_(id, show) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = show ? 'block' : 'none';
+    }
+
+    function nilaiEl_(id) {
+      var el = document.getElementById(id);
+      return el ? (el.value || '') : '';
+    }
+
+    function fileInputAda_(id) {
+      var el = document.getElementById(id);
+      return !!(el && el.files && el.files[0]);
+    }
+
+    function aturKelengkapanPasal52APB_() {
+      var tahap = nilaiEl_('fTahapAPBKal');
+      var isP54 = tahap === 'APB_54';
+
+      setTampilElemen_('grupAPBKalPasal52', isP54);
+      setTampilElemen_('fgAPB52DokBarang', isP54 && nilaiEl_('fAPB52AdaBarang') === 'YA');
+      setTampilElemen_('fgAPB52BuktiTransaksi', isP54 && nilaiEl_('fAPB52AdaTransaksi') === 'YA');
+      setTampilElemen_('fgAPB52Peserta', isP54 && nilaiEl_('fAPB52HadirOrang') === 'YA');
+
+      if (!isP54) {
+        ['fAPB52AdaBarang','fAPB52AdaTransaksi','fAPB52HadirOrang'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+      }
+    }
+
+    function susunPasal52APBBase_() {
+      return {
+        adaDokumentasiBarang: nilaiEl_('fAPB52AdaBarang'),
+        adaTransaksiPembayaran: nilaiEl_('fAPB52AdaTransaksi'),
+        menghadirkanOrang: nilaiEl_('fAPB52HadirOrang'),
+        dokumen: []
+      };
+    }
+
+    function tambahDokumenPasal52Base_(pasal52, key, label, inputId) {
+      pasal52.dokumen.push({
+        key: key,
+        label: label,
+        inputId: inputId,
+        fileName: '',
+        mime: '',
+        fileUrl: ''
+      });
+    }
+
+    function isiDokumenPasal52APB_(apb) {
+      if (!apb || apb.tahap !== 'APB_54') return apb;
+      var p52 = susunPasal52APBBase_();
+
+      tambahDokumenPasal52Base_(p52, 'fotoPelaksanaan', 'Foto/Video Pelaksanaan Kegiatan', 'fAPB52FotoPelaksanaan');
+      tambahDokumenPasal52Base_(p52, 'laporanKeluaran', 'Laporan Keterangan dan Keluaran', 'fAPB52LaporanKeluaran');
+
+      if (p52.adaDokumentasiBarang === 'YA') {
+        tambahDokumenPasal52Base_(p52, 'dokumentasiBarang', 'Dokumentasi Visual Pengadaan Barang', 'fAPB52DokBarang');
+      }
+
+      if (p52.adaTransaksiPembayaran === 'YA') {
+        tambahDokumenPasal52Base_(p52, 'buktiTransaksi', 'Bukti Transaksi/Nota/Serah Terima Pembayaran', 'fAPB52BuktiTransaksi');
+      }
+
+      if (p52.menghadirkanOrang === 'YA') {
+        tambahDokumenPasal52Base_(p52, 'undangan', 'Undangan Kegiatan', 'fAPB52Undangan');
+        tambahDokumenPasal52Base_(p52, 'daftarHadir', 'Daftar Hadir', 'fAPB52DaftarHadir');
+      }
+
+      apb.pasal52 = p52;
+      return apb;
+    }
+
+    async function kumpulkanUploadPasal52APB_(detailAPBKal) {
+      var hasil = [];
+      if (!detailAPBKal || detailAPBKal.tahap !== 'APB_54' || !detailAPBKal.pasal52 || !Array.isArray(detailAPBKal.pasal52.dokumen)) return hasil;
+
+      for (var i = 0; i < detailAPBKal.pasal52.dokumen.length; i++) {
+        var dok = detailAPBKal.pasal52.dokumen[i] || {};
+        var el = document.getElementById(dok.inputId || '');
+        var file = el && el.files ? el.files[0] : null;
+        if (!file) continue;
+        var fData = await prosesFileDenganKompresi(file, dok.label || ('Dokumen Pasal 52 ' + (i + 1)));
+        hasil.push({
+          role: 'apb52',
+          index: i,
+          label: dok.label || ('Dokumen Pasal 52 ' + (i + 1)),
+          file: fData.file,
+          namaKegiatan: (detailAPBKal.namaKeg || 'Laporan APBKal') + ' - ' + (dok.label || ('Pasal 52 ' + (i + 1))),
+          tanggalKegiatan: detailAPBKal.tanggal || '',
+          lokasiKegiatan: detailAPBKal.lokasi || ''
+        });
+      }
+
+      return hasil;
+    }
+
+    function terapkanHasilUploadPasal52APB_(detailAPBKal, uploadRes) {
+      if (!detailAPBKal || !detailAPBKal.pasal52 || !Array.isArray(detailAPBKal.pasal52.dokumen)) return;
+      for (var i = 0; i < detailAPBKal.pasal52.dokumen.length; i++) {
+        var hasil = ambilHasilUpload_(uploadRes, 'apb52', i);
+        if (!hasil) continue;
+        detailAPBKal.pasal52.dokumen[i].fileUrl = hasil.url || '';
+        detailAPBKal.pasal52.dokumen[i].mime = hasil.mime || '';
+        detailAPBKal.pasal52.dokumen[i].fileName = hasil.name || '';
+      }
+    }
+
     function susunPayloadDetail(kat, sub1, sub2, isLurah, isDukuh) {
       var detail = { pktTU: null, pktPHL: null, pktDukuh: null, pktWajibDukuh: null, pktPimpinan: null, pktAPBKal: null, pktAPBKalCarik: null, pktReguler: null, pktStafInstruksi: null, pktStafReguler: null };
 
@@ -10547,6 +11053,7 @@
               lokasi: document.getElementById('fLokasiAPBKal').value,
               metode: document.getElementById('fTerminAPBKal').value.indexOf("Termin") !== -1 ? "PIHAK_KETIGA" : "SWAKELOLA"
             };
+            detail.pktAPBKal = isiDokumenPasal52APB_(detail.pktAPBKal);
           } else if (sub2 === SUB2_CODES.REGULER) {
             detail.pktReguler = {
               namaKeg: document.getElementById('fRegulerNama').value,
@@ -10571,6 +11078,7 @@
             lokasi: document.getElementById('fLokasiAPBKal').value,
             metode: document.getElementById('fTerminAPBKal').value.indexOf("Termin") !== -1 ? "PIHAK_KETIGA" : "SWAKELOLA"
           };
+            detail.pktAPBKal = isiDokumenPasal52APB_(detail.pktAPBKal);
         } else if (sub1 === "Pelaksanaan kegiatan tugas dan/atau instruksi Pimpinan") {
           detail.pktPimpinan = {
             jenis: normalisasiJenisTugasPimpinan_(document.getElementById('fJenisPimpinan').value),
@@ -10754,6 +11262,16 @@
         wajibDetailIntiClient_(missing, 'Batas Waktu Pelaporan', pkt.detailAPBKal.batasWaktu);
         wajibDetailIntiClient_(missing, 'Tanggal Pelaksanaan Riil', pkt.detailAPBKal.tanggal);
         wajibDetailIntiClient_(missing, 'Lokasi/Tempat', pkt.detailAPBKal.lokasi);
+
+        if (pkt.detailAPBKal.tahap === 'APB_54') {
+          var p52 = pkt.detailAPBKal.pasal52 || {};
+          wajibDetailIntiClient_(missing, 'Pasal 52: Apakah ada dokumentasi pengadaan barang?', p52.adaDokumentasiBarang);
+          wajibDetailIntiClient_(missing, 'Pasal 52: Apakah ada transaksi/pembayaran?', p52.adaTransaksiPembayaran);
+          wajibDetailIntiClient_(missing, 'Pasal 52: Apakah kegiatan menghadirkan orang?', p52.menghadirkanOrang);
+          (p52.dokumen || []).forEach(function (dok) {
+            wajibDetailIntiClient_(missing, 'Pasal 52: ' + (dok.label || 'Dokumen wajib'), (dok.fileUrl || dok.fileName || fileInputAda_(dok.inputId)) ? 'OK' : '');
+          });
+        }
       } else if (pkt.detailAPBKalCarik) {
         wajibDetailIntiClient_(missing, 'Jenis Pelaksanaan APBKal Tahun Berjalan', pkt.detailAPBKalCarik.jenis);
         wajibDetailIntiClient_(missing, 'Nama Dokumen/Kegiatan', pkt.detailAPBKalCarik.namaKeg);
@@ -11139,6 +11657,15 @@
             }
 
             var detail = susunPayloadDetail(kat, sub1, sub2, isLurah, isDukuh);
+            var dokumenPasal52APBUploads = [];
+            try {
+              dokumenPasal52APBUploads = await kumpulkanUploadPasal52APB_(detail.pktAPBKal);
+            } catch (errPasal52) {
+              setTombolNormal();
+              msg.innerText = 'GAGAL MENGIRIM!\n\nGagal menyiapkan dokumen Pasal 52: ' + (errPasal52 && errPasal52.message ? errPasal52.message : errPasal52);
+              msg.style.color = 'var(--danger)';
+              return;
+            }
             var deskripsiFinal = susunDeskripsiFinal(kat, sub1, sub2, isLurah, isWajibPamong, isDukuh);
             var konteksUpload = ambilKonteksUploadDariDetail_(detail, gabunganKategori);
 
@@ -11149,6 +11676,11 @@
               });
             } else if (fileVisual && fileVisual.file) {
               uploadItems.push({ role: 'visual', index: 0, label: 'Bukti Visual', file: fileVisual.file, namaKegiatan: konteksUpload.namaKegiatan, tanggalKegiatan: konteksUpload.tanggalKegiatan, lokasiKegiatan: konteksUpload.lokasiKegiatan });
+            }
+            if (dokumenPasal52APBUploads && dokumenPasal52APBUploads.length) {
+              dokumenPasal52APBUploads.forEach(function (itemP52) {
+                uploadItems.push(itemP52);
+              });
             }
             if (fileDasar && fileDasar.file) {
               uploadItems.push({ role: 'dasar', index: 0, label: 'Dokumen Dasar', file: fileDasar.file, namaKegiatan: konteksUpload.namaKegiatan, tanggalKegiatan: konteksUpload.tanggalKegiatan, lokasiKegiatan: konteksUpload.lokasiKegiatan });
@@ -11198,6 +11730,10 @@
               }
               delete fileVisual.file;
             }
+            if (detail && detail.pktAPBKal) {
+              terapkanHasilUploadPasal52APB_(detail.pktAPBKal, uploadRes);
+            }
+
             if (fileDasar) {
               var hasilDasar = ambilHasilUpload_(uploadRes, 'dasar', 0);
               if (hasilDasar) {
@@ -11269,6 +11805,172 @@
         });
       }
     };
+
+
+
+    function userBolehKelolaTutupPeriodeLaporan_() {
+      return userIsAdminUtama();
+    }
+
+    function aturVisibilitasPanelTutupPeriodeLaporan_() {
+      var panel = document.getElementById('panelTutupPeriodeLaporanAdmin');
+      if (!panel) return false;
+
+      var boleh = userBolehKelolaTutupPeriodeLaporan_();
+      panel.style.display = boleh ? 'block' : 'none';
+      return boleh;
+    }
+
+    function defaultTanggalTutupPeriodeLaporan_(periode) {
+      periode = periode || (document.getElementById('fTutupPeriodeLaporan') || {}).value || admPeriodeAktif();
+      var def = defaultRangeFromPeriode(periode);
+      return def.tanggalAkhirPeriode || '';
+    }
+
+    function sinkronkanFormTutupPeriodeLaporan_(force) {
+      var periodeEl = document.getElementById('fTutupPeriodeLaporan');
+      var tanggalEl = document.getElementById('fTanggalTutupPeriodeLaporan');
+      var jamEl = document.getElementById('fJamTutupPeriodeLaporan');
+      var alasanEl = document.getElementById('fAlasanTutupPeriodeLaporan');
+      if (!periodeEl) return;
+
+      if (!periodeEl.value || force) periodeEl.value = admPeriodeAktif();
+      if (tanggalEl && (!tanggalEl.value || force)) tanggalEl.value = defaultTanggalTutupPeriodeLaporan_(periodeEl.value);
+      if (jamEl && !jamEl.value) jamEl.value = '18:00';
+      if (alasanEl && !alasanEl.value) {
+        alasanEl.value = 'Penutupan input laporan baru periode ' + (periodeEl.value || admPeriodeAktif()) + '.';
+      }
+    }
+
+    function renderStatusTutupPeriodeLaporan_(res) {
+      var box = document.getElementById('statusTutupPeriodeLaporan');
+      if (!box) return;
+
+      if (!res || res.sukses === false) {
+        box.style.borderColor = '#fecaca';
+        box.style.background = '#fef2f2';
+        box.style.color = '#991b1b';
+        box.innerHTML = escapeHTML((res && res.pesan) || 'Gagal membaca status tutup periode laporan.');
+        return;
+      }
+
+      var isClosed = !!res.tertutup;
+      var isActive = !!res.aktif;
+
+      box.style.borderColor = isClosed ? '#fecaca' : '#bbf7d0';
+      box.style.background = isClosed ? '#fef2f2' : '#f0fdf4';
+      box.style.color = isClosed ? '#991b1b' : '#166534';
+
+      box.innerHTML =
+        '<b>Status periode ' + escapeHTML(res.labelPeriode || res.periode || '-') + ':</b> ' +
+        (isClosed ? (isActive ? 'DITUTUP AKTIF' : 'DIJADWALKAN TUTUP') : 'TERBUKA') +
+        '<br>' + escapeHTML(res.pesan || '') +
+        (res.alasan ? '<br><small>Catatan: ' + escapeHTML(res.alasan) + '</small>' : '');
+    }
+
+    function muatStatusTutupPeriodeLaporanUI() {
+      if (!aturVisibilitasPanelTutupPeriodeLaporan_()) return;
+      sinkronkanFormTutupPeriodeLaporan_(false);
+      var periode = (document.getElementById('fTutupPeriodeLaporan') || {}).value || admPeriodeAktif();
+      var box = document.getElementById('statusTutupPeriodeLaporan');
+      if (box) box.innerHTML = 'Memuat status periode...';
+
+      if (!sToken) {
+        if (box) box.innerHTML = 'Sesi belum tersedia.';
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(renderStatusTutupPeriodeLaporan_)
+        .withFailureHandler(function (err) {
+          renderStatusTutupPeriodeLaporan_({ sukses: false, pesan: (err && err.message) ? err.message : String(err || 'Gagal membaca status.') });
+        })
+        .ambilStatusTutupPeriodeLaporan(periode, sToken);
+    }
+
+    function simpanTutupPeriodeLaporanUI() {
+      if (!userBolehKelolaTutupPeriodeLaporan_()) {
+        alert('Akses ditolak. Fitur ini hanya untuk Admin Kinerja/Carik.');
+        return;
+      }
+      sinkronkanFormTutupPeriodeLaporan_(false);
+
+      var periode = (document.getElementById('fTutupPeriodeLaporan') || {}).value || '';
+      var tanggal = (document.getElementById('fTanggalTutupPeriodeLaporan') || {}).value || '';
+      var jam = (document.getElementById('fJamTutupPeriodeLaporan') || {}).value || '18:00';
+      var alasan = (document.getElementById('fAlasanTutupPeriodeLaporan') || {}).value || '';
+
+      if (!periode || !tanggal || !jam) {
+        alert('Periode, tanggal batas akhir, dan jam batas akhir wajib diisi.');
+        return;
+      }
+
+      if (!confirm('Tutup input laporan baru untuk periode ' + periode + ' setelah ' + tanggal + ' ' + jam + ' WIB?\n\nRevisi laporan yang sudah ditolak admin tetap diperbolehkan.')) {
+        return;
+      }
+
+      var btn = document.getElementById('btnTutupPeriodeLaporan');
+      if (btn) btn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (btn) btn.disabled = false;
+          renderStatusTutupPeriodeLaporan_(res);
+          alert((res && res.pesan) || 'Status periode berhasil disimpan.');
+        })
+        .withFailureHandler(function (err) {
+          if (btn) btn.disabled = false;
+          alert('Gagal menutup periode laporan: ' + ((err && err.message) ? err.message : err));
+        })
+        .simpanTutupPeriodeLaporan({
+          periode: periode,
+          tanggalTutup: tanggal,
+          jamTutup: jam,
+          alasan: alasan
+        }, sToken);
+    }
+
+    function bukaPeriodeLaporanUI() {
+      if (!userBolehKelolaTutupPeriodeLaporan_()) {
+        alert('Akses ditolak. Fitur ini hanya untuk Admin Kinerja/Carik.');
+        return;
+      }
+      sinkronkanFormTutupPeriodeLaporan_(false);
+
+      var periode = (document.getElementById('fTutupPeriodeLaporan') || {}).value || '';
+      if (!periode) {
+        alert('Pilih periode laporan terlebih dahulu.');
+        return;
+      }
+
+      var alasan = prompt('Masukkan alasan membuka kembali periode ' + periode + ':', 'Pembukaan kembali periode laporan oleh Admin Kinerja.');
+      if (alasan === null) return;
+      alasan = String(alasan || '').trim();
+      if (!alasan) {
+        alert('Alasan pembukaan kembali periode wajib diisi.');
+        return;
+      }
+
+      if (!confirm('Buka kembali periode ' + periode + ' untuk input laporan baru?')) return;
+
+      var btn = document.getElementById('btnBukaPeriodeLaporan');
+      if (btn) btn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (btn) btn.disabled = false;
+          renderStatusTutupPeriodeLaporan_(res);
+          alert((res && res.pesan) || 'Periode berhasil dibuka kembali.');
+        })
+        .withFailureHandler(function (err) {
+          if (btn) btn.disabled = false;
+          alert('Gagal membuka periode laporan: ' + ((err && err.message) ? err.message : err));
+        })
+        .bukaPeriodeLaporan({
+          periode: periode,
+          alasan: alasan
+        }, sToken);
+    }
 
     try {
       var simpananToken = ambilMemori("kinerja_token");
@@ -11966,11 +12668,103 @@
           (safeLampiranUrl !== '#' ? '<div style="margin-top:12px;"><a class="admin-bukti-chip" href="' + escapeHTML(safeLampiranUrl) + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHTML(item.lampiranNama || 'Buka Dokumen Surat') + '</a></div>' : '') +
           '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">' +
           '<button type="button" class="btn-action btn-edit" style="width:auto; margin-top:0;" onclick="bukaKelolaPenerimaDisposisi_(&quot;' + escapeJsSingleQuote_(item.idDisposisi || '') + '&quot;)">Kelola Penerima</button>' +
+          '<button type="button" class="btn-action btn-reject" style="width:auto; margin-top:0;" onclick="bukaKoreksiJenisDisposisi_(&quot;' + escapeJsSingleQuote_(item.idDisposisi || '') + '&quot;)">Koreksi Jenis</button>' +
           '</div>' +
           '</div>';
       }).join('');
     }
 
+
+
+    function bukaKoreksiJenisDisposisi_(idDisposisi) {
+      idDisposisi = String(idDisposisi || '').trim();
+      if (!idDisposisi) {
+        alert('ID disposisi tidak valid.');
+        return;
+      }
+
+      var item = (disposisiDaftarLurahAktif || []).filter(function (d) {
+        return String(d.idDisposisi || '') === idDisposisi;
+      })[0];
+
+      if (!item) {
+        alert('Data disposisi tidak ditemukan. Silakan muat ulang halaman Disposisi.');
+        return;
+      }
+
+      var jenisLama = String(item.jenis || item.jenisDisposisi || '').trim().toUpperCase();
+      if (jenisLama !== 'TUGAS_UMUM' && jenisLama !== 'TUGAS_PIMPINAN') jenisLama = 'TUGAS_UMUM';
+
+      var pilihan = prompt(
+        'Koreksi jenis disposisi untuk:\n' +
+        (item.perihal || '-') + '\n\n' +
+        'Jenis saat ini: ' + jenisLama + '\n\n' +
+        'Ketik jenis baru:\n' +
+        '- TUGAS_UMUM\n' +
+        '- TUGAS_PIMPINAN',
+        jenisLama === 'TUGAS_UMUM' ? 'TUGAS_PIMPINAN' : 'TUGAS_UMUM'
+      );
+
+      if (pilihan === null) return;
+      pilihan = String(pilihan || '').trim().toUpperCase();
+
+      if (pilihan !== 'TUGAS_UMUM' && pilihan !== 'TUGAS_PIMPINAN') {
+        alert('Jenis disposisi tidak valid. Gunakan TUGAS_UMUM atau TUGAS_PIMPINAN.');
+        return;
+      }
+
+      if (pilihan === jenisLama) {
+        alert('Jenis disposisi tidak berubah.');
+        return;
+      }
+
+      var alasan = prompt(
+        'Masukkan alasan koreksi jenis disposisi.\n\n' +
+        'Contoh: Label awal salah input operator; disposisi ini seharusnya Tugas Umum.',
+        'Koreksi label jenis disposisi dari ' + jenisLama + ' menjadi ' + pilihan + '.'
+      );
+
+      if (alasan === null) return;
+      alasan = String(alasan || '').trim();
+      if (!alasan) {
+        alert('Alasan koreksi wajib diisi.');
+        return;
+      }
+
+      if (!confirm('Simpan koreksi jenis disposisi?\n\n' + jenisLama + ' -> ' + pilihan + '\n\nLaporan terkait akan ikut diperbarui oleh backend.')) {
+        return;
+      }
+
+      var btns = Array.prototype.slice.call(document.querySelectorAll('button') || []);
+      btns.forEach(function (b) {
+        if (b && b.getAttribute && String(b.getAttribute('onclick') || '').indexOf("bukaKoreksiJenisDisposisi_") !== -1) {
+          b.disabled = true;
+        }
+      });
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btns.forEach(function (b) { if (b) b.disabled = false; });
+
+          if (!res || res.sukses === false) {
+            alert((res && res.pesan) || 'Koreksi jenis disposisi gagal disimpan.');
+            return;
+          }
+
+          alert((res && res.pesan) || 'Jenis disposisi berhasil dikoreksi.');
+          muatDisposisiHalaman(true);
+        })
+        .withFailureHandler(function (err) {
+          btns.forEach(function (b) { if (b) b.disabled = false; });
+          alert('Gagal mengoreksi jenis disposisi. Silakan coba lagi.');
+          console.error('koreksiJenisDisposisi failed:', err);
+        })
+        .koreksiJenisDisposisi({
+          idDisposisi: idDisposisi,
+          jenisDisposisi: pilihan,
+          alasan: alasan
+        }, sToken);
+    }
 
     function tutupKelolaPenerimaDisposisi_() {
       var el = document.getElementById('modalKelolaPenerimaDisposisi');
@@ -12169,7 +12963,7 @@
         '<div class="form-group" style="grid-column: span 2;"><label>Isi Ringkas Instruksi</label><textarea id="dIsiInstruksi" rows="3" placeholder="Tuliskan instruksi singkat dari Lurah..."></textarea></div>' +
         '<div class="form-group"><label>' + escapeHTML(lampiranLabel) + '</label><input type="file" id="dFileDisposisi" accept="image/*,application/pdf"></div>' +
         '<div class="form-group"><label>Tanggal Mulai</label><input type="date" id="dTanggalMulai"></div>' +
-        '<div class="form-group"><label>Tanggal Selesai</label><input type="date" id="dTanggalSelesai"></div>' +
+        '<div class="form-group"><label>Tanggal Selesai / Batas Pelaporan</label><input type="date" id="dTanggalSelesai"></div>' +
         '<div class="form-group" id="dTargetPegawaiWrap" style="grid-column: span 2;">' +
         '<label>Penerima Disposisi</label>' +
         '<div id="dSemuaPegawaiWrap" class="disposisi-target-toggle-all"><input type="checkbox" id="dSemuaPegawai" checked onchange="setAllDisposisiTarget_(this.checked)"><span>Semua Pegawai</span></div>' +
@@ -12626,10 +13420,14 @@
       if (!Array.isArray(tasks) || !tasks.length) return '';
       return tasks.map(function (t, idx) {
         t = t || {};
-        var nama = t.namaTugas || t.nama || ('Tugas ' + (idx + 1));
-        var desc = t.deskripsi ? (': ' + t.deskripsi) : '';
-        return (idx + 1) + '. ' + nama + desc;
-      }).join('\n');
+        var nomor = idx + 1;
+        var nama = t.namaTugas || t.nama || ('Tugas ' + nomor);
+        var desc = t.deskripsi ? ('\n   Deskripsi: ' + t.deskripsi) : '';
+        var bukti = t.fileUrl || t.buktiUrl || '';
+        var buktiLabel = t.buktiLabel || ('Bukti Tugas ' + nomor + ' - ' + nama);
+        var buktiInfo = bukti ? ('\n   Bukti: ' + buktiLabel) : '\n   Bukti: lihat kartu bukti visual sesuai nomor tugas';
+        return nomor + '. ' + nama + desc + buktiInfo;
+      }).join('\n\n');
     }
 
     
@@ -12680,6 +13478,7 @@
           { label:'Batas Waktu Pelaporan', paths:['detailAPBKal','batasWaktu'], koloms:['AN'], aliases:['Batas Waktu Pelaporan APBKal','Batas Waktu'] },
           { label:'Tanggal Pelaksanaan Riil', paths:['detailAPBKal','tanggal'], koloms:['AO','N'], aliases:['Tanggal Pelaksanaan Riil APBKal','Tanggal Pelaksanaan Riil','Tanggal Pelaksanaan'] },
           { label:'Lokasi / Tempat', paths:['detailAPBKal','lokasi'], koloms:['AP','O'], aliases:['Lokasi APBKal','Lokasi','Tempat / Lokasi'] },
+          { label:'Kelengkapan Pasal 52', paths:['detailAPBKal','pasal52'], formatter: adminFormatPasal52APB_, aliases:['Kelengkapan Pasal 52','Dokumen Pasal 52'], longText:true },
           { label:'Output / Hasil Kegiatan', koloms:['AF'], aliases:['Output / Hasil Kegiatan','Ringkasan Output / Hasil'], longText:true }
         ];
       }
@@ -12833,6 +13632,24 @@
       return fields;
     }
 
+
+    function adminFormatPasal52APB_(pasal52) {
+      pasal52 = pasal52 || {};
+      var docs = Array.isArray(pasal52.dokumen) ? pasal52.dokumen : [];
+      if (!docs.length) return '';
+      var lines = [
+        'Ada dokumentasi barang: ' + (pasal52.adaDokumentasiBarang || '-'),
+        'Ada transaksi/pembayaran: ' + (pasal52.adaTransaksiPembayaran || '-'),
+        'Menghadirkan orang/peserta: ' + (pasal52.menghadirkanOrang || '-'),
+        '',
+        'Dokumen Pasal 52:'
+      ];
+      docs.forEach(function (d, idx) {
+        lines.push((idx + 1) + '. ' + (d.label || d.key || 'Dokumen') + ': ' + (d.fileUrl ? 'tersedia' : 'belum tersedia'));
+      });
+      return lines.join('\n');
+    }
+
     function adminFormatAPBTahapValue_(value) {
       var raw = String(value || '').trim();
       var key = raw.toUpperCase().replace(/[\s-]+/g, '_');
@@ -12894,7 +13711,118 @@
       return normalHtml + longHtml;
     }
 
+
+    function adminIsWajibPamongReview_(item) {
+      try {
+        var payload = adminPayloadFromReviewItem_(item);
+        if (payload && payload.detailWajibPamong && Array.isArray(payload.detailWajibPamong.tugasData) && payload.detailWajibPamong.tugasData.length) return true;
+      } catch (e) { }
+
+      try {
+        var type = adminGetDetailType_(item);
+        if (String(type || '').indexOf('wajib_pamong') !== -1) return true;
+      } catch (e2) { }
+
+      var kategori = String((item && item.kategori) || '').toLowerCase();
+      return kategori.indexOf('kegiatan wajib bulanan') !== -1 || kategori.indexOf('laporan wajib') !== -1;
+    }
+
+    function adminGetWajibPamongTasks_(item) {
+      try {
+        var payload = adminPayloadFromReviewItem_(item);
+        var tasks = payload && payload.detailWajibPamong && Array.isArray(payload.detailWajibPamong.tugasData)
+          ? payload.detailWajibPamong.tugasData
+          : [];
+        return tasks || [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function adminGetWajibPamongBulan_(item) {
+      try {
+        var payload = adminPayloadFromReviewItem_(item);
+        if (payload && payload.detailWajibPamong && payload.detailWajibPamong.bulan) return payload.detailWajibPamong.bulan;
+      } catch (e) { }
+
+      var field = adminFindFirstFieldByKoloms_(item, ['BN']);
+      var val = adminSpreadsheetFieldRawValue_(field);
+      return val || '-';
+    }
+
+    function renderAdminWajibPamongCompactDetail_(item) {
+      var tasks = adminGetWajibPamongTasks_(item);
+      var bukti = normalisasiBuktiVisualAdmin_(item);
+      var bulan = adminGetWajibPamongBulan_(item);
+      var jumlahTugas = tasks.length || 0;
+      var jumlahBukti = bukti.length || 0;
+      var lengkap = jumlahTugas > 0 && jumlahBukti >= jumlahTugas;
+
+      var detailItems = tasks.map(function (t, idx) {
+        t = t || {};
+        var nomor = idx + 1;
+        var nama = t.namaTugas || t.nama || ('Tugas ' + nomor);
+        var desc = t.deskripsi || '';
+        return '' +
+          '<div style="padding:10px 0; border-top:1px dashed #cbd5e1;">' +
+            '<div style="font-weight:800; color:#0f172a;">' + nomor + '. ' + escapeHTML(nama) + '</div>' +
+            (desc ? '<div style="margin-top:5px; color:#475569; line-height:1.55;">' + escapeHTML(desc).replace(/\n/g, '<br>') + '</div>' : '') +
+          '</div>';
+      }).join('');
+
+      return '' +
+        '<div class="admin-detail-summary admin-spreadsheet-detail-summary">' +
+          '<div class="admin-detail-head">' +
+            '<div class="admin-detail-head-main">' +
+              '<div class="admin-review-report-label">Detail Formulir</div>' +
+              '<div class="admin-detail-head-note">Ringkasan saja agar Review Admin tidak mengulang deskripsi panjang yang sudah tampil pada kartu bukti.</div>' +
+            '</div>' +
+            '<span class="admin-detail-source-badge admin-detail-source-form">Sumber: Rekap_Kinerja</span>' +
+          '</div>' +
+          '<div class="admin-detail-grid">' +
+            renderAdminSpreadsheetFieldCard_({ label: 'Bulan Laporan', value: bulan }, 'admin-detail-item-primary') +
+            renderAdminSpreadsheetFieldCard_({ label: 'Jumlah Tugas Wajib', value: jumlahTugas ? (jumlahTugas + ' tugas') : '-' }, 'admin-detail-item-primary') +
+            renderAdminSpreadsheetFieldCard_({ label: 'Jumlah Bukti', value: jumlahBukti + '/' + (jumlahTugas || jumlahBukti || 0) + ' tersedia' }, 'admin-detail-item-primary') +
+            renderAdminSpreadsheetFieldCard_({ label: 'Status Bukti', value: lengkap ? 'Lengkap' : 'Perlu dicek' }, 'admin-detail-item-primary') +
+          '</div>' +
+          (detailItems ? (
+            '<details class="admin-detail-more" style="margin-top:12px;">' +
+              '<summary>' +
+                '<span class="admin-detail-more-label"><span class="material-symbols-outlined" style="font-size:20px;">expand_more</span> Lihat daftar tugas lengkap</span>' +
+                '<span class="admin-detail-more-count">' + jumlahTugas + ' tugas</span>' +
+              '</summary>' +
+              '<div class="admin-detail-more-body" style="font-size:13px; line-height:1.6;">' + detailItems + '</div>' +
+            '</details>'
+          ) : '') +
+        '</div>';
+    }
+
+    function renderAdminMainBuktiDeskripsi_(item) {
+      item = item || {};
+      var isWajib = adminIsWajibPamongReview_(item);
+      var html = '<div><b>' + escapeHTML(item.kategori || '-') + '</b>' + buatPreviewBuktiAdmin_(item);
+
+      if (isWajib) {
+        var tasks = adminGetWajibPamongTasks_(item);
+        var bukti = normalisasiBuktiVisualAdmin_(item);
+        html += '<div style="margin-top:10px; padding:10px 12px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:12px; line-height:1.55;">' +
+          '<b style="color:#0f172a;">Ringkasan laporan wajib:</b> ' +
+          (tasks.length ? (tasks.length + ' tugas wajib') : 'tugas wajib') +
+          ' dengan ' + bukti.length + ' bukti visual. Detail deskripsi cukup dibaca dari kartu bukti atau tombol “Lihat daftar tugas lengkap” di bawah.' +
+          '</div>';
+      } else {
+        html += '<br><small>' + escapeHTML(item.deskripsi || '-').replace(/\n/g, '<br>') + '</small>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
     function renderAdminSpreadsheetDetail_(item) {
+      if (adminIsWajibPamongReview_(item)) {
+        return renderAdminWajibPamongCompactDetail_(item);
+      }
+
       var fields = adminBuildCombinedReviewDetailFields_(item);
       if (!fields.length) return '';
       return '' +
