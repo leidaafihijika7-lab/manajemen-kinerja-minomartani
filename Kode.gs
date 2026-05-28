@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.28.02";
+var APP_VERSION = "2026.05.28.03";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -12557,3 +12557,146 @@ validasiDisposisiSubmitKinerja_ = function (paket, pegawaiUser, kategoriSheet) {
 
   return validasiDisposisiSubmitKinerja__SEBELUM_TGL_SELESAI_BATAS_2026051220(paket, pegawaiUser, kategoriSheet);
 };
+
+
+
+// ===== PATCH v2026.05.12.21: Batas H+2 untuk Kegiatan Reguler/Tupoksi Pamong tertentu =====
+// Ruang lingkup:
+// Laporan Produktivitas -> Pelaksanaan Tugas Pokok dan Fungsi -> Kegiatan Reguler/Tupoksi
+// untuk jabatan: Carik, Jagabaya, Kamituwa, Ulu-ulu, Danarta, Tata Laksana, Pangripta.
+// Aturan:
+// - Submit laporan baru maksimal 2 hari kalender setelah tanggal pelaksanaan,
+//   sampai pukul 23:59:59 WIB.
+// - Jika cut-off periode lebih awal, maka batas efektif adalah cut-off periode.
+// - Revisi tetap mengikuti aturan revisi periode aktif.
+// - Laporan non-Reguler/Tupoksi tidak diubah.
+
+function isJabatanPamongRegulerTupoksiH2_(jabatan) {
+  var j = normalizeJabatan_(jabatan || '');
+  var allowed = [
+    'carik',
+    'jagabaya',
+    'kamituwa',
+    'ulu ulu',
+    'danarta',
+    'tata laksana',
+    'pangripta'
+  ];
+
+  for (var i = 0; i < allowed.length; i++) {
+    if (j === allowed[i] || j.indexOf(allowed[i]) !== -1) return true;
+  }
+  return false;
+}
+
+function isPaketRegulerTupoksiH2_(paket, pegawaiUser) {
+  paket = paket || {};
+  pegawaiUser = pegawaiUser || {};
+
+  if (!paket.detailReguler) return false;
+  if (!isJabatanPamongRegulerTupoksiH2_(pegawaiUser.jabatan || paket.jabatan || '')) return false;
+
+  var kategori = String(paket.kategori || paket.kategoriSheet || paket.jenisLaporan || '').toLowerCase();
+  // detailReguler adalah penanda utama. Kategori tetap dicek lunak agar tidak salah blokir jika payload lama tidak mengisi kategori persis.
+  if (kategori && kategori.indexOf('produkt') === -1 && kategori.indexOf('laporan') !== -1) {
+    return false;
+  }
+
+  return true;
+}
+
+function batasH2DariTanggalPelaksanaanReguler_(tanggalPelaksanaanValue) {
+  var d = parseTanggalKosongAman_(tanggalPelaksanaanValue);
+  if (!d) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2, 23, 59, 59, 999);
+}
+
+function hitungBatasRegulerTupoksiH2_(paket) {
+  paket = paket || {};
+  var reg = paket.detailReguler || {};
+  var d = parseTanggalKosongAman_(reg.tanggal || paket.tanggalKegiatan || paket.tanggal);
+  if (!d) {
+    return {
+      valid: false,
+      pesan: 'Tanggal pelaksanaan tidak valid.'
+    };
+  }
+
+  var batasH2 = batasH2DariTanggalPelaksanaanReguler_(d);
+  var periode = periodeDariTanggalLaporan_(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0));
+  var meta = periode ? parsePeriodeBulan_(periode) : null;
+  var cutoff = meta && meta.endInclusive instanceof Date && !isNaN(meta.endInclusive.getTime()) ? meta.endInclusive : null;
+
+  var batasEfektif = batasH2;
+  var sumberBatas = 'H+2';
+  if (cutoff && (!batasEfektif || cutoff.getTime() < batasEfektif.getTime())) {
+    batasEfektif = cutoff;
+    sumberBatas = 'CUT_OFF_PERIODE';
+  }
+
+  return {
+    valid: true,
+    tanggalPelaksanaan: d,
+    tanggalPelaksanaanLabel: formatTanggalIndonesiaDisposisi_(d, false),
+    batasH2: batasH2,
+    batasH2Label: batasH2 ? formatTanggalIndonesiaDisposisi_(batasH2, true) : '',
+    periode: periode,
+    periodeLabel: periode ? labelPembayaranPeriode_(periode) : '',
+    cutoff: cutoff,
+    cutoffLabel: cutoff ? formatTanggalIndonesiaDisposisi_(cutoff, true) : '',
+    batasEfektif: batasEfektif,
+    batasEfektifLabel: batasEfektif ? formatTanggalIndonesiaDisposisi_(batasEfektif, true) : '',
+    sumberBatas: sumberBatas
+  };
+}
+
+function validasiRegulerTupoksiH2_(paket, pegawaiUser) {
+  if (!isPaketRegulerTupoksiH2_(paket, pegawaiUser)) return '';
+
+  // Revisi ditangani oleh alur revisi dan validasi periode aktif tersendiri.
+  if (paket && (paket.idLaporanRevisi || paket.modeRevisi || paket.revisi === true)) return '';
+
+  var info = hitungBatasRegulerTupoksiH2_(paket);
+  if (!info.valid) return '❌ GAGAL: ' + info.pesan;
+
+  var now = new Date();
+  if (info.batasEfektif && now.getTime() > info.batasEfektif.getTime()) {
+    if (info.sumberBatas === 'CUT_OFF_PERIODE') {
+      return (
+        '❌ BATAS PELAPORAN SUDAH BERAKHIR\n\n' +
+        'Laporan Kegiatan Reguler/Tupoksi untuk jabatan ini wajib dikirim maksimal 2 hari setelah tanggal pelaksanaan, ' +
+        'namun periode ' + (info.periodeLabel || '-') + ' sudah cut-off lebih dahulu.\n\n' +
+        'Tanggal pelaksanaan: ' + (info.tanggalPelaksanaanLabel || '-') + '\n' +
+        'Batas H+2: ' + (info.batasH2Label || '-') + '\n' +
+        'Cut-off periode: ' + (info.cutoffLabel || '-') + '\n\n' +
+        'Laporan baru tidak dapat dikirim.'
+      );
+    }
+
+    return (
+      '❌ BATAS PELAPORAN H+2 TERLEWATI\n\n' +
+      'Laporan Kegiatan Reguler/Tupoksi wajib dikirim maksimal 2 hari kalender setelah tanggal pelaksanaan.\n\n' +
+      'Tanggal pelaksanaan: ' + (info.tanggalPelaksanaanLabel || '-') + '\n' +
+      'Batas maksimal lapor: ' + (info.batasH2Label || '-') + '\n\n' +
+      'Laporan baru tidak dapat dikirim karena sudah melewati batas waktu pelaporan.'
+    );
+  }
+
+  return '';
+}
+
+var validasiPayloadSubmitKinerja__SEBELUM_REGULER_H2_2026051221 = validasiPayloadSubmitKinerja_;
+validasiPayloadSubmitKinerja_ = function (paket, pegawaiUser) {
+  var hasilLama = validasiPayloadSubmitKinerja__SEBELUM_REGULER_H2_2026051221(paket, pegawaiUser);
+  if (hasilLama) return hasilLama;
+
+  var hasilH2 = validasiRegulerTupoksiH2_(paket, pegawaiUser);
+  if (hasilH2) return hasilH2;
+
+  return '';
+};
+
+
+// ===== PATCH v2026.05.12.22: Catatan admin opsional saat menyetujui =====
+// Backend prosesReviewAdmin(idLaporan, status, poinFinal, catatan, token) sudah mendukung catatan.
+// Perubahan utama berada di Index.html: tombol Setuju memakai modal catatan, bukan confirm sederhana.

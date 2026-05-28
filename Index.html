@@ -4141,6 +4141,30 @@
     </div>
   </div>
 
+  <div id="modalSetujuAdmin" class="modal-overlay">
+    <div class="modal-box" style="max-width:560px; width:95%;">
+      <h3>Setujui Laporan</h3>
+      <div id="mSetujuInfoAdmin" style="text-align:left; font-size:13px; line-height:1.6; color:var(--text-muted); margin-bottom:12px;">
+        Periksa kembali laporan sebelum disetujui.
+      </div>
+      <div class="form-group" style="text-align:left;">
+        <label>Nilai Final:</label>
+        <input type="number" id="mSetujuPoinAdmin" readonly style="background:#f8fafc;">
+      </div>
+      <div class="form-group" style="text-align:left;">
+        <label>Catatan Admin / Masukan untuk laporan berikutnya:</label>
+        <textarea id="mSetujuCatatanAdmin" rows="4" placeholder="Opsional. Contoh: Sesuai. Ke depan output kegiatan agar ditulis lebih spesifik."></textarea>
+        <small style="display:block; margin-top:6px; color:var(--text-muted);">
+          Catatan boleh dikosongkan. Jika kosong, sistem menyimpan catatan default: Sesuai.
+        </small>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-modal-cancel" onclick="tutupModalSetujuAdmin()">Batal</button>
+        <button id="btnSimpanSetujuAdmin" class="btn-modal-save" onclick="simpanSetujuAdmin()">Setujui Laporan</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalNarasi" class="modal-overlay">
     <div class="modal-box" style="max-width: 600px; width: 95%;">
       <h3>Hasil Narasi AI Bulanan</h3>
@@ -5464,6 +5488,8 @@
     var disposisiCurrentUser = null;
     var riwayatHighlightId = "";
     var revisiLaporanAktif = null;
+    var currentSetujuAdminId = null;
+    var currentSetujuAdminPoin = 0;
 
     function userCanAccessDisposisi() {
       return !!(sToken && sData && sData.nama);
@@ -9776,16 +9802,73 @@
     }
 
     function accAdmin(id, poinFinal) {
-      if (confirm("Setujui nilai " + poinFinal + "?")) {
-        var info = adminReviewCache[id] || {};
-        simpanStateAdminReview(info.groupId || '', id);
-        google.script.run.withSuccessHandler(function (r) {
-          alert(r.pesan);
-          muatAdmin();
-        }).withFailureHandler(function (err) {
-          alert('Gagal: ' + ((err && err.message) ? err.message : err));
-        }).prosesReviewAdmin(id, "Disetujui", poinFinal, "Sesuai", sToken);
+      var info = adminReviewCache[id] || {};
+      currentSetujuAdminId = id;
+      currentSetujuAdminPoin = parseInt(poinFinal, 10) || 0;
+
+      var infoBox = document.getElementById('mSetujuInfoAdmin');
+      var poinBox = document.getElementById('mSetujuPoinAdmin');
+      var catatanBox = document.getElementById('mSetujuCatatanAdmin');
+
+      if (poinBox) poinBox.value = currentSetujuAdminPoin;
+      if (catatanBox) {
+        var catatanLama = (info.catatan && info.catatan !== '-') ? String(info.catatan || '').trim() : '';
+        catatanBox.value = catatanLama && catatanLama.toLowerCase() !== 'sesuai' ? catatanLama : 'Sesuai';
       }
+
+      if (infoBox) {
+        infoBox.innerHTML =
+          '<b>' + escapeHTML(info.kategori || 'Laporan') + '</b><br>' +
+          'Nilai final yang akan disetujui: <b>' + currentSetujuAdminPoin + ' poin</b><br>' +
+          '<small>Catatan admin akan tampil pada Riwayat Laporan pegawai.</small>';
+      }
+
+      document.getElementById('modalSetujuAdmin').classList.add('active');
+      document.body.classList.add('modal-open');
+    }
+
+    function tutupModalSetujuAdmin() {
+      var modal = document.getElementById('modalSetujuAdmin');
+      if (modal) modal.classList.remove('active');
+      document.body.classList.remove('modal-open');
+      currentSetujuAdminId = null;
+      currentSetujuAdminPoin = 0;
+    }
+
+    function simpanSetujuAdmin() {
+      if (!currentSetujuAdminId) return;
+
+      var id = currentSetujuAdminId;
+      var poin = parseInt(currentSetujuAdminPoin, 10) || 0;
+      var catatanEl = document.getElementById('mSetujuCatatanAdmin');
+      var catatan = catatanEl ? String(catatanEl.value || '').trim() : '';
+      if (!catatan) catatan = 'Sesuai';
+
+      var info = adminReviewCache[id] || {};
+      simpanStateAdminReview(info.groupId || '', id);
+
+      var btn = document.getElementById('btnSimpanSetujuAdmin');
+      var oldText = btn ? btn.innerText : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Menyimpan...';
+      }
+
+      google.script.run.withSuccessHandler(function (r) {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = oldText || 'Setujui Laporan';
+        }
+        tutupModalSetujuAdmin();
+        alert(r.pesan);
+        muatAdmin();
+      }).withFailureHandler(function (err) {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = oldText || 'Setujui Laporan';
+        }
+        alert('Gagal: ' + ((err && err.message) ? err.message : err));
+      }).prosesReviewAdmin(id, "Disetujui", poin, catatan, sToken);
     }
 
     function tolakAdmin(id) {
