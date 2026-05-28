@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.12.20";
+var APP_VERSION = "2026.05.28.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
