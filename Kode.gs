@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.08";
+var APP_VERSION = "2026.05.30.09";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14638,4 +14638,188 @@ simpanDisposisiSurat = function (payload, token) {
     }
   } catch (e) { }
   return res;
+};
+
+
+
+// ===== PATCH v2026.05.12.37: Optimasi Timeline =====
+// Fokus:
+// - Timeline memakai getRekapKinerjaValuesReadOnly_() supaya tidak membaca sheet berat berulang.
+// - Lampiran Timeline memakai mode skipDriveFetch agar tidak memanggil DriveApp.getFileById()
+//   untuk setiap bukti visual.
+// - Mode skip tetap menebak PDF/gambar dari label/URL, tidak dipaksa image/jpeg semua.
+// - Fungsi buildDriveLampiranMeta_ tetap kompatibel dengan pemanggil lama:
+//   argumen ke-4 skipDriveFetch bersifat opsional.
+
+function tebakMimeLampiranTanpaDriveV37_(label, rawUrl) {
+  var s = (String(label || '') + ' ' + String(rawUrl || '')).toLowerCase();
+  if (/\.(pdf)(?:$|[?&#])/.test(s) || s.indexOf('pdf') !== -1) return 'application/pdf';
+  if (/\.(png)(?:$|[?&#])/.test(s)) return 'image/png';
+  if (/\.(webp)(?:$|[?&#])/.test(s)) return 'image/webp';
+  if (/\.(gif)(?:$|[?&#])/.test(s)) return 'image/gif';
+  if (/\.(bmp)(?:$|[?&#])/.test(s)) return 'image/bmp';
+  if (/\.(svg)(?:$|[?&#])/.test(s)) return 'image/svg+xml';
+  if (/\.(jpg|jpeg)(?:$|[?&#])/.test(s)) return 'image/jpeg';
+
+  // Bukti visual pada timeline biasanya foto. Untuk timeline, asumsi gambar lebih cepat
+  // dan tetap aman karena link asli masih dibuka via Drive bila thumbnail gagal.
+  if (/bukti|visual|foto|gambar|lampiran/i.test(String(label || ''))) return 'image/jpeg';
+
+  return '';
+}
+
+var buildDriveLampiranMeta__SEBELUM_OPT_TIMELINE_2026051237 = buildDriveLampiranMeta_;
+buildDriveLampiranMeta_ = function (url, label, cache, skipDriveFetch) {
+  var rawUrl = (url || '').toString().trim();
+  if (!rawUrl || !isSafeDriveUrl_(rawUrl)) return null;
+
+  var fileId = extractDriveFileId_(rawUrl);
+  if (!fileId) return null;
+
+  var cacheKey = 'DRIVE_FILE_' + fileId + (skipDriveFetch ? '_SKIP' : '');
+  var base = null;
+
+  if (cache && cache[cacheKey]) {
+    base = cloneSimpleObject_(cache[cacheKey]);
+  } else {
+    var openUrl = 'https://drive.google.com/file/d/' + encodeURIComponent(fileId) + '/view';
+    var previewUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w800';
+    var fullUrl = 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(fileId);
+
+    base = {
+      label: (label || 'Lampiran').toString(),
+      rawUrl: openUrl,
+      safeUrl: openUrl,
+      openUrl: openUrl,
+      fileId: fileId,
+      fileName: '',
+      mimeType: '',
+      kind: 'drive',
+      isImage: false,
+      isPdf: false,
+      canPreviewInline: false,
+      previewUrl: previewUrl,
+      fullUrl: fullUrl
+    };
+
+    if (skipDriveFetch) {
+      base.fileName = (label || 'Lampiran').toString();
+      base.mimeType = tebakMimeLampiranTanpaDriveV37_(label, rawUrl);
+    } else {
+      try {
+        var file = DriveApp.getFileById(fileId);
+        base.fileName = file.getName() || '';
+        base.mimeType = file.getMimeType() || '';
+      } catch (e) {
+        return null;
+      }
+    }
+
+    var nameLower = (base.fileName || '').toLowerCase();
+    base.isImage = base.mimeType.indexOf('image/') === 0 || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(nameLower);
+    base.isPdf = base.mimeType === MimeType.PDF || base.mimeType.indexOf('pdf') !== -1 || /\.pdf$/i.test(nameLower);
+
+    if (base.isImage) {
+      base.kind = 'image';
+      base.canPreviewInline = true;
+      base.stageUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w2000';
+    } else if (base.isPdf) {
+      base.kind = 'pdf';
+      base.canPreviewInline = false;
+    }
+
+    if (cache) cache[cacheKey] = cloneSimpleObject_(base);
+  }
+
+  base = cloneSimpleObject_(base);
+  if (label) base.label = label;
+  return base;
+};
+
+var ambilTimelinePublik__SEBELUM_OPTIMASI_2026051237 = ambilTimelinePublik;
+ambilTimelinePublik = function (token, offset, limit) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) {
+      return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', items: [], nextOffset: 0, hasMore: false, totalApproved: 0 };
+    }
+
+    var start = parseInt(offset, 10);
+    if (isNaN(start) || start < 0) start = 0;
+
+    var pageSize = parseInt(limit, 10);
+    if (isNaN(pageSize) || pageSize < 1) pageSize = 12;
+    if (pageSize > 30) pageSize = 30;
+
+    var data = getRekapKinerjaValuesReadOnly_();
+    var hasil = [];
+    var totalApproved = 0;
+    var lampiranCache = {};
+
+    for (var i = data.length - 1; i >= 1; i--) {
+      var status = (data[i][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || '').toString();
+      if (!isStatusApproved_(status)) continue;
+
+      totalApproved++;
+      if (totalApproved <= start) continue;
+      if (hasil.length >= pageSize) continue;
+
+      var w = data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN];
+      var waktuObj = parseTanggal(w);
+      var waktuTeks = (waktuObj instanceof Date && !isNaN(waktuObj.getTime()))
+        ? Utilities.formatDate(waktuObj, 'GMT+7', 'dd/MM/yyyy HH:mm')
+        : (w ? w.toString() : '');
+
+      var urlDasar = data[i][SHEET_COLUMNS.REKAP_KINERJA.DASAR_URL]
+        ? data[i][SHEET_COLUMNS.REKAP_KINERJA.DASAR_URL].toString()
+        : '';
+
+      // Dokumen dasar tetap boleh fetch Drive karena jumlahnya kecil dan perlu deteksi PDF lebih akurat.
+      // Bukti visual timeline memakai skipDriveFetch karena jumlahnya bisa banyak.
+      var dokumenDasarMeta = buildDriveLampiranMeta_(urlDasar, 'Dokumen Dasar', lampiranCache, false);
+
+      var urlVisuals = data[i][SHEET_COLUMNS.REKAP_KINERJA.VISUAL_URL]
+        ? data[i][SHEET_COLUMNS.REKAP_KINERJA.VISUAL_URL].toString().split(',')
+        : [];
+      var buktiVisualMeta = [];
+
+      for (var u = 0; u < urlVisuals.length; u++) {
+        var link = (urlVisuals[u] || '').toString().trim();
+        if (!link) continue;
+        var label = urlVisuals.length > 1 ? 'Bukti Visual ' + (u + 1) : 'Bukti Visual';
+        var meta = buildDriveLampiranMeta_(link, label, lampiranCache, true);
+        if (!meta || !meta.safeUrl) continue;
+        buktiVisualMeta.push(meta);
+      }
+
+      hasil.push({
+        idLaporan: normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]),
+        idUser: normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_USER]),
+        waktu: waktuTeks,
+        waktuSort: (waktuObj instanceof Date && !isNaN(waktuObj.getTime())) ? waktuObj.getTime() : 0,
+        nama: data[i][SHEET_COLUMNS.REKAP_KINERJA.NAMA] || '-',
+        jabatan: data[i][SHEET_COLUMNS.REKAP_KINERJA.JABATAN] || '-',
+        kategori: data[i][SHEET_COLUMNS.REKAP_KINERJA.KATEGORI] || '-',
+        deskripsi: data[i][SHEET_COLUMNS.REKAP_KINERJA.DESKRIPSI] || '-',
+        status: status || '-',
+        poinFinal: Number(data[i][SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL]) || 0,
+        dokumenDasar: dokumenDasarMeta && dokumenDasarMeta.safeUrl ? dokumenDasarMeta : null,
+        urlDasarRaw: dokumenDasarMeta && dokumenDasarMeta.safeUrl ? dokumenDasarMeta.safeUrl : '',
+        buktiVisualMeta: buktiVisualMeta,
+        buktiVisual: buktiVisualMeta,
+        urlVisualRaw: buktiVisualMeta.map(function (item) { return item.safeUrl; })
+      });
+    }
+
+    return {
+      sukses: true,
+      items: hasil,
+      nextOffset: start + hasil.length,
+      hasMore: totalApproved > (start + hasil.length),
+      totalApproved: totalApproved,
+      optimasiTimeline: 'v2026.05.12.37'
+    };
+  } catch (e) {
+    return handleError('ambilTimelinePublik_v37', e, { sukses: false, pesan: 'Gagal memuat timeline.', items: [], nextOffset: 0, hasMore: false, totalApproved: 0 });
+  }
 };
