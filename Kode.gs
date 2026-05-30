@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.02";
+var APP_VERSION = "2026.05.30.03";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14033,3 +14033,237 @@ function cekCutoffDefaultLamaDinonaktifkan(token) {
 
 // ===== PATCH v2026.05.12.30: Dropdown Alat Administrasi Admin Kinerja =====
 // Panel admin administratif dirapikan ke dalam accordion di Index.html.
+
+
+
+// ===== PATCH v2026.05.12.31: Tutup Periode Laporan berdasarkan Tanggal Pelaksanaan =====
+// Bug yang diperbaiki:
+// Form laporan baru dengan tanggal pelaksanaan 29/05/2026 masih ditolak oleh penutupan Mei 2026,
+// karena validasi lama menentukan periode dari bulan kalender tanggal pelaksanaan/waktu submit.
+// Kebijakan baru:
+// - Validasi Tutup Periode Laporan untuk input baru memakai tanggal pelaksanaan kegiatan.
+// - Periode tertutup berlaku sebagai rentang tanggal kegiatan:
+//   start = sehari setelah cut-off periode sebelumnya,
+//   end   = tanggal cut-off periode tersebut.
+// - Contoh:
+//   April ditutup 27/04/2026 -> rentang April: 01/04/2026 s.d. 27/04/2026.
+//   Mei ditutup 26/05/2026   -> rentang Mei: 28/04/2026 s.d. 26/05/2026.
+//   Tanggal pelaksanaan 29/05/2026 tidak diblokir oleh penutupan Mei.
+// - Jika laporan berupa laporan wajib bulanan dan tidak memiliki tanggal pelaksanaan tunggal,
+//   sistem tetap memakai periode bulan laporan seperti sebelumnya.
+
+function tanggalPelaksanaanDariPaketSubmitV31_(paket) {
+  paket = paket || {};
+  var candidates = [
+    paket.tanggalKegiatan,
+    paket.tanggal,
+    paket.detailAPBKal && paket.detailAPBKal.tanggal,
+    paket.detailAPBKalCarik && paket.detailAPBKalCarik.tanggal,
+    paket.detailReguler && paket.detailReguler.tanggal,
+    paket.detailDukuh && paket.detailDukuh.tanggal,
+    paket.detailTU && paket.detailTU.tanggal,
+    paket.detailPHL && paket.detailPHL.tanggal,
+    paket.detailPimpinan && paket.detailPimpinan.tanggal,
+    paket.detailStafInstruksi && paket.detailStafInstruksi.tanggal,
+    paket.detailStafReguler && paket.detailStafReguler.tanggal
+  ];
+
+  for (var i = 0; i < candidates.length; i++) {
+    var d = parseTanggal(candidates[i]);
+    if (d instanceof Date && !isNaN(d.getTime()) && d.getTime() !== 0) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
+    }
+  }
+
+  return null;
+}
+
+function semuaTutupPeriodeLaporanTersimpanV31_() {
+  var locks = [];
+  try {
+    var props = PropertiesService.getScriptProperties().getProperties();
+    for (var key in props) {
+      if (!props.hasOwnProperty(key)) continue;
+      if (key.indexOf('TUTUP_PERIODE_LAPORAN_') !== 0) continue;
+      try {
+        var obj = JSON.parse(props[key] || '{}');
+        var p = normalizePeriode_(obj.periode || key.replace('TUTUP_PERIODE_LAPORAN_', ''));
+        if (!p) continue;
+        var cutoff = parseTanggal(obj.tanggalTutup || obj.cutoffAt || '');
+        if (!(cutoff instanceof Date) || isNaN(cutoff.getTime())) continue;
+        if (String(obj.status || 'DITUTUP') !== 'DITUTUP') continue;
+
+        locks.push({
+          periode: p,
+          labelPeriode: obj.labelPeriode || labelPembayaranPeriode_(p),
+          cutoffDate: cutoff,
+          cutoffDay: new Date(cutoff.getFullYear(), cutoff.getMonth(), cutoff.getDate(), 23, 59, 59, 999),
+          status: 'DITUTUP',
+          alasan: obj.alasan || '',
+          updatedAt: obj.updatedAt || '',
+          updatedBy: obj.updatedBy || ''
+        });
+      } catch (inner) {
+        Logger.log('Gagal parsing tutup periode laporan v31 ' + key + ': ' + (inner && inner.message ? inner.message : inner));
+      }
+    }
+  } catch (e) {
+    Logger.log('Gagal membaca tutup periode laporan v31: ' + (e && e.message ? e.message : e));
+  }
+
+  locks.sort(function (a, b) {
+    return a.cutoffDay.getTime() - b.cutoffDay.getTime();
+  });
+
+  for (var i = 0; i < locks.length; i++) {
+    var start;
+    if (i > 0) {
+      var prev = locks[i - 1].cutoffDay;
+      start = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1, 0, 0, 0, 0);
+    } else {
+      // Untuk lock pertama yang tersimpan, start aman adalah tanggal 1 pada bulan cutoff.
+      // Contoh April 2026 -> 01/04/2026.
+      start = new Date(locks[i].cutoffDay.getFullYear(), locks[i].cutoffDay.getMonth(), 1, 0, 0, 0, 0);
+    }
+
+    locks[i].rangeStart = start;
+    locks[i].rangeEnd = locks[i].cutoffDay;
+    locks[i].rangeLabel = Utilities.formatDate(start, 'GMT+7', 'dd/MM/yyyy') + ' s.d. ' +
+      Utilities.formatDate(locks[i].cutoffDay, 'GMT+7', 'dd/MM/yyyy');
+  }
+
+  return locks;
+}
+
+function cariLockTutupPeriodeUntukTanggalPelaksanaanV31_(tanggalPelaksanaan) {
+  var d = tanggalPelaksanaan instanceof Date ? tanggalPelaksanaan : parseTanggal(tanggalPelaksanaan);
+  if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) return null;
+
+  var day = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
+  var locks = semuaTutupPeriodeLaporanTersimpanV31_();
+
+  for (var i = 0; i < locks.length; i++) {
+    var lock = locks[i];
+    if (day.getTime() >= lock.rangeStart.getTime() && day.getTime() <= lock.rangeEnd.getTime()) {
+      return lock;
+    }
+  }
+
+  return null;
+}
+
+function bulanLaporanWajibDariPaketSubmitV31_(paket) {
+  paket = paket || {};
+  function normMonth_(value) {
+    var s = String(value || '').trim();
+    if (!s) return '';
+    if (/^\d{4}-\d{2}$/.test(s)) return s;
+    var d = parseTanggal(s);
+    if (d instanceof Date && !isNaN(d.getTime()) && d.getTime() !== 0) {
+      return Utilities.formatDate(d, 'GMT+7', 'yyyy-MM');
+    }
+    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return iso[1] + '-' + iso[2];
+    return '';
+  }
+
+  if (paket.detailWajibPamong && paket.detailWajibPamong.bulan) return normMonth_(paket.detailWajibPamong.bulan);
+  if (paket.detailWajibDukuh && paket.detailWajibDukuh.bulan) return normMonth_(paket.detailWajibDukuh.bulan);
+  return '';
+}
+
+// Override validasi tutup periode input baru.
+var validasiTutupPeriodeLaporanBaru__SEBELUM_TGL_PELAKSANAAN_2026051231 = validasiTutupPeriodeLaporanBaru_;
+validasiTutupPeriodeLaporanBaru_ = function (paket) {
+  paket = paket || {};
+
+  // Revisi laporan ditolak bukan input laporan baru.
+  if (paket.idLaporanRevisi) {
+    return { sukses: true, periode: '', pesan: '' };
+  }
+
+  var tglPelaksanaan = tanggalPelaksanaanDariPaketSubmitV31_(paket);
+  if (tglPelaksanaan) {
+    var lockByTanggal = cariLockTutupPeriodeUntukTanggalPelaksanaanV31_(tglPelaksanaan);
+    if (!lockByTanggal) {
+      // Tanggal pelaksanaan tidak berada pada rentang periode tertutup mana pun.
+      return {
+        sukses: true,
+        periode: '',
+        pesan: '',
+        tanggalPelaksanaan: tglPelaksanaan
+      };
+    }
+
+    var now = new Date();
+    if (now.getTime() <= lockByTanggal.cutoffDate.getTime()) {
+      return {
+        sukses: true,
+        periode: lockByTanggal.periode,
+        pesan: '',
+        tanggalPelaksanaan: tglPelaksanaan
+      };
+    }
+
+    return {
+      sukses: false,
+      periode: lockByTanggal.periode,
+      tanggalPelaksanaan: tglPelaksanaan,
+      pesan:
+        '❌ PERIODE LAPORAN SUDAH DITUTUP\n\n' +
+        'Tanggal pelaksanaan kegiatan masuk ' + lockByTanggal.labelPeriode + ' (' + lockByTanggal.rangeLabel + ').\n' +
+        'Periode tersebut sudah ditutup untuk input laporan baru sejak ' + formatTutupPeriodeClient_(lockByTanggal.cutoffDate) + '.\n\n' +
+        'Jika laporan sebelumnya ditolak admin, silakan gunakan menu revisi laporan. Jika memang perlu input baru, hubungi Admin Kinerja untuk membuka kembali periode.'
+    };
+  }
+
+  // Fallback hanya untuk laporan wajib bulanan atau payload yang memang tidak punya tanggal pelaksanaan tunggal.
+  var periodeWajib = bulanLaporanWajibDariPaketSubmitV31_(paket);
+  if (periodeWajib) {
+    var lock = bacaTutupPeriodeLaporan_(periodeWajib);
+    if (!lock || lock.status !== 'DITUTUP') return { sukses: true, periode: periodeWajib, pesan: '' };
+
+    var now2 = new Date();
+    if (now2.getTime() <= lock.cutoffDate.getTime()) return { sukses: true, periode: periodeWajib, pesan: '' };
+
+    return {
+      sukses: false,
+      periode: periodeWajib,
+      pesan:
+        '❌ PERIODE LAPORAN SUDAH DITUTUP\n\n' +
+        'Periode laporan ' + lock.labelPeriode + ' sudah ditutup untuk input laporan baru sejak ' + formatTutupPeriodeClient_(lock.cutoffDate) + '.\n\n' +
+        'Jika laporan sebelumnya ditolak admin, silakan gunakan menu revisi laporan. Jika memang perlu input baru, hubungi Admin Kinerja untuk membuka kembali periode.'
+    };
+  }
+
+  // Jika tanggal pelaksanaan tidak terbaca, jangan blokir di sini. Validasi field wajib lain tetap berjalan.
+  return { sukses: true, periode: '', pesan: '' };
+};
+
+function debugPeriodeTutupDariTanggalPelaksanaanV31(tanggalPelaksanaan, token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+    if (!cekHakAksesLurahCarikAdmin_(idUser)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.' };
+
+    var d = parseTanggal(tanggalPelaksanaan);
+    var lock = cariLockTutupPeriodeUntukTanggalPelaksanaanV31_(d);
+    return {
+      sukses: true,
+      tanggalPelaksanaan: d ? formatTanggalJamISO_(d) : '',
+      terkenaPeriodeTertutup: !!lock,
+      lock: lock ? {
+        periode: lock.periode,
+        labelPeriode: lock.labelPeriode,
+        rentang: lock.rangeLabel,
+        cutoff: formatTutupPeriodeClient_(lock.cutoffDate),
+        status: lock.status
+      } : null,
+      pesan: lock
+        ? 'Tanggal pelaksanaan masuk periode tertutup: ' + lock.labelPeriode + ' (' + lock.rangeLabel + ').'
+        : 'Tanggal pelaksanaan tidak masuk rentang periode tertutup mana pun.'
+    };
+  } catch (e) {
+    return handleError('debugPeriodeTutupDariTanggalPelaksanaanV31', e, { sukses: false, pesan: '' });
+  }
+}
