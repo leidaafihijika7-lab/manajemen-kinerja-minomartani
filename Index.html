@@ -12909,6 +12909,72 @@
     // ===== END PATCH v2026.05.12.36 =====
 
 
+
+    // ===== PATCH v2026.05.12.41: hapus seluruh card Ringkasan Target =====
+    function sembunyikanRingkasanTargetDisposisiV41_() {
+      try {
+        var kandidat = Array.prototype.slice.call(document.querySelectorAll('div, section, article'));
+        kandidat.forEach(function (el) {
+          var txt = (el.innerText || '').trim();
+          if (!txt) return;
+
+          // Cari container terdekat yang benar-benar berisi heading Ringkasan Target dan chip Total Pegawai/Dipilih.
+          var hasTitle = /\bRingkasan Target\b/i.test(txt);
+          var hasChips = /\bTotal Pegawai\b/i.test(txt) && /\bDipilih\b/i.test(txt);
+          var isLikelyCard = hasTitle && hasChips;
+
+          if (!isLikelyCard) return;
+
+          // Jangan sembunyikan seluruh halaman/body.
+          if (el.id === 'halDisposisi' || el.id === 'disposisiBody' || el.tagName === 'BODY') return;
+
+          // Pilih elemen terbesar yang masih berupa card ringkasan, bukan parent halaman.
+          var rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+          if (rect && rect.height > 40 && rect.height < 600) {
+            el.style.display = 'none';
+            el.setAttribute('data-hidden-by-patch', 'v41-ringkasan-target');
+          }
+        });
+
+        // Fallback spesifik: jika heading masih ada, naik ke card terdekat.
+        var all = Array.prototype.slice.call(document.querySelectorAll('*'));
+        all.forEach(function (el) {
+          if ((el.textContent || '').trim() !== 'Ringkasan Target') return;
+          var card = el.closest('.form-card, .disposisi-card, .card, .panel, div');
+          while (card && card.parentElement && card.parentElement.id !== 'disposisiBody') {
+            var t = (card.innerText || '');
+            if (/Ringkasan Target/i.test(t) && /Total Pegawai/i.test(t) && /Dipilih/i.test(t)) break;
+            card = card.parentElement;
+          }
+          if (card && card.id !== 'disposisiBody') {
+            card.style.display = 'none';
+            card.setAttribute('data-hidden-by-patch', 'v41-ringkasan-target-fallback');
+          }
+        });
+      } catch (e) {}
+    }
+
+    var renderDisposisiTargetChecklist__SEBELUM_HIDE_CARD_2026051241 = renderDisposisiTargetChecklist_;
+    renderDisposisiTargetChecklist_ = function (list) {
+      renderDisposisiTargetChecklist__SEBELUM_HIDE_CARD_2026051241(list);
+      sembunyikanRingkasanTargetDisposisiV41_();
+    };
+
+    var refreshDisposisiTargetPreview__SEBELUM_HIDE_CARD_2026051241 = refreshDisposisiTargetPreview_;
+    refreshDisposisiTargetPreview_ = function () {
+      refreshDisposisiTargetPreview__SEBELUM_HIDE_CARD_2026051241();
+      sembunyikanRingkasanTargetDisposisiV41_();
+    };
+
+    var renderDisposisiHalaman_____SEBELUM_HIDE_RINGKASAN_TARGET_2026051241 = renderDisposisiHalaman_;
+    renderDisposisiHalaman_ = function (res) {
+      renderDisposisiHalaman_____SEBELUM_HIDE_RINGKASAN_TARGET_2026051241(res);
+      setTimeout(sembunyikanRingkasanTargetDisposisiV41_, 0);
+      setTimeout(sembunyikanRingkasanTargetDisposisiV41_, 250);
+    };
+    // ===== END PATCH v2026.05.12.41 =====
+
+
     try {
       var simpananToken = ambilMemori("kinerja_token");
       var simpananData = ambilMemori("kinerja_data");

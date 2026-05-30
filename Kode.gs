@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.12";
+var APP_VERSION = "2026.05.30.13";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -15313,9 +15313,16 @@ function buatPesanWhatsAppDisposisiPersonal_(info, penerima) {
 }
 
 
-// ===== PATCH v2026.05.30.12: Disposisi H+3 Dinamis dan Sembunyikan Ringkasan Target =====
+// ===== PATCH v2026.05.12.12: Disposisi H+3 Dinamis dan Sembunyikan Ringkasan Target =====
 // Perubahan utama di Index.html:
 // - Tanggal Batas Laporan selalu diperbarui H+3 ketika Tanggal Pelaksanaan Kegiatan berubah,
 //   selama operator belum mengedit batas laporan secara manual.
 // - Ringkasan Target disembunyikan dari form agar tampilan lebih ringkas.
-// - Logika backend v39 tetap dipertahankan.
+// - Logika backend v11 tetap dipertahankan.
+
+
+// ===== PATCH v2026.05.30.13: Hapus Total Card Ringkasan Target Disposisi =====
+// Perubahan utama di Index.html:
+// - v12 hanya menyembunyikan sebagian elemen ringkasan.
+// - v13 menyembunyikan seluruh card/container yang berjudul "Ringkasan Target".
+// - Data penerima tetap diproses dan dikirim; hanya tampilan ringkasan yang tidak ditampilkan.
