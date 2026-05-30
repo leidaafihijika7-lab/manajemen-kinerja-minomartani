@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.04";
+var APP_VERSION = "2026.05.30.05";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14274,3 +14274,144 @@ function debugPeriodeTutupDariTanggalPelaksanaanV31(tanggalPelaksanaan, token) {
 // - Checkbox Pihak yang Terlibat diperlakukan sebagai satu grup.
 // - Minimal satu checkbox cukup.
 // - Kolom "Pihak lainnya" hanya wajib jika checkbox Lainnya dicentang.
+
+
+
+// ===== PATCH v2026.05.12.33: Pesan Error Submit Laporan Lebih Jelas =====
+// Fokus:
+// - Saat submit laporan gagal setelah file dipilih/terunggah, user tidak lagi hanya mendapat pesan umum.
+// - Sistem mengelompokkan sumber error menjadi: upload/Drive, folder bukti, spreadsheet/Rekap_Kinerja,
+//   antrean server, batas waktu/kuota, validasi periode, atau koneksi.
+// - Detail teknis tetap dicatat di Logger dan Audit_Log memakai Error ID.
+// - Pesan ke user tetap aman, tetapi lebih bisa ditindaklanjuti.
+
+function klasifikasiErrorSubmitKinerjaV33_(message) {
+  var raw = String(message || '');
+  var s = raw.toLowerCase();
+
+  if (/folder bukti|folder_id_bukti|folder_id_bukti_kinerja|konfigurasi folder|folder/i.test(raw) &&
+      /belum diatur|not found|tidak ditemukan|invalid|cannot find|akses|permission|denied/i.test(raw)) {
+    return {
+      kode: 'KONFIGURASI_FOLDER_BUKTI',
+      judul: 'Konfigurasi folder bukti belum siap atau tidak dapat diakses.',
+      saran: 'Hubungi Admin Kinerja untuk memeriksa Script Property FOLDER_ID_BUKTI_KINERJA/FOLDER_ID_BUKTI dan izin folder Drive.'
+    };
+  }
+
+  if (/DriveApp|createFile|getFolderById|setSharing|file|blob|pdf|image|upload|unggah|terunggah|quota|permission|denied/i.test(raw)) {
+    return {
+      kode: 'GAGAL_UPLOAD_ATAU_AKSES_DRIVE',
+      judul: 'Bukti/dokumen gagal diproses atau Drive tidak dapat diakses.',
+      saran: 'Coba gunakan nama file sederhana, pastikan ukuran di bawah 10 MB, lalu kirim ulang. Jika bukti sudah terunggah, gunakan tombol simpan ulang tanpa upload ulang.'
+    };
+  }
+
+  if (/SpreadsheetApp|getSheetByName|getRange|appendRow|setValue|insertRows|sheet|spreadsheet|Rekap_Kinerja|range|cell|kolom|baris/i.test(raw)) {
+    return {
+      kode: 'GAGAL_MENULIS_REKAP_KINERJA',
+      judul: 'Data laporan gagal ditulis ke database Rekap_Kinerja.',
+      saran: 'Coba kirim ulang sekali. Jika masih gagal, Admin perlu mengecek sheet Rekap_Kinerja, struktur kolom, proteksi sheet, dan log error.'
+    };
+  }
+
+  if (/lock|antrean|queue|tryLock|timeout|timed out|exceeded maximum execution|melebihi.*eksekusi|service invoked too many times|too many/i.test(raw)) {
+    return {
+      kode: 'SERVER_SEDANG_SIBUK',
+      judul: 'Server sedang sibuk atau melewati batas eksekusi.',
+      saran: 'Tunggu beberapa saat lalu gunakan tombol simpan ulang. Jika sering terjadi, admin perlu mengarsipkan/meringankan database.'
+    };
+  }
+
+  if (/periode laporan sudah ditutup|input laporan ditutup|cut-?off|tutup periode|validasi|ditolak|h\+2|tanggal/i.test(raw)) {
+    return {
+      kode: 'VALIDASI_LAPORAN_DITOLAK',
+      judul: 'Data laporan ditolak oleh validasi sistem.',
+      saran: 'Periksa tanggal pelaksanaan, periode laporan, dan ketentuan input/revisi. Jika ini laporan revisi, gunakan menu Riwayat.'
+    };
+  }
+
+  if (/network|fetch|http 0|koneksi|connection|transport|socket/i.test(raw)) {
+    return {
+      kode: 'KONEKSI_TERPUTUS',
+      judul: 'Koneksi browser ke server terputus saat pengiriman.',
+      saran: 'Periksa koneksi internet, lalu cek Riwayat sebelum mencoba kirim ulang.'
+    };
+  }
+
+  if (/Cannot read|undefined|null|not a function|TypeError|ReferenceError|Exception|Error/i.test(raw)) {
+    return {
+      kode: 'ERROR_SCRIPT_INTERNAL',
+      judul: 'Terjadi error internal pada script saat menyimpan laporan.',
+      saran: 'Admin perlu membuka Apps Script → Executions dan mencari Error ID yang ditampilkan.'
+    };
+  }
+
+  return {
+    kode: 'GANGGUAN_SISTEM',
+    judul: 'Terjadi gangguan sistem saat menyimpan laporan.',
+    saran: 'Coba kirim ulang sekali. Jika tetap gagal, hubungi Admin Kinerja dengan menyebutkan Error ID.'
+  };
+}
+
+function pesanErrorSubmitKinerjaLebihJelasV33_(functionName, error, prefix) {
+  var errorId = buatErrorIdAman_();
+  catatErrorInternal_(functionName, error, errorId);
+
+  var msg = getInternalErrorMessage_(error);
+  var info = klasifikasiErrorSubmitKinerjaV33_(msg);
+
+  return (prefix || '') +
+    'GAGAL MENYIMPAN LAPORAN\n\n' +
+    'Sumber masalah: ' + info.judul + '\n\n' +
+    'Kode masalah: ' + info.kode + '\n' +
+    'Kode error: ' + errorId + '\n\n' +
+    'Saran: ' + info.saran;
+}
+
+// Override aman: hanya simpanDataKinerja / simpanRevisi dibuat lebih informatif.
+// Fungsi lain tetap memakai mekanisme sanitasi lama.
+var pesanErrorStringAman__SEBELUM_DETAIL_SUBMIT_2026051233 = pesanErrorStringAman_;
+pesanErrorStringAman_ = function (functionName, error, prefix) {
+  var fn = String(functionName || '');
+  if (fn === 'simpanDataKinerja' || fn === 'simpanRevisiLaporanDitolakPegawai') {
+    return pesanErrorSubmitKinerjaLebihJelasV33_(fn, error, prefix || '');
+  }
+  return pesanErrorStringAman__SEBELUM_DETAIL_SUBMIT_2026051233(functionName, error, prefix);
+};
+
+function cariLogErrorSubmitKinerjaV33(errorId, token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', items: [] };
+    if (!cekHakAksesLurahCarikAdmin_(idUser)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', items: [] };
+
+    var key = String(errorId || '').trim().toUpperCase();
+    if (!key) return { sukses: false, pesan: 'Kode error wajib diisi.', items: [] };
+
+    var sh = getSheet_('Audit_Log');
+    var data = sh.getDataRange().getValues();
+    var items = [];
+    for (var i = data.length - 1; i >= 1 && items.length < 20; i--) {
+      var row = data[i] || [];
+      var detail = String(row[2] || '') + ' ' + String(row[3] || '');
+      if (detail.toUpperCase().indexOf(key) !== -1) {
+        items.push({
+          waktu: formatTanggalJamISO_(row[0]) || String(row[0] || ''),
+          idUser: String(row[1] || ''),
+          aksi: String(row[2] || ''),
+          detail: String(row[3] || '')
+        });
+      }
+    }
+
+    return {
+      sukses: true,
+      errorId: key,
+      total: items.length,
+      items: items,
+      pesan: items.length ? 'Log error ditemukan.' : 'Log error tidak ditemukan di Audit_Log. Coba cek Apps Script → Executions.'
+    };
+  } catch (e) {
+    return handleError('cariLogErrorSubmitKinerjaV33', e, { sukses: false, pesan: '', items: [] });
+  }
+}
