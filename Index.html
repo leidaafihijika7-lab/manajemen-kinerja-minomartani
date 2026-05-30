@@ -12862,6 +12862,53 @@
     // ===== END PATCH v2026.05.12.35 =====
 
 
+
+    // ===== PATCH v2026.05.12.36: panel WhatsApp disposisi hanya untuk Lurah/operator =====
+    function bolehMelihatPanelWhatsAppDisposisiV36_() {
+      return !!(
+        sData &&
+        (
+          sData.canPublishDisposisi === true ||
+          sData.isLurahDisposisi === true ||
+          sData.isOperatorDisposisiAktif === true ||
+          userIsLurahDisposisiLocal_()
+        )
+      );
+    }
+
+    function bersihkanPanelWhatsAppJikaBukanPenerbitV36_() {
+      if (bolehMelihatPanelWhatsAppDisposisiV36_()) return false;
+      try { sessionStorage.removeItem(DISPOSISI_WA_PENDING_KEY); } catch (e) { }
+      var panel = document.getElementById('disposisiWhatsappPanel');
+      if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+      return true;
+    }
+
+    var simpanPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236 = simpanPendingPesanWhatsAppDisposisi_;
+    simpanPendingPesanWhatsAppDisposisi_ = function (res) {
+      if (!res || res.canPublishDisposisi !== true) return;
+      if (!bolehMelihatPanelWhatsAppDisposisiV36_()) return;
+      return simpanPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236(res);
+    };
+
+    var renderPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236 = renderPendingPesanWhatsAppDisposisi_;
+    renderPendingPesanWhatsAppDisposisi_ = function () {
+      if (bersihkanPanelWhatsAppJikaBukanPenerbitV36_()) return;
+      return renderPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236();
+    };
+
+    var renderDisposisiHalaman____SEBELUM_SCOPE_WA_2026051236 = renderDisposisiHalaman_;
+    renderDisposisiHalaman_ = function (res) {
+      if (res && res.sukses) {
+        sData.canPublishDisposisi = !!(res.canManage || res.canOperateDisposisi || res.canPublishDisposisi);
+        try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
+      }
+      renderDisposisiHalaman____SEBELUM_SCOPE_WA_2026051236(res);
+      bersihkanPanelWhatsAppJikaBukanPenerbitV36_();
+    };
+    // ===== END PATCH v2026.05.12.36 =====
+
+
     try {
       var simpananToken = ambilMemori("kinerja_token");
       var simpananData = ambilMemori("kinerja_data");

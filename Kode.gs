@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.07";
+var APP_VERSION = "2026.05.30.08";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14615,4 +14615,27 @@ getStatusAksesDisposisiModul = function (token) {
   } catch (e) {
     return handleError('getStatusAksesDisposisiModul_v35', e, { sukses: false, boleh: false, bolehInbox: false, bolehTerbit: false, pesan: '' });
   }
+};
+
+
+
+// ===== PATCH v2026.05.12.36: Sembunyikan Panel WhatsApp Penerbitan untuk Non-Penerbit =====
+// Koreksi lanjutan v35:
+// - Menu Disposisi boleh tampil untuk semua pegawai.
+// - Namun panel hasil penerbitan/WhatsApp hanya boleh tampil untuk Lurah/operator aktif.
+// - Backend menandai setiap response simpanDisposisiSurat dengan canPublishDisposisi.
+// - Data pending WhatsApp lama di browser non-penerbit harus dibersihkan oleh frontend.
+
+var simpanDisposisiSurat__SEBELUM_FLAG_PUBLISH_2026051236 = simpanDisposisiSurat;
+simpanDisposisiSurat = function (payload, token) {
+  var res = simpanDisposisiSurat__SEBELUM_FLAG_PUBLISH_2026051236(payload, token);
+  try {
+    var idUser = validasiSession(token);
+    var boleh = cekHakAksesDisposisiTerbit_(idUser);
+    if (res && typeof res === 'object') {
+      res.canPublishDisposisi = !!boleh;
+      res.pesanWhatsAppKhususPenerbit = true;
+    }
+  } catch (e) { }
+  return res;
 };
