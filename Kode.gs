@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.05";
+var APP_VERSION = "2026.05.30.06";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14415,3 +14415,91 @@ function cariLogErrorSubmitKinerjaV33(errorId, token) {
     return handleError('cariLogErrorSubmitKinerjaV33', e, { sukses: false, pesan: '', items: [] });
   }
 }
+
+
+
+// ===== PATCH v2026.05.12.34: Batasi Akses Modul Disposisi =====
+// Kebijakan:
+// - Modul Disposisi Surat hanya boleh dibuka oleh Lurah dan Operator Disposisi aktif.
+// - Carik/Admin Kinerja tidak otomatis boleh membuka modul Disposisi.
+// - Pegawai biasa tetap dapat membuat laporan dari disposisi melalui notifikasi/riwayat yang memang menjadi haknya,
+//   tetapi tidak mendapat halaman penerbitan/manajemen Disposisi Surat.
+
+function cekHakAksesDisposisiModul_(idUser) {
+  if (!idUser) return false;
+  if (cekHakAksesLurahDisposisi_(idUser)) return true;
+  return isOperatorDisposisiAktif_(idUser);
+}
+
+function getStatusAksesDisposisiModul(token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, boleh: false, pesan: 'Sesi habis. Silakan login ulang.' };
+
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai) return { sukses: false, boleh: false, pesan: 'Data pegawai tidak ditemukan.' };
+
+    var isLurah = cekHakAksesLurahDisposisi_(idUser);
+    var isOperator = isOperatorDisposisiAktif_(idUser);
+    var petugasAktif = getPetugasDisposisiAktif_();
+
+    return {
+      sukses: true,
+      boleh: !!(isLurah || isOperator),
+      isLurahDisposisi: !!isLurah,
+      isOperatorDisposisiAktif: !!isOperator,
+      jabatan: pegawai.jabatan || '',
+      nama: pegawai.nama || '',
+      petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
+      pesan: (isLurah || isOperator)
+        ? 'Akses Disposisi diizinkan.'
+        : 'Akses Disposisi ditolak. Modul ini hanya untuk Lurah dan Operator Disposisi aktif.'
+    };
+  } catch (e) {
+    return handleError('getStatusAksesDisposisiModul', e, { sukses: false, boleh: false, pesan: '' });
+  }
+}
+
+var getDisposisiBootstrap__SEBELUM_AKSES_KHUSUS_2026051234 = getDisposisiBootstrap;
+getDisposisiBootstrap = function (token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, aksesDitolak: true, pesan: 'Sesi habis. Silakan login ulang.' };
+
+    if (!cekHakAksesDisposisiModul_(idUser)) {
+      var pegawai = getPegawaiById_(idUser) || {};
+      logDisposisi_('', 'AKSES_MODUL_DITOLAK', idUser, 'Mencoba membuka modul Disposisi Surat tanpa hak akses.', {
+        alasan: 'Hanya Lurah dan Operator Disposisi aktif yang boleh membuka modul Disposisi Surat.',
+        detailJson: {
+          nama: pegawai.nama || '',
+          jabatan: pegawai.jabatan || ''
+        }
+      });
+      return {
+        sukses: false,
+        aksesDitolak: true,
+        pesan: 'Akses ditolak. Modul Disposisi Surat hanya untuk Lurah dan Operator Disposisi aktif.'
+      };
+    }
+
+    return getDisposisiBootstrap__SEBELUM_AKSES_KHUSUS_2026051234(token);
+  } catch (e) {
+    return handleError('getDisposisiBootstrap_v34', e, { sukses: false, pesan: 'Gagal memuat modul disposisi.' });
+  }
+};
+
+// Pengaman tambahan untuk daftar pegawai target disposisi.
+// Sebelumnya fungsi ini hanya perlu session valid. Sekarang harus Lurah/operator aktif.
+var ambilDaftarPegawaiAktifUntukDisposisi__SEBELUM_AKSES_KHUSUS_2026051234 = ambilDaftarPegawaiAktifUntukDisposisi;
+ambilDaftarPegawaiAktifUntukDisposisi = function (token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', data: [] };
+    if (!cekHakAksesDisposisiModul_(idUser)) {
+      return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah dan Operator Disposisi aktif.', data: [] };
+    }
+    return { sukses: true, data: getDaftarPegawaiAktifUntukDisposisiInternal_() };
+  } catch (e) {
+    return handleError('ambilDaftarPegawaiAktifUntukDisposisi_v34', e, { sukses: false, pesan: '', data: [] });
+  }
+};

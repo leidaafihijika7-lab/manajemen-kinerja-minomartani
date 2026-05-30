@@ -4374,7 +4374,7 @@
       REGULER: "SUB2_REG",
       KOORD_APB_CARIK: "SUB2_KOORD_APB_CARIK"
     };
-    var sToken = ""; var sData = { nama: "", jabatan: "" };
+    var sToken = ""; var sData = { nama: "", jabatan: "" }; var disposisiAccessStatus = { loaded:false, boleh:false, isLurahDisposisi:false, isOperatorDisposisiAktif:false };
     var APP_VERSION_KEY = "kinerja_app_version";
     var APP_VERSION_INTERVAL_MS = 120000; // cek tiap 2 menit
     var APP_PENDING_VERSION_KEY = "kinerja_pending_version";
@@ -5022,7 +5022,10 @@
         isCarikTunjangan: res.isCarikTunjangan === true,
         isLurahTunjangan: res.isLurahTunjangan === true,
         isBendaharaDanarta: res.isBendaharaDanarta === true,
-        canAccessTunjangan: res.canAccessTunjangan === true
+        canAccessTunjangan: res.canAccessTunjangan === true,
+        isLurahDisposisi: res.isLurahDisposisi === true,
+        isOperatorDisposisiAktif: res.isOperatorDisposisiAktif === true,
+        canAccessDisposisi: res.canAccessDisposisi === true
       };
     }
     var notifLaporanWajibAktif = null;
@@ -5579,12 +5582,67 @@
     var currentSetujuAdminId = null;
     var currentSetujuAdminPoin = 0;
 
+    function userIsLurahDisposisiLocal_() {
+      var jab = ((sData && sData.jabatan) || '').toString().toLowerCase();
+      return /\blurah\b/.test(jab) && jab.indexOf('dukuh') === -1;
+    }
+
     function userCanAccessDisposisi() {
-      return !!(sToken && sData && sData.nama);
+      if (!sToken || !sData || !sData.nama) return false;
+      if (userIsLurahDisposisiLocal_()) return true;
+      if (sData.canAccessDisposisi === true || sData.isOperatorDisposisiAktif === true) return true;
+      return !!(disposisiAccessStatus && disposisiAccessStatus.boleh === true);
+    }
+
+    function renderAksesDisposisiDitolak_() {
+      var sum = document.getElementById('disposisiSummary');
+      var body = document.getElementById('disposisiBody');
+      var pesan = 'Akses ditolak. Modul Disposisi Surat hanya untuk Lurah dan Operator Disposisi aktif.';
+      if (sum) sum.innerHTML = '<span class="badge bg-red">Akses Ditolak</span> ' + escapeHTML(pesan);
+      if (body) {
+        body.innerHTML =
+          '<div class="disposisi-empty" style="border-left:5px solid #dc2626; text-align:left;">' +
+          '<b>Modul Disposisi tidak tersedia untuk akun ini.</b><br>' +
+          '<small>Carik/Admin Kinerja tidak otomatis mendapat akses Disposisi. Hubungi Lurah jika akun ini perlu ditetapkan sebagai Operator Disposisi.</small>' +
+          '</div>';
+      }
+    }
+
+    function refreshAksesDisposisiModul_(callback) {
+      if (!sToken || !window.google || !google.script || !google.script.run) {
+        if (typeof callback === 'function') callback(false);
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          disposisiAccessStatus = res || { loaded:true, boleh:false };
+          disposisiAccessStatus.loaded = true;
+          if (res && res.sukses) {
+            sData.isLurahDisposisi = res.isLurahDisposisi === true;
+            sData.isOperatorDisposisiAktif = res.isOperatorDisposisiAktif === true;
+            sData.canAccessDisposisi = res.boleh === true;
+            try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
+          }
+          aturMenuRoleVisibility();
+          if (typeof callback === 'function') callback(!!(res && res.boleh));
+        })
+        .withFailureHandler(function () {
+          disposisiAccessStatus = { loaded:true, boleh:false };
+          aturMenuRoleVisibility();
+          if (typeof callback === 'function') callback(false);
+        })
+        .getStatusAksesDisposisiModul(sToken);
     }
 
     function muatDisposisiHalaman(force) {
-      if (!userCanAccessDisposisi()) return;
+      if (!userCanAccessDisposisi()) {
+        renderAksesDisposisiDitolak_();
+        refreshAksesDisposisiModul_(function (boleh) {
+          if (boleh) muatDisposisiHalaman(true);
+        });
+        return;
+      }
       var sum = document.getElementById('disposisiSummary');
       var body = document.getElementById('disposisiBody');
       if (sum) sum.innerHTML = '<span class="badge bg-yellow">Memuat</span> Menyiapkan modul disposisi surat...';
@@ -5593,6 +5651,12 @@
       google.script.run
         .withSuccessHandler(function (res) {
           disposisiBootstrap = res || null;
+          if (res && res.aksesDitolak) {
+            disposisiAccessStatus = { loaded:true, boleh:false };
+            sData.canAccessDisposisi = false;
+            sData.isOperatorDisposisiAktif = false;
+            aturMenuRoleVisibility();
+          }
           renderDisposisiHalaman_(res);
         })
         .withFailureHandler(function (err) {
@@ -5799,6 +5863,7 @@
               var jCheck = (res.jabatan || "").toLowerCase();
 
               aturMenuRoleVisibility();
+              refreshAksesDisposisiModul_();
               document.getElementById('halamanLogin').style.display = "none";
               document.getElementById('aplikasiUtama').style.display = "flex";
               muatDashboard();
@@ -5840,6 +5905,7 @@
       hapusMemori("kinerja_data");
       sToken = "";
       sData = { nama: "", jabatan: "" };
+      disposisiAccessStatus = { loaded:false, boleh:false, isLurahDisposisi:false, isOperatorDisposisiAktif:false };
 
       document.getElementById('inputUsername').value = "";
       document.getElementById('inputPin').value = "";
@@ -6378,6 +6444,14 @@
       if (window.innerWidth <= 768 && document.activeElement &&
         (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
         document.activeElement.blur();
+      }
+
+      if (id === 'halDisposisi' && !userCanAccessDisposisi()) {
+        renderAksesDisposisiDitolak_();
+        refreshAksesDisposisiModul_(function (boleh) {
+          if (boleh) bukaHalaman(e, id, judul);
+        });
+        return;
       }
 
       if (_halamanAktif === id && id !== 'halDash') return;
@@ -12687,6 +12761,7 @@
         setSapaanDashboard();
         var jCheck = (sData.jabatan || "").toLowerCase();
         aturMenuRoleVisibility();
+        refreshAksesDisposisiModul_();
         document.getElementById('halamanLogin').style.display = "none";
         document.getElementById('aplikasiUtama').style.display = "";
         document.getElementById('aplikasiUtama').style.display = "flex";
