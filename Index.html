@@ -9176,7 +9176,7 @@
         '<div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">' +
         '<span class="badge bg-gray">Pegawai: ' + escapeHTML(adminReviewAktifPegawai.nama || '-') + '</span>' +
         '<span class="badge bg-gray">Jabatan: ' + escapeHTML(adminReviewAktifPegawai.jabatan || '-') + '</span>' +
-        '<span class="badge bg-gray">Rentang: ' + escapeHTML(labelRentang) + '</span>' +
+        '<span class="badge bg-gray">Pelaksanaan: ' + escapeHTML(labelRentang) + '</span>' +
         '<span class="badge bg-gray">Total: ' + totalAll + '</span>' +
         '<span class="badge bg-yellow">Menunggu: ' + totalPending + '</span>' +
         '<span class="badge bg-green">Selesai: ' + totalDone + '</span>' +
@@ -13599,7 +13599,7 @@
           '<span class="badge bg-green">Sudah Tepat Waktu: ' + Number(item.totalTepatWaktu || 0) + '</span>' +
           '<span class="badge bg-red">Lapor Terlambat: ' + Number(item.totalLaporTerlambat || 0) + '</span>' +
           '<span class="badge bg-green">Sudah Lapor: ' + Number(item.totalSudah || 0) + '</span>' +
-          '<span class="badge bg-gray">Rentang: ' + escapeHTML(item.tanggalMulai || '-') + ' s/d ' + escapeHTML(item.tanggalSelesai || '-') + '</span>' +
+          '<span class="badge bg-gray">Pelaksanaan: ' + escapeHTML(item.tanggalMulai || '-') + ' s/d ' + escapeHTML(item.tanggalSelesai || '-') + '</span>' +
           '<span class="badge bg-gray">Batas laporan: ' + escapeHTML(item.batasLapor || '-') + '</span>' +
           ((item.periodePelaporanDitutup) ? '<span class="badge bg-red">Pelaporan Ditutup: ' + escapeHTML(item.periodePelaporanLabel || '-') + '</span>' : '') +
           '</div>' +
@@ -13900,8 +13900,8 @@
         '<div class="form-group" style="grid-column: span 2;"><label>Perihal</label><input type="text" id="dPerihal" placeholder="Ketik perihal disposisi..."></div>' +
         '<div class="form-group" style="grid-column: span 2;"><label>Isi Ringkas Instruksi</label><textarea id="dIsiInstruksi" rows="3" placeholder="Tuliskan instruksi singkat dari Lurah..."></textarea></div>' +
         '<div class="form-group"><label>' + escapeHTML(lampiranLabel) + '</label><input type="file" id="dFileDisposisi" accept="image/*,application/pdf"></div>' +
-        '<div class="form-group"><label>Tanggal Mulai</label><input type="date" id="dTanggalMulai"></div>' +
-        '<div class="form-group"><label>Tanggal Selesai / Batas Pelaporan</label><input type="date" id="dTanggalSelesai"></div>' +
+        '<div class="form-group"><label>Tanggal Pelaksanaan Kegiatan</label><input type="date" id="dTanggalMulai" onchange="aturDefaultBatasLaporanDisposisiV39_()"></div>' +
+        '<div class="form-group"><label>Tanggal Batas Laporan</label><input type="date" id="dTanggalSelesai"><small style="display:block; margin-top:5px; color:var(--text-muted);">Default otomatis H+3 dari tanggal pelaksanaan, dapat disesuaikan bila perlu.</small></div>' +
         '<div class="form-group" id="dTargetPegawaiWrap" style="grid-column: span 2;">' +
         '<label>Penerima Disposisi</label>' +
         '<div id="dSemuaPegawaiWrap" class="disposisi-target-toggle-all"><input type="checkbox" id="dSemuaPegawai" checked onchange="setAllDisposisiTarget_(this.checked)"><span>Semua Pegawai</span></div>' +
@@ -13914,7 +13914,7 @@
         '<div id="dTargetSummary" class="disposisi-target-summary"></div>' +
         '</div>' +
         '</div>' +
-        '<div id="disposisiTargetPreview" class="disposisi-muted-box"></div>' +
+        '<div id="disposisiTargetPreview" class="disposisi-muted-box"></div><div class="disposisi-muted-box" style="margin-top:10px;"><b>Aturan batas laporan:</b> sistem otomatis mengisi Tanggal Batas Laporan H+3 dari Tanggal Pelaksanaan Kegiatan. Tanggal ini menjadi batas akhir laporan pukul 23:59 WIB.</div>' +
         '<div id="disposisiSaveMsg" class="disposisi-muted-box" style="margin-top:10px;"><span class="badge bg-gray">Siap</span> Lengkapi form dan unggah dokumen surat, lalu klik Terbitkan Disposisi. Nomor referensi akan dibuat otomatis oleh sistem.</div>' +
         '<button type="button" id="btnSimpanDisposisi" class="btn-submit" style="margin-top:14px;" onclick="simpanDisposisiSuratUI_()">' + labelTombolSimpanDisposisi_() + '</button>' +
         '</div>';
@@ -13959,6 +13959,27 @@
         .simpanPetugasDisposisi({ pegawaiId: petugasId, catatan: catatan }, sToken);
     }
 
+
+    // ===== PATCH v2026.05.12.39: default Tanggal Batas Laporan H+3 =====
+    function tambahHariIsoClientV39_(isoDate, days) {
+      if (!isoDate) return '';
+      var p = String(isoDate).split('-');
+      if (p.length !== 3) return '';
+      var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      if (isNaN(d.getTime())) return '';
+      d.setDate(d.getDate() + Number(days || 0));
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function aturDefaultBatasLaporanDisposisiV39_(force) {
+      var pel = document.getElementById('dTanggalMulai');
+      var batas = document.getElementById('dTanggalSelesai');
+      if (!pel || !batas || !pel.value) return;
+      if (!force && batas.value) return;
+      batas.value = tambahHariIsoClientV39_(pel.value, 3);
+    }
+
+
     async function simpanDisposisiSuratUI_() {
       if (!userCanAccessDisposisi()) return;
       var role = disposisiRoleFlags_();
@@ -13980,7 +14001,7 @@
       var catatanOperator = ((document.getElementById('dCatatanOperator') || {}).value || '').trim();
 
       if (!tanggal || !perihal.trim() || !isi.trim() || !tanggalMulai || !tanggalSelesai) {
-        if (msg) msg.innerHTML = '<span class="badge bg-red">Validasi</span> Lengkapi seluruh field wajib disposisi.';
+        if (msg) msg.innerHTML = '<span class="badge bg-red">Validasi</span> Lengkapi seluruh field wajib disposisi, termasuk Tanggal Pelaksanaan Kegiatan dan Tanggal Batas Laporan.';
         return;
       }
       if (!file) {
@@ -13998,7 +14019,9 @@
         perihal: perihal.trim(),
         isiInstruksi: isi.trim(),
         tanggalMulai: tanggalMulai,
+        tanggalPelaksanaan: tanggalMulai,
         tanggalSelesai: tanggalSelesai,
+        tanggalBatasLaporan: tanggalSelesai,
         penerimaIds: penerimaIds,
         pilihSemuaPegawai: jenis === 'TUGAS_UMUM' ? pilihSemuaPegawai : false,
         nomorLembarManual: nomorLembarManual,
@@ -14188,7 +14211,7 @@
         var dt4 = document.getElementById('dTanggalLembarManual');
         if (dt1 && !dt1.value) dt1.value = iso;
         if (dt2 && !dt2.value) dt2.value = iso;
-        if (dt3 && !dt3.value) dt3.value = iso;
+        if (dt3 && !dt3.value) dt3.value = tambahHariIsoClientV39_(dt2 && dt2.value ? dt2.value : iso, 3);
         if (dt4 && !dt4.value) dt4.value = iso;
         setDisposisiJenisUI_();
       }

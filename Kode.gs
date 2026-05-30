@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.10";
+var APP_VERSION = "2026.05.30.11";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -15223,3 +15223,91 @@ tandaiDisposisiSudahDibuka = function (idDisposisi, token) {
   try { if (res && res.sukses) invalidasiCacheDisposisiV38_(); } catch (e) {}
   return res;
 };
+
+
+
+// ===== PATCH v2026.05.12.39: Disposisi H+3 dari Tanggal Pelaksanaan =====
+// Kebijakan final:
+// - tanggal_mulai pada sheet tetap dipakai sebagai Tanggal Pelaksanaan Kegiatan.
+// - tanggal_selesai pada sheet dipakai sebagai Tanggal Batas Laporan.
+// - Default Tanggal Batas Laporan = Tanggal Pelaksanaan Kegiatan + 3 hari.
+// - Status terlambat/belum lapor memakai tanggal_selesai sebagai batas final pukul 23:59.
+// Catatan kompatibilitas:
+// - Nama kolom sheet tidak diubah agar tidak merusak data lama.
+// - Label UI dan pesan WhatsApp diperjelas.
+
+function tambahHariTanggalDisposisiV39_(tanggal, jumlahHari) {
+  var d = parseTanggalKosongAman_(tanggal);
+  if (!d) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + Number(jumlahHari || 0), 0, 0, 0, 0);
+}
+
+function tanggalBatasLaporanDefaultDisposisiV39_(tanggalPelaksanaan) {
+  return tambahHariTanggalDisposisiV39_(tanggalPelaksanaan, 3);
+}
+
+function batasLaporDisposisi_(tanggalBatasLaporan) {
+  var d = parseTanggalKosongAman_(tanggalBatasLaporan);
+  if (!d) return null;
+  // v39: tanggal_selesai sudah berarti Tanggal Batas Laporan, bukan akhir pelaksanaan + H+2.
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
+function formatBatasLaporDisposisi_(tanggalBatasLaporan) {
+  var batas = batasLaporDisposisi_(tanggalBatasLaporan);
+  return batas ? formatTanggalIndonesiaDisposisi_(batas, true) : '-';
+}
+
+function isoBatasLaporDisposisi_(tanggalBatasLaporan) {
+  var batas = batasLaporDisposisi_(tanggalBatasLaporan);
+  if (!batas) return '';
+  return Utilities.formatDate(batas, 'GMT+7', "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+// Override simpan disposisi agar tanggal batas laporan otomatis H+3 bila payload tidak valid/kosong.
+// Jika operator mengubah tanggal batas laporan secara manual, tanggal tersebut tetap dihormati.
+var simpanDisposisiSurat__SEBELUM_H3_LABEL_2026051239 = simpanDisposisiSurat;
+simpanDisposisiSurat = function (payload, token) {
+  payload = payload || {};
+  var tglPelaksanaan = parseTanggalKosongAman_(payload.tanggalMulai || payload.tanggalPelaksanaan || payload.tanggalKegiatan);
+  var tglBatas = parseTanggalKosongAman_(payload.tanggalSelesai || payload.tanggalBatasLaporan);
+
+  if (tglPelaksanaan && !tglBatas) {
+    var def = tanggalBatasLaporanDefaultDisposisiV39_(tglPelaksanaan);
+    if (def) {
+      payload.tanggalSelesai = Utilities.formatDate(def, 'GMT+7', 'yyyy-MM-dd');
+      payload.tanggalBatasLaporan = payload.tanggalSelesai;
+    }
+  }
+
+  var res = simpanDisposisiSurat__SEBELUM_H3_LABEL_2026051239(payload, token);
+  try { if (res && res.sukses && typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (e) {}
+  return res;
+};
+
+// Override pembuat pesan WA agar istilahnya tidak lagi "Pelaksanaan s.d. tanggal selesai".
+function buatPesanWhatsAppDisposisiPersonal_(info, penerima) {
+  info = info || {};
+  penerima = penerima || {};
+  var jenisLabel = (info.jenis || '').toString() === 'TUGAS_PIMPINAN' ? 'Tugas Pimpinan' : 'Tugas Umum';
+  var pemberi = (info.pemberiNama || 'Lurah').toString();
+  var perihal = (info.perihal || '-').toString();
+  var tanggalPelaksanaan = info.tanggalMulai ? formatTanggalIndonesiaDisposisi_(info.tanggalMulai, false) : '-';
+  var batasLapor = info.batasLapor ? formatTanggalIndonesiaDisposisi_(info.batasLapor, true) : (info.tanggalSelesai ? formatBatasLaporDisposisi_(info.tanggalSelesai) : '-');
+  var nama = (penerima.nama || '').toString().trim();
+
+  return [
+    nama ? ('Yth. Bapak/Ibu ' + nama + ',') : 'Yth. Bapak/Ibu penerima disposisi,',
+    '',
+    'Anda menerima disposisi dari ' + pemberi + '.',
+    '',
+    'Perihal: ' + perihal,
+    'Jenis: ' + jenisLabel,
+    'Tanggal pelaksanaan kegiatan: ' + tanggalPelaksanaan,
+    'Batas laporan: ' + batasLapor,
+    '',
+    'Mohon membuka Portal Kinerja untuk membaca detail disposisi, melihat dokumen surat, klik Tandai Dibuka, dan membuat laporan tindak lanjut melalui tombol Buat Laporan dari Disposisi.',
+    '',
+    'Terima kasih.'
+  ].join('\n');
+}
