@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.09";
+var APP_VERSION = "2026.05.30.10";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14822,4 +14822,404 @@ ambilTimelinePublik = function (token, offset, limit) {
   } catch (e) {
     return handleError('ambilTimelinePublik_v37', e, { sukses: false, pesan: 'Gagal memuat timeline.', items: [], nextOffset: 0, hasMore: false, totalApproved: 0 });
   }
+};
+
+
+
+// ===== PATCH v2026.05.12.38: Optimasi Bootstrap Disposisi Surat =====
+// Fokus:
+// - Menu Disposisi tidak lagi memuat semua data berat untuk akun biasa.
+// - Akun biasa hanya memuat Disposisi Saya.
+// - Lurah/operator baru memuat pegawai target dan daftar disposisi yang diterbitkan.
+// - Sheet Disposisi dibaca memakai cache singkat.
+// - Pencarian laporan terkait disposisi memakai index Rekap_Kinerja sekali,
+//   bukan scan Rekap_Kinerja berulang untuk setiap disposisi.
+
+function disposisiCacheTtlV38_() {
+  return 90; // detik; cukup untuk mempercepat buka menu, tetap cepat berubah setelah update.
+}
+
+function getDisposisiSheetValuesCachedV38_(sheetName, headers) {
+  var cache = CacheService.getScriptCache();
+  var key = 'DISPOSISI_VALUES_V38_' + sheetName;
+  var cached = cache.get(key);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) {}
+  }
+
+  var sh = getSS_().getSheetByName(sheetName);
+  if (!sh) {
+    // Jika sheet belum ada, baru ensure. Pada kondisi normal tidak perlu ensure setiap buka menu.
+    if (sheetName === 'Disposisi_Surat') sh = ensureSheetDisposisiSurat_();
+    else if (sheetName === 'Disposisi_Penerima') sh = ensureSheetDisposisiPenerima_();
+    else if (sheetName === 'Disposisi_Petugas') sh = ensureSheetDisposisiPetugas_();
+    else sh = getSS_().insertSheet(sheetName);
+  }
+
+  var values = sh.getDataRange().getValues();
+  try { cache.put(key, JSON.stringify(values), disposisiCacheTtlV38_()); } catch (e2) {}
+  return values;
+}
+
+function invalidasiCacheDisposisiV38_() {
+  var cache = CacheService.getScriptCache();
+  ['Disposisi_Surat', 'Disposisi_Penerima', 'Disposisi_Petugas'].forEach(function (name) {
+    try { cache.remove('DISPOSISI_VALUES_V38_' + name); } catch (e) {}
+  });
+}
+
+function ambilSemuaSuratDisposisiCachedV38_() {
+  var data = getDisposisiSheetValuesCachedV38_('Disposisi_Surat', DISPOSISI_SURAT_HEADERS);
+  var rows = [];
+  var C = SHEET_COLUMNS.DISPOSISI_SURAT;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i] || [];
+    if (!row[C.ID_DISPOSISI]) continue;
+    rows.push({
+      id_disposisi: normalizeId_(row[C.ID_DISPOSISI]),
+      nomor_disposisi: (row[C.NOMOR_DISPOSISI] || '').toString(),
+      tanggal_disposisi: row[C.TANGGAL_DISPOSISI] || '',
+      jenis_disposisi: (row[C.JENIS_DISPOSISI] || '').toString(),
+      perihal: (row[C.PERIHAL] || '').toString(),
+      isi_ringkas_instruksi: (row[C.ISI_RINGKAS_INSTRUKSI] || '').toString(),
+      pemberi_id: normalizeId_(row[C.PEMBERI_ID]),
+      pemberi_nama: (row[C.PEMBERI_NAMA] || '').toString(),
+      pemberi_jabatan: (row[C.PEMBERI_JABATAN] || '').toString(),
+      lampiran_url: safeHttpUrlServer_(row[C.LAMPIRAN_URL]),
+      lampiran_nama: (row[C.LAMPIRAN_NAMA] || '').toString(),
+      tanggal_mulai: row[C.TANGGAL_MULAI] || '',
+      tanggal_selesai: row[C.TANGGAL_SELESAI] || '',
+      status_disposisi: (row[C.STATUS_DISPOSISI] || '').toString(),
+      dibuat_pada: row[C.DIBUAT_PADA] || '',
+      diubah_pada: row[C.DIUBAH_PADA] || '',
+      sumber_disposisi: (row[C.SUMBER_DISPOSISI] || '').toString(),
+      nomor_lembar_manual: (row[C.NOMOR_LEMBAR_MANUAL] || '').toString(),
+      tanggal_lembar_manual: row[C.TANGGAL_LEMBAR_MANUAL] || '',
+      diinput_oleh_id: normalizeId_(row[C.DIINPUT_OLEH_ID]),
+      diinput_oleh_nama: (row[C.DIINPUT_OLEH_NAMA] || '').toString(),
+      diinput_oleh_jabatan: (row[C.DIINPUT_OLEH_JABATAN] || '').toString(),
+      diinput_pada: row[C.DIINPUT_PADA] || '',
+      mode_input: (row[C.MODE_INPUT] || '').toString(),
+      catatan_operator: (row[C.CATATAN_OPERATOR] || '').toString()
+    });
+  }
+  return rows;
+}
+
+function ambilSemuaPenerimaDisposisiCachedV38_() {
+  var data = getDisposisiSheetValuesCachedV38_('Disposisi_Penerima', DISPOSISI_PENERIMA_HEADERS);
+  var rows = [];
+  var C = SHEET_COLUMNS.DISPOSISI_PENERIMA;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i] || [];
+    if (!row[C.ID_DISPOSISI] || !row[C.ID_PENERIMA]) continue;
+    rows.push({
+      rowIndex: i + 1,
+      id_disposisi: normalizeId_(row[C.ID_DISPOSISI]),
+      id_penerima: normalizeId_(row[C.ID_PENERIMA]),
+      nama_penerima: (row[C.NAMA_PENERIMA] || '').toString(),
+      jabatan_penerima: (row[C.JABATAN_PENERIMA] || '').toString(),
+      mode_penerima: (row[C.MODE_PENERIMA] || '').toString(),
+      status_baca: (row[C.STATUS_BACA] || '').toString(),
+      status_tindak_lanjut: (row[C.STATUS_TINDAK_LANJUT] || '').toString(),
+      id_laporan_terkait: normalizeId_(row[C.ID_LAPORAN_TERKAIT]),
+      waktu_lapor: row[C.WAKTU_LAPOR] || '',
+      catatan_tindak_lanjut: (row[C.CATATAN_TINDAK_LANJUT] || '').toString(),
+      dibuat_pada: row[C.DIBUAT_PADA] || '',
+      diubah_pada: row[C.DIUBAH_PADA] || ''
+    });
+  }
+  return rows;
+}
+
+function getPetugasDisposisiAktifCachedV38_() {
+  var data = getDisposisiSheetValuesCachedV38_('Disposisi_Petugas', DISPOSISI_PETUGAS_HEADERS);
+  if (!data || data.length < 2) return null;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var item = rowPetugasDisposisiToObject_(data[i], i + 1);
+    if (statusPetugasDisposisiAktif_(item.statusPetugas) && item.pegawaiId) return item;
+  }
+  return null;
+}
+
+function jumlahPegawaiAktifUntukDisposisiV38_() {
+  var data = getPegawaiDataCached_() || [];
+  var n = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (!data[i][SHEET_COLUMNS.DATA_PEGAWAI.ID]) continue;
+    var statusPegawai = (data[i][SHEET_COLUMNS.DATA_PEGAWAI.STATUS] || '').toString().trim().toLowerCase();
+    if (statusPegawai && statusPegawai !== 'aktif') continue;
+    var jabatan = (data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN] || '').toString();
+    if (isLurah_(jabatan)) continue;
+    n++;
+  }
+  return n;
+}
+
+function buatIndexLaporanDisposisiUserV38_(idUser) {
+  var userKey = normalizeId_(idUser);
+  var byIdLaporan = {};
+  var byIdDisposisi = {};
+  if (!userKey) return { byIdLaporan: byIdLaporan, byIdDisposisi: byIdDisposisi };
+
+  var data = getRekapKinerjaValuesReadOnly_();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowUser = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
+    if (!idsEqual_(rowUser, userKey)) continue;
+
+    var item = buildLaporanTerkaitDisposisiFromRow_(data[i]);
+    var idLap = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
+    var idDisp = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_DISPOSISI]);
+
+    if (idLap && !byIdLaporan[idLap]) byIdLaporan[idLap] = item;
+    if (idDisp && !byIdDisposisi[idDisp]) byIdDisposisi[idDisp] = item;
+  }
+
+  return { byIdLaporan: byIdLaporan, byIdDisposisi: byIdDisposisi };
+}
+
+function laporanTerkaitDisposisiFromIndexV38_(penerima, index) {
+  penerima = penerima || {};
+  index = index || { byIdLaporan: {}, byIdDisposisi: {} };
+  var idLap = normalizeId_(penerima.id_laporan_terkait);
+  var idDisp = normalizeId_(penerima.id_disposisi);
+  return (idLap && index.byIdLaporan[idLap]) || (idDisp && index.byIdDisposisi[idDisp]) || null;
+}
+
+function ambilDisposisiSayaOptimizedV38_(idUser, suratRows, penerimaRows, laporanIndex) {
+  var suratMap = {};
+  (suratRows || []).forEach(function (s) { suratMap[normalizeId_(s.id_disposisi)] = s; });
+
+  return (penerimaRows || [])
+    .filter(function (p) { return idsEqual_(p.id_penerima, idUser); })
+    .map(function (p) {
+      var s = suratMap[normalizeId_(p.id_disposisi)] || {};
+      var laporanTerkait = laporanTerkaitDisposisiFromIndexV38_(p, laporanIndex);
+      var sudahLapor = penerimaDisposisiSudahLapor_(p, laporanTerkait);
+      var pStatus = penerimaDisposisiUntukStatusLapor_(p, laporanTerkait);
+      var ts = parseTanggalKosongAman_(s.dibuat_pada) || parseTanggalKosongAman_(s.tanggal_disposisi);
+      var aksiLaporan = 'BUAT';
+
+      if (sudahLapor) {
+        if (laporanTerkait && laporanTerkait.idLaporan) {
+          aksiLaporan = laporanTerkait.bisaPerbaiki ? 'PERBAIKI' : 'LIHAT';
+        } else {
+          aksiLaporan = 'PERBAIKI';
+        }
+      }
+
+      var statusLapor = hitungStatusLaporDisposisi_(s, pStatus);
+      var cutoffPelaporan = cutoffPelaporanDisposisi_(s);
+      if (cutoffPelaporan.periodeDitutup) {
+        if (aksiLaporan === 'BUAT') {
+          aksiLaporan = 'TERKUNCI_CUTOFF';
+        } else if (aksiLaporan === 'PERBAIKI') {
+          aksiLaporan = (laporanTerkait && laporanTerkait.idLaporan) ? 'LIHAT' : 'TERKUNCI_CUTOFF';
+        }
+      }
+
+      return {
+        idDisposisi: normalizeId_(p.id_disposisi),
+        nomor: s.nomor_disposisi || '-',
+        tanggal: formatTanggalIndonesiaDisposisi_(s.tanggal_disposisi, false),
+        jenis: s.jenis_disposisi || '-',
+        perihal: s.perihal || '-',
+        isiInstruksi: s.isi_ringkas_instruksi || '',
+        pemberiNama: s.pemberi_nama || '-',
+        pemberiJabatan: s.pemberi_jabatan || '-',
+        lampiranUrl: safeHttpUrlServer_(s.lampiran_url),
+        lampiranNama: s.lampiran_nama || '',
+        statusBaca: p.status_baca || DISPOSISI_BACA.BARU,
+        statusTindakLanjut: pStatus.status_tindak_lanjut || DISPOSISI_TINDAK.BELUM,
+        tanggalMulai: formatTanggalIndonesiaDisposisi_(s.tanggal_mulai, false),
+        tanggalSelesai: formatTanggalIndonesiaDisposisi_(s.tanggal_selesai, false),
+        batasLapor: statusLapor.batasLabel,
+        batasLaporIso: statusLapor.batasIso,
+        periodePelaporan: cutoffPelaporan.periode || '',
+        periodePelaporanLabel: cutoffPelaporan.periodeLabel || '',
+        periodePelaporanDitutup: !!cutoffPelaporan.periodeDitutup,
+        cutoffPelaporanLabel: cutoffPelaporan.cutoffLabel || '',
+        pesanPeriodeDitutup: cutoffPelaporan.pesan || '',
+        statusLaporCode: statusLapor.code,
+        statusLaporLabel: statusLapor.label,
+        isTerlambatLapor: statusLapor.terlambatBelumLapor,
+        laporanTerlambat: statusLapor.sudahTerlambat,
+        waktuLaporLabel: statusLapor.waktuLaporLabel,
+        statusDisposisi: s.status_disposisi || DISPOSISI_STATUS.TERBIT,
+        idLaporanTerkait: normalizeId_(pStatus.id_laporan_terkait),
+        laporanTerkaitStatus: laporanTerkait ? (laporanTerkait.status || '') : '',
+        laporanTerkaitWaktu: laporanTerkait ? (laporanTerkait.waktu || '') : '',
+        laporanTerkaitKategori: laporanTerkait ? (laporanTerkait.kategori || '') : '',
+        laporanTerkaitPoin: laporanTerkait ? Number(laporanTerkait.poinFinal || 0) : 0,
+        aksiLaporan: aksiLaporan,
+        _ts: ts ? ts.getTime() : 0
+      };
+    })
+    .sort(function (a, b) { return (b._ts || 0) - (a._ts || 0); });
+}
+
+function ambilDaftarDisposisiLurahOptimizedV38_(idUser, suratRows, penerimaRows) {
+  var grouped = {};
+  (penerimaRows || []).forEach(function (p) {
+    var key = normalizeId_(p.id_disposisi);
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(p);
+  });
+
+  return (suratRows || [])
+    .filter(function (r) { return idsEqual_(r.pemberi_id, idUser); })
+    .map(function (s) {
+      var arr = grouped[normalizeId_(s.id_disposisi)] || [];
+      var total = arr.length;
+      var dibuka = 0, sudah = 0, belum = 0, tepatWaktu = 0, laporTerlambat = 0, terlambatBelum = 0, terkunciCutoffBelum = 0;
+      var batasLapor = batasLaporDisposisi_(s.tanggal_selesai);
+      var cutoffPelaporan = cutoffPelaporanDisposisi_(s);
+
+      arr.forEach(function (p) {
+        if ((p.status_baca || '') === DISPOSISI_BACA.DIBUKA) dibuka++;
+        if ((p.status_tindak_lanjut || '') === DISPOSISI_TINDAK.SUDAH) sudah++;
+        else belum++;
+
+        var st = hitungStatusLaporDisposisi_(s, p);
+        if (st.code === 'SUDAH_TEPAT_WAKTU') tepatWaktu++;
+        else if (st.code === 'SUDAH_TERLAMBAT') laporTerlambat++;
+        else if (st.code === 'TERLAMBAT_LAPOR') terlambatBelum++;
+        if (cutoffPelaporan.periodeDitutup && st.code !== 'SUDAH_TEPAT_WAKTU' && st.code !== 'SUDAH_TERLAMBAT') terkunciCutoffBelum++;
+      });
+
+      return {
+        idDisposisi: normalizeId_(s.id_disposisi),
+        nomor: s.nomor_disposisi,
+        tanggal: formatTanggalIndonesiaDisposisi_(s.tanggal_disposisi, false),
+        jenis: s.jenis_disposisi,
+        perihal: s.perihal,
+        isiInstruksi: s.isi_ringkas_instruksi,
+        status: s.status_disposisi || DISPOSISI_STATUS.TERBIT,
+        lampiranUrl: safeHttpUrlServer_(s.lampiran_url),
+        lampiranNama: s.lampiran_nama,
+        tanggalMulai: formatTanggalIndonesiaDisposisi_(s.tanggal_mulai, false),
+        tanggalSelesai: formatTanggalIndonesiaDisposisi_(s.tanggal_selesai, false),
+        batasLapor: batasLapor ? formatTanggalIndonesiaDisposisi_(batasLapor, true) : '-',
+        batasLaporIso: batasLapor ? Utilities.formatDate(batasLapor, 'GMT+7', "yyyy-MM-dd'T'HH:mm:ss") : '',
+        periodePelaporan: cutoffPelaporan.periode || '',
+        periodePelaporanLabel: cutoffPelaporan.periodeLabel || '',
+        periodePelaporanDitutup: !!cutoffPelaporan.periodeDitutup,
+        cutoffPelaporanLabel: cutoffPelaporan.cutoffLabel || '',
+        pesanPeriodeDitutup: cutoffPelaporan.pesan || '',
+        sumberDisposisi: s.sumber_disposisi || '',
+        nomorLembarManual: s.nomor_lembar_manual || '',
+        tanggalLembarManual: formatTanggalIndonesiaDisposisi_(s.tanggal_lembar_manual, false),
+        diinputOlehNama: s.diinput_oleh_nama || '',
+        diinputOlehJabatan: s.diinput_oleh_jabatan || '',
+        diinputPada: formatTanggalIndonesiaDisposisi_(s.diinput_pada, true),
+        modeInput: s.mode_input || '',
+        catatanOperator: s.catatan_operator || '',
+        totalPenerima: total,
+        totalDibuka: dibuka,
+        totalBelum: belum,
+        totalSudah: sudah,
+        totalTepatWaktu: tepatWaktu,
+        totalLaporTerlambat: laporTerlambat,
+        totalTerlambatBelumLapor: terlambatBelum,
+        totalTerkunciCutoffBelumLapor: terkunciCutoffBelum,
+        penerimaIds: arr.map(function (p) { return normalizeId_(p.id_penerima); }),
+        penerimaList: arr.map(function (p) {
+          return {
+            id: normalizeId_(p.id_penerima),
+            nama: p.nama_penerima || '',
+            jabatan: p.jabatan_penerima || '',
+            statusBaca: p.status_baca || '',
+            statusTindakLanjut: p.status_tindak_lanjut || ''
+          };
+        }),
+        dibuatPadaTs: parseTanggalKosongAman_(s.dibuat_pada) ? parseTanggalKosongAman_(s.dibuat_pada).getTime() : 0
+      };
+    })
+    .sort(function (a, b) { return (b.dibuatPadaTs || 0) - (a.dibuatPadaTs || 0); });
+}
+
+var getDisposisiBootstrap__SEBELUM_OPTIMASI_2026051238 = getDisposisiBootstrap;
+getDisposisiBootstrap = function (token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai) return { sukses: false, pesan: 'Data pegawai tidak ditemukan.' };
+
+    var canManage = cekHakAksesLurahDisposisi_(idUser);
+    var petugasAktif = getPetugasDisposisiAktifCachedV38_();
+    var canOperateDisposisi = !canManage && !!(petugasAktif && idsEqual_(petugasAktif.pegawaiId, idUser));
+    var bolehTerbit = canManage || canOperateDisposisi;
+
+    var suratRows = ambilSemuaSuratDisposisiCachedV38_();
+    var penerimaRows = ambilSemuaPenerimaDisposisiCachedV38_();
+    var laporanIndex = buatIndexLaporanDisposisiUserV38_(idUser);
+    var disposisiSaya = ambilDisposisiSayaOptimizedV38_(idUser, suratRows, penerimaRows, laporanIndex);
+
+    // Optimasi utama: akun biasa tidak perlu memuat pegawaiList dan daftarLurah.
+    var pegawaiList = [];
+    var daftarLurah = [];
+    var jumlahPegawai = jumlahPegawaiAktifUntukDisposisiV38_();
+
+    if (bolehTerbit) {
+      pegawaiList = getDaftarPegawaiAktifUntukDisposisiInternal_();
+      var pemberiUntukDaftar = canManage ? idUser : (canOperateDisposisi && petugasAktif ? petugasAktif.ditetapkanOlehId : idUser);
+      daftarLurah = ambilDaftarDisposisiLurahOptimizedV38_(pemberiUntukDaftar, suratRows, penerimaRows);
+    }
+
+    return {
+      sukses: true,
+      canManage: canManage,
+      canOperateDisposisi: canOperateDisposisi,
+      canPublishDisposisi: bolehTerbit,
+      canInboxDisposisi: true,
+      petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
+      currentUser: {
+        id: normalizeId_(pegawai.id),
+        nama: pegawai.nama || '',
+        jabatan: pegawai.jabatan || '',
+        username: pegawai.username || ''
+      },
+      pegawaiAktif: jumlahPegawai,
+      pegawaiList: pegawaiList,
+      daftarLurah: daftarLurah,
+      disposisiSaya: disposisiSaya,
+      sheetStatus: {
+        surat: 'Disposisi_Surat',
+        penerima: 'Disposisi_Penerima',
+        log: 'Disposisi_Log',
+        petugas: 'Disposisi_Petugas'
+      },
+      tahap: '1D-v38-optimized',
+      pesanAkses: bolehTerbit
+        ? 'Akses penerbitan disposisi aktif.'
+        : 'Mode inbox pegawai. Data yang dimuat dibatasi agar lebih cepat.',
+      optimasiDisposisi: 'v2026.05.12.38'
+    };
+  } catch (e) {
+    return handleError('getDisposisiBootstrap_v38', e, { sukses: false, pesan: 'Gagal memuat modul disposisi.' });
+  }
+};
+
+// Invalidasi cache setelah write disposisi penting.
+var simpanDisposisiSurat__SEBELUM_INVALIDASI_CACHE_2026051238 = simpanDisposisiSurat;
+simpanDisposisiSurat = function (payload, token) {
+  var res = simpanDisposisiSurat__SEBELUM_INVALIDASI_CACHE_2026051238(payload, token);
+  try { if (res && res.sukses) invalidasiCacheDisposisiV38_(); } catch (e) {}
+  return res;
+};
+
+var simpanPetugasDisposisi__SEBELUM_INVALIDASI_CACHE_2026051238 = simpanPetugasDisposisi;
+simpanPetugasDisposisi = function (payload, token) {
+  var res = simpanPetugasDisposisi__SEBELUM_INVALIDASI_CACHE_2026051238(payload, token);
+  try { if (res && res.sukses) invalidasiCacheDisposisiV38_(); } catch (e) {}
+  return res;
+};
+
+var tandaiDisposisiSudahDibuka__SEBELUM_INVALIDASI_CACHE_2026051238 = tandaiDisposisiSudahDibuka;
+tandaiDisposisiSudahDibuka = function (idDisposisi, token) {
+  var res = tandaiDisposisiSudahDibuka__SEBELUM_INVALIDASI_CACHE_2026051238(idDisposisi, token);
+  try { if (res && res.sukses) invalidasiCacheDisposisiV38_(); } catch (e) {}
+  return res;
 };
