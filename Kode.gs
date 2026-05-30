@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.01";
+var APP_VERSION = "2026.05.30.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14029,3 +14029,7 @@ function cekCutoffDefaultLamaDinonaktifkan(token) {
     return handleError('cekCutoffDefaultLamaDinonaktifkan', e, { sukses: false, pesan: '' });
   }
 }
+
+
+// ===== PATCH v2026.05.12.30: Dropdown Alat Administrasi Admin Kinerja =====
+// Panel admin administratif dirapikan ke dalam accordion di Index.html.

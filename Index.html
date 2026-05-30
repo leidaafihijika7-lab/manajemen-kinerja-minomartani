@@ -3876,7 +3876,23 @@
 
         <div id="halAdminKinerja" class="page-section">
           
-          <div id="panelTutupPeriodeLaporanAdmin" class="form-card" style="display:none; max-width:none; margin-bottom:18px; border-left:5px solid #dc2626;">
+          <div id="accordionAlatAdminKinerja" class="form-card" style="max-width:none; margin-bottom:18px; border-left:5px solid #334155;">
+            <button type="button" onclick="toggleAlatAdminKinerja()" style="width:100%; border:0; background:transparent; padding:0; cursor:pointer; text-align:left;">
+              <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span class="material-symbols-outlined" style="color:#334155; font-size:30px;">admin_panel_settings</span>
+                  <div>
+                    <div style="font-weight:900; font-family:var(--font-heading); font-size:19px; color:var(--text-main);">Alat Administrasi & Koreksi</div>
+                    <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">
+                      Berisi pengaturan tutup periode, status cut-off, koreksi historis, tindak lanjut tunjangan, dan ganti PIN pegawai. Klik untuk membuka/menutup.
+                    </div>
+                  </div>
+                </div>
+                <span id="iconAlatAdminKinerja" class="material-symbols-outlined" style="font-size:30px; color:#334155;">expand_more</span>
+              </div>
+            </button>
+            <div id="isiAlatAdminKinerja" style="display:none; margin-top:18px;">
+          <div id="panelTutupPeriodeLaporanAdmin" class="form-card" style="max-width:none; margin-bottom:18px; border-left:5px solid #dc2626;">
             <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
               <span class="material-symbols-outlined" style="color:#dc2626; font-size:28px;">event_busy</span>
               <div style="flex:1; min-width:240px;">
@@ -4021,6 +4037,9 @@
             </div>
             <div id="msgGantiPinAdmin" style="margin-top:12px; font-size:13px; font-weight:700;"></div>
           </div>
+            </div>
+          </div>
+
           <div class="stats-container">
             <div class="stat-card">
               <div class="stat-title">Pegawai Aktif</div>
@@ -9491,6 +9510,7 @@
       var panel = document.getElementById('panelDetailAdminKinerja');
       aturVisibilitasPanelTutupPeriodeLaporan_();
       defaultPeriodeAuditCutoffLama_();
+      restoreAlatAdminKinerjaState_();
       if (userBolehKelolaTutupPeriodeLaporan_()) {
         sinkronkanFormTutupPeriodeLaporan_(false);
         muatStatusTutupPeriodeLaporanUI();
@@ -12319,6 +12339,27 @@
       }).withFailureHandler(function (err) {
         if (el) el.innerHTML = '<span style="color:var(--danger); font-weight:700;">Gagal: ' + escapeHTML((err && err.message) ? err.message : err) + '</span>';
       }).cekCutoffDefaultLamaDinonaktifkan(sToken);
+    }
+
+
+
+    function toggleAlatAdminKinerja(forceOpen) {
+      var box = document.getElementById('isiAlatAdminKinerja');
+      var icon = document.getElementById('iconAlatAdminKinerja');
+      if (!box) return;
+      var buka = (typeof forceOpen === 'boolean') ? forceOpen : (box.style.display === 'none' || !box.style.display);
+      box.style.display = buka ? 'block' : 'none';
+      if (icon) icon.innerText = buka ? 'expand_less' : 'expand_more';
+      try { localStorage.setItem('alatAdminKinerjaOpen', buka ? '1' : '0'); } catch (e) {}
+    }
+
+    function restoreAlatAdminKinerjaState_() {
+      try {
+        var saved = localStorage.getItem('alatAdminKinerjaOpen');
+        toggleAlatAdminKinerja(saved === '1');
+      } catch (e) {
+        toggleAlatAdminKinerja(false);
+      }
     }
 
 
