@@ -3918,6 +3918,75 @@
               Pilih periode untuk melihat status tutup periode laporan.
             </div>
           </div>
+
+          
+          <div id="panelCutoffDefaultOff" class="form-card" style="max-width:none; margin-bottom:18px; border-left:5px solid #16a34a;">
+            <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
+              <span class="material-symbols-outlined" style="color:#16a34a; font-size:28px;">verified</span>
+              <div style="flex:1; min-width:240px;">
+                <div style="font-weight:800; font-family:var(--font-heading); font-size:18px;">Status Cut-off Default/Lama</div>
+                <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">
+                  Cut-off default/lama tidak lagi digunakan sebagai dasar status <b>Lewat Cut-off</b>, poin 0, atau koreksi massal. Penutupan input baru hanya memakai konfigurasi admin.
+                </div>
+              </div>
+              <button type="button" class="btn-modal-cancel" onclick="cekCutoffDefaultOffUI()">Cek Status</button>
+            </div>
+            <div id="statusCutoffDefaultOff" class="disposisi-muted-box">Klik Cek Status untuk memastikan pengaman aktif.</div>
+          </div>
+
+<div id="panelAuditCutoffLama" class="form-card" style="max-width:none; margin-bottom:18px; border-left:5px solid #f59e0b;">
+            <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+              <span class="material-symbols-outlined" style="color:#f59e0b; font-size:28px;">manage_search</span>
+              <div style="flex:1; min-width:240px;">
+                <div style="font-weight:800; font-family:var(--font-heading); font-size:18px;">Audit Koreksi Cut-off Lama</div>
+                <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">
+                  Mendeteksi laporan periode <b>Mei 2026</b> yang terlanjur berstatus <b>Disetujui - Lewat Cut-off</b>. Audit hanya memasukkan laporan dengan <b>tanggal pelaksanaan kegiatan</b> dari formulir user pada rentang <b>28/04/2026 s.d. 26/05/2026</b> dan waktu lapor sebelum cut-off final Mei. Koreksi ini tidak mengubah poin atau rekap tunjangan yang sudah cair.
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+              <div class="form-group" style="max-width:220px; margin:0;">
+                <label>Periode Audit</label>
+                <input type="month" id="fAuditCutoffLamaPeriode">
+              </div>
+              <button type="button" class="btn-unduh" style="background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="muatAuditCutoffLamaUI()">
+                <span class="material-symbols-outlined" style="font-size:18px;">search</span> Jalankan Audit
+              </button>
+              <button type="button" class="btn-modal-cancel" onclick="koreksiCutoffLamaTerpilihUI()">
+                Koreksi Status Terpilih
+              </button>
+            </div>
+            <div id="auditCutoffLamaStatus" class="disposisi-muted-box" style="margin-top:12px;">
+              Pilih periode lalu jalankan audit. Data yang sudah dicairkan akan diberi tanda agar admin membuat penyesuaian, bukan mengubah pencairan lama.
+            </div>
+            <div id="auditCutoffLamaResult" style="margin-top:12px; overflow-x:auto;"></div>
+          </div>
+
+
+          <div id="panelTindakLanjutKoreksiCutoff" class="form-card" style="max-width:none; margin-bottom:18px; border-left:5px solid #2563eb;">
+            <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+              <span class="material-symbols-outlined" style="color:#2563eb; font-size:28px;">calculate</span>
+              <div style="flex:1; min-width:240px;">
+                <div style="font-weight:800; font-family:var(--font-heading); font-size:18px;">Tindak Lanjut Poin & Tunjangan Koreksi Cut-off</div>
+                <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">
+                  Menampilkan laporan Mei 2026 yang masih perlu tindak lanjut setelah koreksi cut-off lama. Sistem menghitung saran poin dan estimasi dampak tunjangan, tetapi rekap/pencairan tunjangan tidak diubah otomatis.
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button type="button" class="btn-unduh" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);" onclick="muatTindakLanjutKoreksiCutoffUI()">
+                <span class="material-symbols-outlined" style="font-size:18px;">calculate</span> Hitung Tindak Lanjut
+              </button>
+              <button type="button" class="btn-modal-cancel" onclick="terapkanPoinKoreksiCutoffTerpilihUI()">
+                Terapkan Poin Terpilih
+              </button>
+            </div>
+            <div id="tindakLanjutKoreksiCutoffStatus" class="disposisi-muted-box" style="margin-top:12px;">
+              Klik Hitung Tindak Lanjut setelah menjalankan Audit/Koreksi Cut-off Lama.
+            </div>
+            <div id="tindakLanjutKoreksiCutoffResult" style="margin-top:12px; overflow-x:auto;"></div>
+          </div>
+
 <div class="form-card" style="max-width:none; margin-bottom:18px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
               <span class="material-symbols-outlined" style="color:var(--primary);">password</span>
@@ -9421,6 +9490,7 @@
       var tb = document.getElementById('tbAdminKinerja');
       var panel = document.getElementById('panelDetailAdminKinerja');
       aturVisibilitasPanelTutupPeriodeLaporan_();
+      defaultPeriodeAuditCutoffLama_();
       if (userBolehKelolaTutupPeriodeLaporan_()) {
         sinkronkanFormTutupPeriodeLaporan_(false);
         muatStatusTutupPeriodeLaporanUI();
@@ -9801,6 +9871,78 @@
       }).ambilLaporanAdminPerPegawai(selectedId, filterStatus, rentang.tanggalMulai, rentang.tanggalAkhir, offset, adminReviewPageSize, sToken);
     }
 
+
+    function updateAdminReviewSummaryLokal_(statusLama, statusBaru, removedFromCurrentFilter) {
+      if (!adminReviewServerSummary) return;
+
+      var wasPending = isPendingReviewStatus(statusLama);
+      var isPending = isPendingReviewStatus(statusBaru);
+
+      if (wasPending && !isPending) {
+        adminReviewServerSummary.totalMenunggu = Math.max(0, Number(adminReviewServerSummary.totalMenunggu || 0) - 1);
+        adminReviewServerSummary.totalSelesai = Number(adminReviewServerSummary.totalSelesai || 0) + 1;
+      } else if (!wasPending && isPending) {
+        adminReviewServerSummary.totalMenunggu = Number(adminReviewServerSummary.totalMenunggu || 0) + 1;
+        adminReviewServerSummary.totalSelesai = Math.max(0, Number(adminReviewServerSummary.totalSelesai || 0) - 1);
+      }
+
+      if (removedFromCurrentFilter) {
+        adminReviewServerSummary.totalFiltered = Math.max(0, Number(adminReviewServerSummary.totalFiltered || 0) - 1);
+        adminReviewServerSummary.loaded = Math.max(0, Number(adminReviewServerSummary.loaded || 0) - 1);
+      }
+    }
+
+    function updateAdminReviewSetelahAksi_(idLaporan, statusBaru, poinFinal, catatanAdmin) {
+      var id = String(idLaporan || '');
+      if (!id) return;
+
+      var filterStatus = ((document.getElementById('adminFilterStatus') || {}).value || 'semua').toLowerCase();
+      var item = adminReviewCache[id] || null;
+      var statusLama = item ? String(item.status || '') : '';
+      var statusFinal = String(statusBaru || '');
+
+      if (item) {
+        item.status = statusFinal;
+        item.poinFinal = parseInt(poinFinal, 10) || 0;
+        item.catatan = catatanAdmin || '';
+        item.lewatCutoff = false;
+        adminReviewCache[id] = item;
+      }
+
+      var removed = false;
+      var idx = -1;
+      for (var i = 0; i < adminReviewItems.length; i++) {
+        if (String((adminReviewItems[i] || {}).idLaporan || '') === id) {
+          idx = i;
+          break;
+        }
+      }
+
+      if (idx !== -1) {
+        adminReviewItems[idx].status = statusFinal;
+        adminReviewItems[idx].poinFinal = parseInt(poinFinal, 10) || 0;
+        adminReviewItems[idx].catatan = catatanAdmin || '';
+        adminReviewItems[idx].lewatCutoff = false;
+
+        if (filterStatus === 'menunggu' && !isPendingReviewStatus(statusFinal)) {
+          adminReviewItems.splice(idx, 1);
+          removed = true;
+        }
+      }
+
+      updateAdminReviewSummaryLokal_(statusLama, statusFinal, removed);
+      adminReviewGroups = buildAdminReviewGroups_(adminReviewItems);
+      renderAdminReviewView();
+
+      var info = document.getElementById('adminReviewSummary');
+      if (info) {
+        var note = document.createElement('div');
+        note.style.cssText = 'margin-top:8px; font-size:12px; color:#166534;';
+        note.textContent = 'Perubahan tersimpan. Tampilan diperbarui tanpa memuat ulang penuh. Gunakan tombol Muat Ulang Daftar jika ingin sinkron ulang dari server.';
+        info.appendChild(note);
+      }
+    }
+
     function accAdmin(id, poinFinal) {
       var info = adminReviewCache[id] || {};
       currentSetujuAdminId = id;
@@ -9861,7 +10003,7 @@
         }
         tutupModalSetujuAdmin();
         alert(r.pesan);
-        muatAdmin();
+        updateAdminReviewSetelahAksi_(id, "Disetujui", poin, catatan);
       }).withFailureHandler(function (err) {
         if (btn) {
           btn.disabled = false;
@@ -9884,7 +10026,7 @@
       simpanStateAdminReview(info.groupId || '', id);
       google.script.run.withSuccessHandler(function (r) {
         alert(r.pesan);
-        muatAdmin();
+        updateAdminReviewSetelahAksi_(id, "Ditolak", 0, alasan);
       }).withFailureHandler(function (err) {
         alert('Gagal: ' + ((err && err.message) ? err.message : err));
       }).prosesReviewAdmin(id, "Ditolak", 0, alasan, sToken);
@@ -9922,12 +10064,13 @@
     function simpanRevisiAdmin() {
       if (!currentRevisiId) return;
 
+      var idRevisi = currentRevisiId;
       var s = document.getElementById('mStatusRevisi').value;
       var p = document.getElementById('mPoinRevisi').value;
       var c = document.getElementById('mCatatanRevisi').value;
-      var info = adminReviewCache[currentRevisiId] || {};
+      var info = adminReviewCache[idRevisi] || {};
 
-      simpanStateAdminReview(info.groupId || '', currentRevisiId);
+      simpanStateAdminReview(info.groupId || '', idRevisi);
 
       var btn = document.querySelector('.btn-modal-save');
       if (btn) btn.innerText = "Menyimpan...";
@@ -9935,11 +10078,11 @@
         if (btn) btn.innerText = "Simpan Perubahan";
         tutupModalRevisi();
         alert(r.pesan);
-        muatAdmin();
+        updateAdminReviewSetelahAksi_(idRevisi, s, parseInt(p, 10) || 0, c);
       }).withFailureHandler(function (er) {
         if (btn) btn.innerText = "Simpan Perubahan";
         alert("Gagal: " + ((er && er.message) ? er.message : er));
-      }).prosesReviewAdmin(currentRevisiId, s, parseInt(p, 10) || 0, c, sToken);
+      }).prosesReviewAdmin(idRevisi, s, parseInt(p, 10) || 0, c, sToken);
     }
 
     function setNarasiAIStatus_(message, type) {
@@ -11903,6 +12046,281 @@
       panel.style.display = boleh ? 'block' : 'none';
       return boleh;
     }
+
+
+    function defaultPeriodeAuditCutoffLama_() {
+      var el = document.getElementById('fAuditCutoffLamaPeriode');
+      if (!el) return;
+      if (el.value) return;
+      var now = new Date();
+      el.value = '2026-05';
+    }
+
+    function muatAuditCutoffLamaUI() {
+      defaultPeriodeAuditCutoffLama_();
+      var periode = (document.getElementById('fAuditCutoffLamaPeriode') || {}).value || '';
+      var statusEl = document.getElementById('auditCutoffLamaStatus');
+      var resultEl = document.getElementById('auditCutoffLamaResult');
+      if (periode !== '2026-05') {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger); font-weight:700;">Audit Koreksi Cut-off Lama saat ini hanya diaktifkan untuk periode Mei 2026 (2026-05). Periode lain tidak akan diperiksa agar data April/periode lain tetap aman.</span>';
+        if (resultEl) resultEl.innerHTML = '';
+        return;
+      }
+      if (statusEl) statusEl.innerHTML = 'Memuat audit koreksi cut-off lama khusus Mei 2026...';
+      if (resultEl) resultEl.innerHTML = '';
+
+      google.script.run.withSuccessHandler(function (res) {
+        if (!res || res.sukses === false) {
+          if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger); font-weight:700;">' + escapeHTML((res && res.pesan) || 'Gagal memuat audit.') + '</span>';
+          return;
+        }
+
+        if (statusEl) {
+          statusEl.innerHTML = 'Periode: <b>' + escapeHTML(res.periode || '-') + '</b> &middot; Rentang tanggal pelaksanaan: <b>' + escapeHTML(res.rentangTanggalPelaksanaan || '28/04/2026 s.d. 26/05/2026') + '</b> &middot; Cut-off final: <b>' + escapeHTML(res.cutoffFinal || '-') + '</b> &middot; Kandidat koreksi: <b>' + (res.total || 0) + '</b>' +
+            '<br><small>Dilewati karena tanggal pelaksanaan di luar rentang: ' + (res.dilewatiTanggalPelaksanaanDiLuarRentang || 0) + '. Tidak terbaca: ' + (res.dilewatiTanggalPelaksanaanTidakTerbaca || 0) + '.</small>';
+        }
+
+        var items = res.items || [];
+        if (!items.length) {
+          if (resultEl) resultEl.innerHTML = '<div class="admin-review-empty">Tidak ada kandidat koreksi cut-off lama pada periode ini.</div>';
+          return;
+        }
+
+        var html = '<table><thead><tr>' +
+          '<th><input type="checkbox" onchange="toggleSemuaAuditCutoffLama_(this)"></th>' +
+          '<th>Pegawai</th><th>Waktu Lapor</th><th>Kategori</th><th>Status/Poin</th><th>Tunjangan</th><th>Rekomendasi</th>' +
+          '</tr></thead><tbody>';
+
+        items.forEach(function (it) {
+          html += '<tr>' +
+            '<td><input type="checkbox" class="chkAuditCutoffLama" value="' + escapeHTML(it.idLaporan || '') + '"></td>' +
+            '<td><b>' + escapeHTML(it.nama || '-') + '</b><br><small>' + escapeHTML(it.jabatan || '-') + '</small></td>' +
+            '<td><small>Waktu lapor: ' + escapeHTML(it.waktuLapor || '-') + '</small><br><small>Tgl pelaksanaan: ' + escapeHTML(it.tanggalPelaksanaan || '-') + '</small><br><small>Cut-off final: ' + escapeHTML(it.cutoffFinal || '-') + '</small></td>' +
+            '<td><b>' + escapeHTML(it.kategori || '-') + '</b><br><small>' + escapeHTML(it.deskripsi || '-') + '</small></td>' +
+            '<td><span class="badge bg-yellow">' + escapeHTML(it.statusLama || '-') + '</span><br><b>' + (Number(it.poinFinal || 0)) + ' Poin</b></td>' +
+            '<td>' + (it.tunjanganSudahDicairkan ? '<span class="badge bg-red">Sudah Dicairkan</span>' : '<span class="badge bg-gray">' + escapeHTML(it.tunjanganStatus || 'Belum ditemukan') + '</span>') +
+            '<br><small>Rp ' + Number(it.rpTunjanganTotal || 0).toLocaleString('id-ID') + '</small></td>' +
+            '<td><small>' + escapeHTML(it.rekomendasi || '-') + '</small></td>' +
+            '</tr>';
+        });
+
+        html += '</tbody></table>';
+        if (resultEl) resultEl.innerHTML = html;
+      }).withFailureHandler(function (err) {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger); font-weight:700;">Gagal: ' + escapeHTML((err && err.message) ? err.message : err) + '</span>';
+      }).ambilAuditKoreksiCutoffLama(periode, sToken);
+    }
+
+    function toggleSemuaAuditCutoffLama_(el) {
+      document.querySelectorAll('.chkAuditCutoffLama').forEach(function (c) { c.checked = !!el.checked; });
+    }
+
+    function koreksiCutoffLamaTerpilihUI() {
+      var ids = [];
+      document.querySelectorAll('.chkAuditCutoffLama:checked').forEach(function (c) {
+        if (c.value) ids.push(c.value);
+      });
+      if (!ids.length) {
+        alert('Pilih minimal satu laporan yang akan dikoreksi statusnya.');
+        return;
+      }
+
+      var catatan = prompt(
+        'Catatan koreksi status. Poin dan tunjangan tidak akan diubah otomatis:',
+        'Koreksi status karena laporan terkena logika cut-off lama/default. Poin dan penyesuaian tunjangan ditindaklanjuti sesuai hasil review admin.'
+      );
+      if (catatan === null) return;
+
+      if (!confirm('Koreksi status ' + ids.length + ' laporan menjadi Disetujui? Poin dan rekap tunjangan tidak akan diubah otomatis.')) return;
+
+      var statusEl = document.getElementById('auditCutoffLamaStatus');
+      if (statusEl) statusEl.innerHTML = 'Memproses koreksi status cut-off lama...';
+
+      google.script.run.withSuccessHandler(function (res) {
+        alert((res && res.pesan) || 'Koreksi selesai.');
+        muatAuditCutoffLamaUI();
+      }).withFailureHandler(function (err) {
+        alert('Gagal: ' + ((err && err.message) ? err.message : err));
+      }).koreksiStatusCutoffLama(ids, catatan, sToken);
+    }
+
+
+
+    function muatTindakLanjutKoreksiCutoffUI() {
+      var statusEl = document.getElementById('tindakLanjutKoreksiCutoffStatus');
+      var resultEl = document.getElementById('tindakLanjutKoreksiCutoffResult');
+      if (statusEl) statusEl.innerHTML = 'Menghitung saran poin dan estimasi dampak tunjangan...';
+      if (resultEl) resultEl.innerHTML = '';
+
+      google.script.run.withSuccessHandler(function (res) {
+        if (!res || res.sukses === false) {
+          if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger); font-weight:700;">' + escapeHTML((res && res.pesan) || 'Gagal menghitung tindak lanjut.') + '</span>';
+          return;
+        }
+
+        var items = res.items || [];
+        if (statusEl) {
+          statusEl.innerHTML = 'Periode: <b>' + escapeHTML(res.periode || '2026-05') + '</b> &middot; Laporan perlu tindak lanjut: <b>' + (res.total || 0) + '</b>';
+        }
+
+        if (!items.length) {
+          if (resultEl) resultEl.innerHTML = '<div class="admin-review-empty">Tidak ada laporan koreksi cut-off lama yang perlu dihitung ulang.</div>';
+          return;
+        }
+
+        var totalDelta = 0;
+        var html = '<table><thead><tr>' +
+          '<th><input type="checkbox" onchange="toggleSemuaTindakLanjutCutoff_(this)"></th>' +
+          '<th>Pegawai</th><th>Laporan</th><th>Poin</th><th>Estimasi Tunjangan</th><th>Status Tunjangan</th><th>Rekomendasi</th>' +
+          '</tr></thead><tbody>';
+
+        items.forEach(function (it) {
+          totalDelta += Number(it.estimasiDeltaTunjangan || 0);
+          html += '<tr>' +
+            '<td><input type="checkbox" class="chkTindakLanjutCutoff" value="' + escapeHTML(it.idLaporan || '') + '"></td>' +
+            '<td><b>' + escapeHTML(it.nama || '-') + '</b><br><small>' + escapeHTML(it.jabatan || '-') + '</small></td>' +
+            '<td><b>' + escapeHTML(it.kategori || '-') + '</b><br><small>Tgl pelaksanaan: ' + escapeHTML(it.tanggalPelaksanaan || '-') + '</small><br><small>Waktu lapor: ' + escapeHTML(it.waktuLapor || '-') + '</small><br><small>' + escapeHTML(it.deskripsi || '-') + '</small></td>' +
+            '<td><span class="badge bg-gray">Saat ini: ' + Number(it.poinSaatIni || 0) + '</span><br><span class="badge bg-green">Saran: ' + Number(it.poinSaran || 0) + '</span><br><small>' + escapeHTML(it.alasanSaran || '-') + '</small></td>' +
+            '<td><b>Rp ' + Number(it.estimasiDeltaTunjangan || 0).toLocaleString('id-ID') + '</b><br><small>' + escapeHTML(it.basisEstimasi || '-') + '</small></td>' +
+            '<td>' + (it.tunjanganSudahDicairkan ? '<span class="badge bg-red">Sudah Dicairkan</span>' : '<span class="badge bg-gray">' + escapeHTML(it.tunjanganStatus || 'Belum ditemukan') + '</span>') + '</td>' +
+            '<td><small>' + escapeHTML(it.rekomendasi || '-') + '</small></td>' +
+            '</tr>';
+        });
+        html += '</tbody></table><div style="margin-top:10px; font-weight:800;">Total estimasi dampak tunjangan: Rp ' + totalDelta.toLocaleString('id-ID') + '</div>';
+
+        if (resultEl) resultEl.innerHTML = html;
+      }).withFailureHandler(function (err) {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger); font-weight:700;">Gagal: ' + escapeHTML((err && err.message) ? err.message : err) + '</span>';
+      }).ambilTindakLanjutKoreksiCutoffLama(sToken);
+    }
+
+    function toggleSemuaTindakLanjutCutoff_(el) {
+      document.querySelectorAll('.chkTindakLanjutCutoff').forEach(function (c) { c.checked = !!el.checked; });
+    }
+
+    function terapkanPoinKoreksiCutoffTerpilihUI() {
+      var ids = [];
+      document.querySelectorAll('.chkTindakLanjutCutoff:checked').forEach(function (c) {
+        if (c.value) ids.push(c.value);
+      });
+      if (!ids.length) {
+        alert('Pilih minimal satu laporan untuk diterapkan poin koreksinya.');
+        return;
+      }
+      if (!confirm('Terapkan poin saran sistem untuk ' + ids.length + ' laporan? Rekap/pencairan tunjangan tidak akan diubah otomatis.')) return;
+
+      var statusEl = document.getElementById('tindakLanjutKoreksiCutoffStatus');
+      if (statusEl) statusEl.innerHTML = 'Menerapkan poin koreksi...';
+
+      google.script.run.withSuccessHandler(function (res) {
+        alert((res && res.pesan) || 'Poin koreksi selesai diterapkan.');
+        muatTindakLanjutKoreksiCutoffUI();
+      }).withFailureHandler(function (err) {
+        alert('Gagal: ' + ((err && err.message) ? err.message : err));
+      }).terapkanPoinKoreksiCutoffLama(ids, sToken);
+    }
+
+
+
+    var tindakLanjutCutoffOffsetV28 = 0;
+    var tindakLanjutCutoffHasMoreV28 = false;
+    var tindakLanjutCutoffItemsV28 = [];
+
+    function renderTindakLanjutKoreksiCutoffV28_(appendMode, res) {
+      var statusEl = document.getElementById('tindakLanjutKoreksiCutoffStatus');
+      var resultEl = document.getElementById('tindakLanjutKoreksiCutoffResult');
+      var items = res.items || [];
+
+      if (!appendMode) tindakLanjutCutoffItemsV28 = [];
+      items.forEach(function (it) { tindakLanjutCutoffItemsV28.push(it); });
+
+      tindakLanjutCutoffOffsetV28 = Number(res.nextOffset || 0);
+      tindakLanjutCutoffHasMoreV28 = !!res.hasMore;
+
+      if (statusEl) {
+        statusEl.innerHTML =
+          'Periode: <b>' + escapeHTML(res.periode || '2026-05') + '</b>' +
+          ' &middot; Total kandidat: <b>' + (res.total || 0) + '</b>' +
+          ' &middot; Dimuat: <b>' + tindakLanjutCutoffItemsV28.length + '</b>' +
+          '<br><small>Data dimuat bertahap agar tidak melewati batas eksekusi Google Apps Script.</small>';
+      }
+
+      if (!tindakLanjutCutoffItemsV28.length) {
+        if (resultEl) resultEl.innerHTML = '<div class="admin-review-empty">Tidak ada laporan koreksi cut-off lama yang perlu dihitung ulang.</div>';
+        return;
+      }
+
+      var totalDelta = 0;
+      var html = '<table><thead><tr>' +
+        '<th><input type="checkbox" onchange="toggleSemuaTindakLanjutCutoff_(this)"></th>' +
+        '<th>Pegawai</th><th>Laporan</th><th>Poin</th><th>Estimasi Tunjangan</th><th>Status Tunjangan</th><th>Rekomendasi</th>' +
+        '</tr></thead><tbody>';
+
+      tindakLanjutCutoffItemsV28.forEach(function (it) {
+        totalDelta += Number(it.estimasiDeltaTunjangan || 0);
+        html += '<tr>' +
+          '<td><input type="checkbox" class="chkTindakLanjutCutoff" value="' + escapeHTML(it.idLaporan || '') + '"></td>' +
+          '<td><b>' + escapeHTML(it.nama || '-') + '</b><br><small>' + escapeHTML(it.jabatan || '-') + '</small></td>' +
+          '<td><b>' + escapeHTML(it.kategori || '-') + '</b><br><small>Tgl pelaksanaan: ' + escapeHTML(it.tanggalPelaksanaan || '-') + '</small><br><small>Waktu lapor: ' + escapeHTML(it.waktuLapor || '-') + '</small><br><small>' + escapeHTML(it.deskripsi || '-') + '</small></td>' +
+          '<td><span class="badge bg-gray">Saat ini: ' + Number(it.poinSaatIni || 0) + '</span><br><span class="badge bg-green">Saran: ' + Number(it.poinSaran || 0) + '</span><br><small>' + escapeHTML(it.alasanSaran || '-') + '</small></td>' +
+          '<td><b>Rp ' + Number(it.estimasiDeltaTunjangan || 0).toLocaleString('id-ID') + '</b><br><small>' + escapeHTML(it.basisEstimasi || '-') + '</small></td>' +
+          '<td>' + (it.tunjanganSudahDicairkan ? '<span class="badge bg-red">Sudah Dicairkan</span>' : '<span class="badge bg-gray">' + escapeHTML(it.tunjanganStatus || 'Belum ditemukan') + '</span>') + '</td>' +
+          '<td><small>' + escapeHTML(it.rekomendasi || '-') + '</small></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>' +
+        '<div style="margin-top:10px; font-weight:800;">Total estimasi dampak tunjangan dari data yang dimuat: Rp ' + totalDelta.toLocaleString('id-ID') + '</div>';
+
+      if (tindakLanjutCutoffHasMoreV28) {
+        html += '<button type="button" class="btn-modal-cancel" style="margin-top:12px;" onclick="muatTindakLanjutKoreksiCutoffUI(true)">Muat Kandidat Berikutnya</button>';
+      }
+
+      if (resultEl) resultEl.innerHTML = html;
+    }
+
+    function muatTindakLanjutKoreksiCutoffUI(appendMode) {
+      appendMode = appendMode === true;
+      var statusEl = document.getElementById('tindakLanjutKoreksiCutoffStatus');
+      var resultEl = document.getElementById('tindakLanjutKoreksiCutoffResult');
+      var offset = appendMode ? tindakLanjutCutoffOffsetV28 : 0;
+      var limit = 25;
+
+      if (statusEl) statusEl.innerHTML = appendMode ? 'Memuat kandidat berikutnya...' : 'Menghitung saran poin dan estimasi dampak tunjangan secara bertahap...';
+      if (!appendMode && resultEl) resultEl.innerHTML = '';
+
+      google.script.run.withSuccessHandler(function (res) {
+        if (!res || res.sukses === false) {
+          if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger); font-weight:700;">' + escapeHTML((res && res.pesan) || 'Gagal menghitung tindak lanjut.') + '</span>';
+          return;
+        }
+        renderTindakLanjutKoreksiCutoffV28_(appendMode, res);
+      }).withFailureHandler(function (err) {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger); font-weight:700;">Gagal: ' + escapeHTML((err && err.message) ? err.message : err) + '</span>';
+      }).ambilTindakLanjutKoreksiCutoffLama(sToken, offset, limit);
+    }
+
+
+    function cekCutoffDefaultOffUI() {
+      var el = document.getElementById('statusCutoffDefaultOff');
+      if (el) el.innerHTML = 'Memeriksa status pengaman cut-off default/lama...';
+      google.script.run.withSuccessHandler(function (res) {
+        if (!res || res.sukses === false) {
+          if (el) el.innerHTML = '<span style="color:var(--danger); font-weight:700;">' + escapeHTML((res && res.pesan) || 'Gagal memeriksa status.') + '</span>';
+          return;
+        }
+        if (el) {
+          el.innerHTML =
+            '<span style="color:#166534; font-weight:800;">Aktif</span><br>' +
+            escapeHTML(res.pesan || '') +
+            '<br><small>Jumlah meta cut-off admin tersimpan: ' + Number(res.jumlahMetaAdminTersimpan || 0) +
+            '. Koreksi massal lama dinonaktifkan: ' + (res.koreksiMassalLamaDinonaktifkan ? 'Ya' : 'Tidak') + '.</small>';
+        }
+      }).withFailureHandler(function (err) {
+        if (el) el.innerHTML = '<span style="color:var(--danger); font-weight:700;">Gagal: ' + escapeHTML((err && err.message) ? err.message : err) + '</span>';
+      }).cekCutoffDefaultLamaDinonaktifkan(sToken);
+    }
+
 
     function defaultTanggalTutupPeriodeLaporan_(periode) {
       periode = periode || (document.getElementById('fTutupPeriodeLaporan') || {}).value || admPeriodeAktif();
