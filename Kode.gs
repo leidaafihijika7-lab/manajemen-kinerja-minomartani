@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.03";
+var APP_VERSION = "2026.05.30.04";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14267,3 +14267,10 @@ function debugPeriodeTutupDariTanggalPelaksanaanV31(tanggalPelaksanaan, token) {
     return handleError('debugPeriodeTutupDariTanggalPelaksanaanV31', e, { sukses: false, pesan: '' });
   }
 }
+
+
+// ===== PATCH v2026.05.12.32: Fix validasi checkbox Pihak Terlibat Dukuh =====
+// Perubahan utama di Index.html:
+// - Checkbox Pihak yang Terlibat diperlakukan sebagai satu grup.
+// - Minimal satu checkbox cukup.
+// - Kolom "Pihak lainnya" hanya wajib jika checkbox Lainnya dicentang.

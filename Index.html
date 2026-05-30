@@ -3649,28 +3649,28 @@
                     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px;"
                       id="wadahCheckboxDukuh">
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="RT" class="dukuh-cb-pihak"> RT</label>
+                          type="checkbox" value="RT" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> RT</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="RW" class="dukuh-cb-pihak"> RW</label>
+                          type="checkbox" value="RW" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> RW</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="Warga" class="dukuh-cb-pihak"> Warga</label>
+                          type="checkbox" value="Warga" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> Warga</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="Babinsa" class="dukuh-cb-pihak"> Babinsa</label>
+                          type="checkbox" value="Babinsa" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> Babinsa</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="Bhabinkamtibmas" class="dukuh-cb-pihak"> Bhabinkamtibmas</label>
+                          type="checkbox" value="Bhabinkamtibmas" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> Bhabinkamtibmas</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="TPK" class="dukuh-cb-pihak"> TPK</label>
+                          type="checkbox" value="TPK" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> TPK</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="Relawan/Satlinmas" class="dukuh-cb-pihak"> Relawan/Satlinmas</label>
+                          type="checkbox" value="Relawan/Satlinmas" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> Relawan/Satlinmas</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="Kader" class="dukuh-cb-pihak"> Kader</label>
+                          type="checkbox" value="Kader" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> Kader</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
-                          type="checkbox" value="Pihak Luar" class="dukuh-cb-pihak"> Pihak Luar</label>
+                          type="checkbox" value="Pihak Luar" name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> Pihak Luar</label>
                       <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input
                           type="checkbox" value="Lainnya" id="cbDukuhLainnya" onchange="aturDukuhPihakLainnya()"
-                          class="dukuh-cb-pihak"> Lainnya</label>
+                          name="dukuh_pihak_terlibat" class="dukuh-cb-pihak"> Lainnya</label>
                     </div>
-                    <input type="text" id="fDukuhPihakLainnya" placeholder="Sebutkan pihak lainnya..."
+                    <input type="text" id="fDukuhPihakLainnya" data-optional="1" placeholder="Sebutkan pihak lainnya..."
                       style="display:none; margin-top:10px;">
                   </div>
                 </div>
@@ -6000,11 +6000,14 @@
     function aturDukuhPihakLainnya() {
       var cbLainnya = document.getElementById('cbDukuhLainnya');
       var txtLainnya = document.getElementById('fDukuhPihakLainnya');
+      if (!cbLainnya || !txtLainnya) return;
       if (cbLainnya.checked) {
         txtLainnya.style.display = "block";
+        if (txtLainnya.dataset) txtLainnya.dataset.optional = "0";
       } else {
         txtLainnya.style.display = "none";
         txtLainnya.value = "";
+        if (txtLainnya.dataset) txtLainnya.dataset.optional = "1";
       }
     }
 
@@ -10400,6 +10403,88 @@
       errors.forEach(function (x) { if (unique.indexOf(x) === -1) unique.push(x); });
       return { isValid: unique.length === 0, errors: unique };
     }
+
+
+    // ===== PATCH v2026.05.12.32: validasi robust untuk checkbox Pihak Terlibat Dukuh =====
+    function isGrupDukuhPihakAktifV32_() {
+      var box = document.getElementById('wadahCheckboxDukuh');
+      if (!box) return false;
+      if (box.offsetParent === null) return false;
+      var grup = document.getElementById('grupDukuh');
+      if (grup && grup.offsetParent === null) return false;
+      return true;
+    }
+
+    function adaPihakDukuhTerpilihV32_() {
+      return document.querySelectorAll('.dukuh-cb-pihak:checked').length > 0;
+    }
+
+    function validasiPihakDukuhV32_(errors, handledGroups) {
+      var key = 'dukuh_pihak_terlibat';
+      if (handledGroups[key]) return;
+      handledGroups[key] = true;
+
+      if (!isGrupDukuhPihakAktifV32_()) return;
+
+      if (!adaPihakDukuhTerpilihV32_()) {
+        errors.push('Pihak yang Terlibat');
+        return;
+      }
+
+      var cbLainnya = document.getElementById('cbDukuhLainnya');
+      var txtLainnya = document.getElementById('fDukuhPihakLainnya');
+      if (cbLainnya && cbLainnya.checked && txtLainnya && nilaiFieldWajibKosong_(txtLainnya)) {
+        errors.push('Pihak Terlibat Lainnya');
+      }
+    }
+
+    var validasiSemuaFieldAktifWajib__SEBELUM_FIX_PIHAK_DUKUH_2026051232 = validasiSemuaFieldAktifWajib_;
+    validasiSemuaFieldAktifWajib_ = function (formId) {
+      var form = document.getElementById(formId || 'kinerjaForm');
+      if (!form) return { isValid: true, errors: [] };
+
+      var errors = [];
+      var handledGroups = {};
+      var controls = Array.prototype.slice.call(form.querySelectorAll('input, select, textarea'));
+
+      // Validasi khusus terlebih dahulu agar checkbox Pihak Terlibat dibaca dari DOM yang aktif.
+      validasiPihakDukuhV32_(errors, handledGroups);
+
+      controls.forEach(function (el) {
+        if (!isElemenTerlihatAktif_(el)) return;
+        if (el.dataset && el.dataset.optional === '1') return;
+
+        var type = (el.type || '').toLowerCase();
+
+        // Semua checkbox Pihak Terlibat Dukuh sudah divalidasi sebagai satu grup di atas.
+        if (type === 'checkbox' && isCheckboxDukuhPihak_(el)) {
+          handledGroups['dukuh_pihak_terlibat'] = true;
+          return;
+        }
+
+        if (type === 'checkbox' || type === 'radio') {
+          var groupKey = (el.name || labelFieldWajib_(el));
+          if (handledGroups[groupKey]) return;
+          handledGroups[groupKey] = true;
+          var group = controls.filter(function (x) {
+            return isElemenTerlihatAktif_(x) &&
+              (x.type || '').toLowerCase() === type &&
+              ((x.name || labelFieldWajib_(x)) === groupKey);
+          });
+          var checked = group.some(function (x) { return !!x.checked; });
+          if (!checked) errors.push(labelFieldWajib_(el));
+          return;
+        }
+
+        if (nilaiFieldWajibKosong_(el)) errors.push(labelFieldWajib_(el));
+      });
+
+      var unique = [];
+      errors.forEach(function (x) { if (unique.indexOf(x) === -1) unique.push(x); });
+      return { isValid: unique.length === 0, errors: unique };
+    };
+    // ===== END PATCH v2026.05.12.32 =====
+
 
     function tampilkanErrorFieldAktifWajib_(hasil, msg) {
       var teks = 'Semua field pada formulir aktif wajib diisi. Mohon lengkapi:\n- ' + (hasil.errors || []).join('\n- ');
