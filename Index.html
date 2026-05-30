@@ -13900,8 +13900,8 @@
         '<div class="form-group" style="grid-column: span 2;"><label>Perihal</label><input type="text" id="dPerihal" placeholder="Ketik perihal disposisi..."></div>' +
         '<div class="form-group" style="grid-column: span 2;"><label>Isi Ringkas Instruksi</label><textarea id="dIsiInstruksi" rows="3" placeholder="Tuliskan instruksi singkat dari Lurah..."></textarea></div>' +
         '<div class="form-group"><label>' + escapeHTML(lampiranLabel) + '</label><input type="file" id="dFileDisposisi" accept="image/*,application/pdf"></div>' +
-        '<div class="form-group"><label>Tanggal Pelaksanaan Kegiatan</label><input type="date" id="dTanggalMulai" onchange="aturDefaultBatasLaporanDisposisiV39_()"></div>' +
-        '<div class="form-group"><label>Tanggal Batas Laporan</label><input type="date" id="dTanggalSelesai"><small style="display:block; margin-top:5px; color:var(--text-muted);">Default otomatis H+3 dari tanggal pelaksanaan, dapat disesuaikan bila perlu.</small></div>' +
+        '<div class="form-group"><label>Tanggal Pelaksanaan Kegiatan</label><input type="date" id="dTanggalMulai" onchange="aturDefaultBatasLaporanDisposisiV40_()"></div>' +
+        '<div class="form-group"><label>Tanggal Batas Laporan</label><input type="date" id="dTanggalSelesai" onchange="window.disposisiBatasLaporanManualV40=true;"><small style="display:block; margin-top:5px; color:var(--text-muted);">Default otomatis H+3 dari tanggal pelaksanaan, dapat disesuaikan bila perlu.</small></div>' +
         '<div class="form-group" id="dTargetPegawaiWrap" style="grid-column: span 2;">' +
         '<label>Penerima Disposisi</label>' +
         '<div id="dSemuaPegawaiWrap" class="disposisi-target-toggle-all"><input type="checkbox" id="dSemuaPegawai" checked onchange="setAllDisposisiTarget_(this.checked)"><span>Semua Pegawai</span></div>' +
@@ -13911,10 +13911,10 @@
         '<button type="button" class="btn-unduh" style="background:linear-gradient(135deg,#64748b,#475569);" onclick="setAllDisposisiTarget_(false)">Bersihkan</button>' +
         '</div>' +
         '<div id="dTargetChecklist" class="disposisi-target-checklist"></div>' +
-        '<div id="dTargetSummary" class="disposisi-target-summary"></div>' +
+        '<div id="dTargetSummary" class="disposisi-target-summary" style="display:none;"></div>' +
         '</div>' +
         '</div>' +
-        '<div id="disposisiTargetPreview" class="disposisi-muted-box"></div><div class="disposisi-muted-box" style="margin-top:10px;"><b>Aturan batas laporan:</b> sistem otomatis mengisi Tanggal Batas Laporan H+3 dari Tanggal Pelaksanaan Kegiatan. Tanggal ini menjadi batas akhir laporan pukul 23:59 WIB.</div>' +
+        '<div id="disposisiTargetPreview" class="disposisi-muted-box" style="display:none;"></div><div class="disposisi-muted-box" style="margin-top:10px;"><b>Aturan batas laporan:</b> sistem otomatis mengisi Tanggal Batas Laporan H+3 dari Tanggal Pelaksanaan Kegiatan. Tanggal ini menjadi batas akhir laporan pukul 23:59 WIB.</div>' +
         '<div id="disposisiSaveMsg" class="disposisi-muted-box" style="margin-top:10px;"><span class="badge bg-gray">Siap</span> Lengkapi form dan unggah dokumen surat, lalu klik Terbitkan Disposisi. Nomor referensi akan dibuat otomatis oleh sistem.</div>' +
         '<button type="button" id="btnSimpanDisposisi" class="btn-submit" style="margin-top:14px;" onclick="simpanDisposisiSuratUI_()">' + labelTombolSimpanDisposisi_() + '</button>' +
         '</div>';
@@ -13978,6 +13978,59 @@
       if (!force && batas.value) return;
       batas.value = tambahHariIsoClientV39_(pel.value, 3);
     }
+
+
+
+    // ===== PATCH v2026.05.12.40: H+3 dinamis dan ringkasan target disembunyikan =====
+    window.disposisiBatasLaporanManualV40 = false;
+
+    function aturDefaultBatasLaporanDisposisiV40_(force) {
+      var pel = document.getElementById('dTanggalMulai');
+      var batas = document.getElementById('dTanggalSelesai');
+      if (!pel || !batas || !pel.value) return;
+
+      // Jika force=true, atau operator belum mengedit batas laporan manual,
+      // tanggal batas laporan otomatis ikut berubah menjadi H+3.
+      if (force || window.disposisiBatasLaporanManualV40 !== true) {
+        batas.value = tambahHariIsoClientV39_(pel.value, 3);
+      }
+    }
+
+    var aturDefaultBatasLaporanDisposisiV39__SEBELUM_DINAMIS_2026051240 = aturDefaultBatasLaporanDisposisiV39_;
+    aturDefaultBatasLaporanDisposisiV39_ = function (force) {
+      return aturDefaultBatasLaporanDisposisiV40_(force);
+    };
+
+    var renderDisposisiTargetChecklist__SEBELUM_NO_SUMMARY_2026051240 = renderDisposisiTargetChecklist_;
+    renderDisposisiTargetChecklist_ = function (list) {
+      renderDisposisiTargetChecklist__SEBELUM_NO_SUMMARY_2026051240(list);
+      var preview = document.getElementById('disposisiTargetPreview');
+      if (preview) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+      }
+      var summary = document.getElementById('dTargetSummary');
+      if (summary) {
+        summary.style.display = 'none';
+        summary.innerHTML = '';
+      }
+    };
+
+    var refreshDisposisiTargetPreview__SEBELUM_NO_SUMMARY_2026051240 = refreshDisposisiTargetPreview_;
+    refreshDisposisiTargetPreview_ = function () {
+      refreshDisposisiTargetPreview__SEBELUM_NO_SUMMARY_2026051240();
+      var preview = document.getElementById('disposisiTargetPreview');
+      if (preview) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+      }
+      var summary = document.getElementById('dTargetSummary');
+      if (summary) {
+        summary.style.display = 'none';
+        summary.innerHTML = '';
+      }
+    };
+    // ===== END PATCH v2026.05.12.40 =====
 
 
     async function simpanDisposisiSuratUI_() {
@@ -14070,6 +14123,7 @@
             if (msg) msg.innerHTML = '<span class="badge bg-green">Berhasil</span> ' + escapeHTML(res.pesan || 'Disposisi berhasil diterbitkan.') + (res.pesanWhatsApp ? ' Pesan WhatsApp sudah disiapkan.' : '');
             ['dPerihal', 'dIsiInstruksi', 'dNomorLembarManual', 'dCatatanOperator'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
             if (fileInput) fileInput.value = '';
+            window.disposisiBatasLaporanManualV40 = false;
             var dCari = document.getElementById('dCariTargetPegawai');
             if (dCari) dCari.value = '';
             setAllDisposisiTarget_(true);
@@ -14211,7 +14265,8 @@
         var dt4 = document.getElementById('dTanggalLembarManual');
         if (dt1 && !dt1.value) dt1.value = iso;
         if (dt2 && !dt2.value) dt2.value = iso;
-        if (dt3 && !dt3.value) dt3.value = tambahHariIsoClientV39_(dt2 && dt2.value ? dt2.value : iso, 3);
+        window.disposisiBatasLaporanManualV40 = false;
+        aturDefaultBatasLaporanDisposisiV40_(true);
         if (dt4 && !dt4.value) dt4.value = iso;
         setDisposisiJenisUI_();
       }
