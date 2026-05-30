@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.06";
+var APP_VERSION = "2026.05.30.07";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14501,5 +14501,118 @@ ambilDaftarPegawaiAktifUntukDisposisi = function (token) {
     return { sukses: true, data: getDaftarPegawaiAktifUntukDisposisiInternal_() };
   } catch (e) {
     return handleError('ambilDaftarPegawaiAktifUntukDisposisi_v34', e, { sukses: false, pesan: '', data: [] });
+  }
+};
+
+
+
+// ===== PATCH v2026.05.12.35: Menu Disposisi Tetap untuk Inbox Pegawai =====
+// Koreksi v34:
+// - v34 terlalu ketat karena menutup seluruh modul Disposisi untuk akun selain Lurah/operator.
+// Kebijakan v35:
+// - Semua pegawai aktif boleh membuka menu Disposisi untuk melihat Disposisi Saya/inbox.
+// - Hanya Lurah dan Operator Disposisi aktif yang boleh melihat/menggunakan form penerbitan disposisi.
+// - Daftar pegawai target disposisi tetap dibatasi untuk Lurah/operator aktif.
+// - Backend bootstrap kembali mengembalikan disposisiSaya untuk semua pegawai.
+
+function cekHakAksesDisposisiTerbit_(idUser) {
+  if (!idUser) return false;
+  if (cekHakAksesLurahDisposisi_(idUser)) return true;
+  return isOperatorDisposisiAktif_(idUser);
+}
+
+function cekHakAksesDisposisiInbox_(idUser) {
+  if (!idUser) return false;
+  return !!getPegawaiById_(idUser);
+}
+
+var getDisposisiBootstrap__V34_TERLALU_KETAT_2026051235 = getDisposisiBootstrap;
+getDisposisiBootstrap = function (token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai) return { sukses: false, pesan: 'Data pegawai tidak ditemukan.' };
+
+    ensureSheetDisposisiSurat_();
+    ensureSheetDisposisiPenerima_();
+    ensureSheetDisposisiLog_();
+    ensureSheetDisposisiPetugas_();
+
+    var canManage = cekHakAksesLurahDisposisi_(idUser);
+    var petugasAktif = getPetugasDisposisiAktif_();
+    var canOperateDisposisi = !canManage && !!(petugasAktif && idsEqual_(petugasAktif.pegawaiId, idUser));
+
+    var bolehTerbit = canManage || canOperateDisposisi;
+    var pegawaiList = bolehTerbit ? getDaftarPegawaiAktifUntukDisposisiInternal_() : [];
+    var pemberiUntukDaftar = canManage ? idUser : (canOperateDisposisi && petugasAktif ? petugasAktif.ditetapkanOlehId : idUser);
+    var daftarLurah = bolehTerbit ? ambilDaftarDisposisiLurahInternal_(pemberiUntukDaftar) : [];
+    var disposisiSaya = ambilDisposisiSayaInternal_(idUser);
+
+    return {
+      sukses: true,
+      canManage: canManage,
+      canOperateDisposisi: canOperateDisposisi,
+      canPublishDisposisi: bolehTerbit,
+      canInboxDisposisi: true,
+      petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
+      currentUser: {
+        id: normalizeId_(pegawai.id),
+        nama: pegawai.nama || '',
+        jabatan: pegawai.jabatan || '',
+        username: pegawai.username || ''
+      },
+      pegawaiAktif: getDaftarPegawaiAktifUntukDisposisiInternal_().length,
+      pegawaiList: pegawaiList,
+      daftarLurah: daftarLurah,
+      disposisiSaya: disposisiSaya,
+      sheetStatus: {
+        surat: 'Disposisi_Surat',
+        penerima: 'Disposisi_Penerima',
+        log: 'Disposisi_Log',
+        petugas: 'Disposisi_Petugas'
+      },
+      tahap: '1D-v35',
+      pesanAkses: bolehTerbit
+        ? 'Akses penerbitan disposisi aktif.'
+        : 'Mode inbox pegawai. Anda dapat melihat Disposisi Saya, tetapi tidak dapat menerbitkan disposisi.'
+    };
+  } catch (e) {
+    return handleError('getDisposisiBootstrap_v35', e, { sukses: false, pesan: 'Gagal memuat modul disposisi.' });
+  }
+};
+
+var getStatusAksesDisposisiModul__V34_TERLALU_KETAT_2026051235 = getStatusAksesDisposisiModul;
+getStatusAksesDisposisiModul = function (token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, boleh: false, bolehInbox: false, bolehTerbit: false, pesan: 'Sesi habis. Silakan login ulang.' };
+
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai) return { sukses: false, boleh: false, bolehInbox: false, bolehTerbit: false, pesan: 'Data pegawai tidak ditemukan.' };
+
+    var isLurah = cekHakAksesLurahDisposisi_(idUser);
+    var isOperator = isOperatorDisposisiAktif_(idUser);
+    var petugasAktif = getPetugasDisposisiAktif_();
+
+    return {
+      sukses: true,
+      boleh: true,
+      bolehInbox: true,
+      bolehTerbit: !!(isLurah || isOperator),
+      isLurahDisposisi: !!isLurah,
+      isOperatorDisposisiAktif: !!isOperator,
+      canAccessDisposisi: true,
+      canPublishDisposisi: !!(isLurah || isOperator),
+      jabatan: pegawai.jabatan || '',
+      nama: pegawai.nama || '',
+      petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
+      pesan: (isLurah || isOperator)
+        ? 'Akses Disposisi diizinkan untuk penerbitan dan inbox.'
+        : 'Akses Disposisi diizinkan untuk inbox/Disposisi Saya. Penerbitan hanya untuk Lurah dan Operator Disposisi aktif.'
+    };
+  } catch (e) {
+    return handleError('getStatusAksesDisposisiModul_v35', e, { sukses: false, boleh: false, bolehInbox: false, bolehTerbit: false, pesan: '' });
   }
 };

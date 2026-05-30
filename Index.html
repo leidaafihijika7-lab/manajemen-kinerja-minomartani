@@ -5025,7 +5025,8 @@
         canAccessTunjangan: res.canAccessTunjangan === true,
         isLurahDisposisi: res.isLurahDisposisi === true,
         isOperatorDisposisiAktif: res.isOperatorDisposisiAktif === true,
-        canAccessDisposisi: res.canAccessDisposisi === true
+        canAccessDisposisi: res.canAccessDisposisi === true,
+        canPublishDisposisi: res.canPublishDisposisi === true
       };
     }
     var notifLaporanWajibAktif = null;
@@ -6444,14 +6445,6 @@
       if (window.innerWidth <= 768 && document.activeElement &&
         (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
         document.activeElement.blur();
-      }
-
-      if (id === 'halDisposisi' && !userCanAccessDisposisi()) {
-        renderAksesDisposisiDitolak_();
-        refreshAksesDisposisiModul_(function (boleh) {
-          if (boleh) bukaHalaman(e, id, judul);
-        });
-        return;
       }
 
       if (_halamanAktif === id && id !== 'halDash') return;
@@ -12751,6 +12744,123 @@
           alasan: alasan
         }, sToken);
     }
+
+
+    // ===== PATCH v2026.05.12.35: Menu Disposisi untuk semua pegawai, penerbitan tetap terbatas =====
+    function userCanAccessDisposisi() {
+      return !!(sToken && sData && sData.nama);
+    }
+
+    function userCanPublishDisposisiV35_() {
+      return !!(
+        sData &&
+        (
+          sData.canPublishDisposisi === true ||
+          sData.isLurahDisposisi === true ||
+          sData.isOperatorDisposisiAktif === true ||
+          userIsLurahDisposisiLocal_()
+        )
+      );
+    }
+
+    function refreshAksesDisposisiModul_(callback) {
+      if (!sToken || !window.google || !google.script || !google.script.run) {
+        if (typeof callback === 'function') callback(false);
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          disposisiAccessStatus = res || { loaded:true, boleh:true, bolehInbox:true, bolehTerbit:false };
+          disposisiAccessStatus.loaded = true;
+
+          if (res && res.sukses) {
+            sData.canAccessDisposisi = true;
+            sData.canPublishDisposisi = res.bolehTerbit === true || res.canPublishDisposisi === true;
+            sData.isLurahDisposisi = res.isLurahDisposisi === true;
+            sData.isOperatorDisposisiAktif = res.isOperatorDisposisiAktif === true;
+            try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
+          } else {
+            sData.canAccessDisposisi = true;
+            sData.canPublishDisposisi = false;
+          }
+
+          aturMenuRoleVisibility();
+          if (typeof callback === 'function') callback(true);
+        })
+        .withFailureHandler(function () {
+          disposisiAccessStatus = { loaded:true, boleh:true, bolehInbox:true, bolehTerbit:false };
+          if (sData) {
+            sData.canAccessDisposisi = true;
+            sData.canPublishDisposisi = false;
+          }
+          aturMenuRoleVisibility();
+          if (typeof callback === 'function') callback(true);
+        })
+        .getStatusAksesDisposisiModul(sToken);
+    }
+
+    var aturMenuRoleVisibility__SEBELUM_DISPOSISI_INBOX_2026051235 = aturMenuRoleVisibility;
+    aturMenuRoleVisibility = function () {
+      var menuDisposisi = document.getElementById('menuDisposisi');
+      var menuAdmin = document.getElementById('menuAdmin');
+      var menuTunjangan = document.getElementById('menuTunjangan');
+      var menuAdminKinerja = document.getElementById('menuAdminKinerja');
+      var btnUnduhPredikat = document.getElementById('btnUnduhPredikat');
+
+      if (menuDisposisi) menuDisposisi.style.display = userCanAccessDisposisi() ? 'flex' : 'none';
+      if (menuAdmin) menuAdmin.style.display = userIsAdminUtama() ? 'flex' : 'none';
+      if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
+      if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
+      if (btnUnduhPredikat) btnUnduhPredikat.style.display = userIsAdminUtama() ? 'inline-flex' : 'none';
+    };
+
+    function sembunyikanPanelPenerbitanDisposisiJikaPerluV35_(res) {
+      try {
+        var bolehTerbit = !!(res && (res.canManage || res.canOperateDisposisi || res.canPublishDisposisi));
+        var body = document.getElementById('disposisiBody');
+        if (!body || bolehTerbit) return;
+
+        // Jika renderer bawaan sudah hanya menampilkan inbox, tidak perlu tindakan.
+        // Jika masih ada form penerbitan, sembunyikan elemen form umum secara defensif.
+        var selectors = [
+          '#formDisposisiSurat',
+          '#panelFormDisposisi',
+          '#panelOperatorDisposisi',
+          '#panelDaftarDisposisiLurah',
+          '#dTargetChecklist',
+          '#btnSimpanDisposisi',
+          '#btnTerbitkanDisposisi'
+        ];
+        selectors.forEach(function (sel) {
+          Array.prototype.forEach.call(body.querySelectorAll(sel) || [], function (el) {
+            el.style.display = 'none';
+          });
+        });
+
+        var info = document.createElement('div');
+        info.className = 'disposisi-muted-box';
+        info.style.cssText = 'margin-bottom:14px; border-left:5px solid #2563eb;';
+        info.innerHTML =
+          '<b>Mode Disposisi Saya</b><br>' +
+          '<small>Menu ini menampilkan disposisi yang diterima akun Anda. Penerbitan disposisi hanya untuk Lurah dan Operator Disposisi aktif.</small>';
+        body.insertBefore(info, body.firstChild);
+      } catch (e) {}
+    }
+
+    var renderDisposisiHalaman___SEBELUM_DISPOSISI_INBOX_2026051235 = renderDisposisiHalaman_;
+    renderDisposisiHalaman_ = function (res) {
+      renderDisposisiHalaman___SEBELUM_DISPOSISI_INBOX_2026051235(res);
+      if (res && res.sukses) {
+        sData.canAccessDisposisi = true;
+        sData.canPublishDisposisi = !!(res.canManage || res.canOperateDisposisi || res.canPublishDisposisi);
+        try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
+        aturMenuRoleVisibility();
+        sembunyikanPanelPenerbitanDisposisiJikaPerluV35_(res);
+      }
+    };
+    // ===== END PATCH v2026.05.12.35 =====
+
 
     try {
       var simpananToken = ambilMemori("kinerja_token");
