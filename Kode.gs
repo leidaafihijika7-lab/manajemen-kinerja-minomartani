@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.30.13";
+var APP_VERSION = "2026.05.31.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -15313,16 +15313,26 @@ function buatPesanWhatsAppDisposisiPersonal_(info, penerima) {
 }
 
 
-// ===== PATCH v2026.05.12.12: Disposisi H+3 Dinamis dan Sembunyikan Ringkasan Target =====
+// ===== PATCH v2026.05.12.40: Disposisi H+3 Dinamis dan Sembunyikan Ringkasan Target =====
 // Perubahan utama di Index.html:
 // - Tanggal Batas Laporan selalu diperbarui H+3 ketika Tanggal Pelaksanaan Kegiatan berubah,
 //   selama operator belum mengedit batas laporan secara manual.
 // - Ringkasan Target disembunyikan dari form agar tampilan lebih ringkas.
-// - Logika backend v11 tetap dipertahankan.
+// - Logika backend v39 tetap dipertahankan.
 
 
-// ===== PATCH v2026.05.30.13: Hapus Total Card Ringkasan Target Disposisi =====
+// ===== PATCH v2026.05.12.42: Safe Fix Disposisi setelah v41 =====
+// Basis v42 kembali ke v40 yang stabil.
+// Perubahan utama:
+// - Card Ringkasan Target dihapus langsung dari sumber render Index.html.
+// - Tidak memakai DOM scan agresif seperti v41.
+// - H+3 dinamis dari v40 tetap dipertahankan.
+
+
+// ===== PATCH v2026.05.12.43: Accordion Halaman Operator Disposisi =====
 // Perubahan utama di Index.html:
-// - v12 hanya menyembunyikan sebagian elemen ringkasan.
-// - v13 menyembunyikan seluruh card/container yang berjudul "Ringkasan Target".
-// - Data penerima tetap diproses dan dikirim; hanya tampilan ringkasan yang tidak ditampilkan.
+// - Input/Distribusi Disposisi tetap terbuka.
+// - Daftar Disposisi Lurah dibuat accordion/dropdown default tertutup.
+// - Disposisi Saya dibuat accordion/dropdown default tertutup untuk Lurah/operator.
+// - Untuk pegawai biasa/non-penerbit, Disposisi Saya tetap tampil seperti sebelumnya.
+// - Tidak mengubah backend, H+3, hak akses, atau data disposisi.

@@ -2177,6 +2177,65 @@
       box-shadow: var(--shadow-sm);
     }
 
+
+    .disposisi-accordion-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .disposisi-accordion-head {
+      width: 100%;
+      border: 0;
+      background: #fff;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .disposisi-accordion-head:hover {
+      background: #f8fafc;
+    }
+
+    .disposisi-accordion-title {
+      font-family: var(--font-heading);
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin: 0;
+    }
+
+    .disposisi-accordion-subtitle {
+      color: var(--text-muted);
+      line-height: 1.6;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .disposisi-accordion-body {
+      padding: 0 16px 16px 16px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+
+    .disposisi-accordion-card.is-open .disposisi-accordion-body {
+      display: block;
+    }
+
+    .disposisi-accordion-card.is-open .disposisi-accordion-icon {
+      transform: rotate(180deg);
+    }
+
+    .disposisi-accordion-icon {
+      transition: transform .18s ease;
+      color: var(--primary);
+      flex: 0 0 auto;
+    }
+
+
     .disposisi-card h3 {
       margin: 0 0 12px 0;
       font-family: var(--font-heading);
@@ -12910,69 +12969,61 @@
 
 
 
-    // ===== PATCH v2026.05.12.41: hapus seluruh card Ringkasan Target =====
-    function sembunyikanRingkasanTargetDisposisiV41_() {
-      try {
-        var kandidat = Array.prototype.slice.call(document.querySelectorAll('div, section, article'));
-        kandidat.forEach(function (el) {
-          var txt = (el.innerText || '').trim();
-          if (!txt) return;
-
-          // Cari container terdekat yang benar-benar berisi heading Ringkasan Target dan chip Total Pegawai/Dipilih.
-          var hasTitle = /\bRingkasan Target\b/i.test(txt);
-          var hasChips = /\bTotal Pegawai\b/i.test(txt) && /\bDipilih\b/i.test(txt);
-          var isLikelyCard = hasTitle && hasChips;
-
-          if (!isLikelyCard) return;
-
-          // Jangan sembunyikan seluruh halaman/body.
-          if (el.id === 'halDisposisi' || el.id === 'disposisiBody' || el.tagName === 'BODY') return;
-
-          // Pilih elemen terbesar yang masih berupa card ringkasan, bukan parent halaman.
-          var rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
-          if (rect && rect.height > 40 && rect.height < 600) {
-            el.style.display = 'none';
-            el.setAttribute('data-hidden-by-patch', 'v41-ringkasan-target');
-          }
-        });
-
-        // Fallback spesifik: jika heading masih ada, naik ke card terdekat.
-        var all = Array.prototype.slice.call(document.querySelectorAll('*'));
-        all.forEach(function (el) {
-          if ((el.textContent || '').trim() !== 'Ringkasan Target') return;
-          var card = el.closest('.form-card, .disposisi-card, .card, .panel, div');
-          while (card && card.parentElement && card.parentElement.id !== 'disposisiBody') {
-            var t = (card.innerText || '');
-            if (/Ringkasan Target/i.test(t) && /Total Pegawai/i.test(t) && /Dipilih/i.test(t)) break;
-            card = card.parentElement;
-          }
-          if (card && card.id !== 'disposisiBody') {
-            card.style.display = 'none';
-            card.setAttribute('data-hidden-by-patch', 'v41-ringkasan-target-fallback');
-          }
-        });
-      } catch (e) {}
+    // ===== PATCH v2026.05.12.42: pengaman ringan, bukan DOM scan agresif =====
+    function sembunyikanPreviewTargetDisposisiV42_() {
+      var preview = document.getElementById('disposisiTargetPreview');
+      if (preview) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+      }
+      var summary = document.getElementById('dTargetSummary');
+      if (summary) {
+        summary.style.display = 'none';
+        summary.innerHTML = '';
+      }
     }
 
-    var renderDisposisiTargetChecklist__SEBELUM_HIDE_CARD_2026051241 = renderDisposisiTargetChecklist_;
+    var renderDisposisiTargetChecklist__SEBELUM_SAFE_NO_SUMMARY_2026051242 = renderDisposisiTargetChecklist_;
     renderDisposisiTargetChecklist_ = function (list) {
-      renderDisposisiTargetChecklist__SEBELUM_HIDE_CARD_2026051241(list);
-      sembunyikanRingkasanTargetDisposisiV41_();
+      renderDisposisiTargetChecklist__SEBELUM_SAFE_NO_SUMMARY_2026051242(list);
+      sembunyikanPreviewTargetDisposisiV42_();
     };
 
-    var refreshDisposisiTargetPreview__SEBELUM_HIDE_CARD_2026051241 = refreshDisposisiTargetPreview_;
+    var refreshDisposisiTargetPreview__SEBELUM_SAFE_NO_SUMMARY_2026051242 = refreshDisposisiTargetPreview_;
     refreshDisposisiTargetPreview_ = function () {
-      refreshDisposisiTargetPreview__SEBELUM_HIDE_CARD_2026051241();
-      sembunyikanRingkasanTargetDisposisiV41_();
+      refreshDisposisiTargetPreview__SEBELUM_SAFE_NO_SUMMARY_2026051242();
+      sembunyikanPreviewTargetDisposisiV42_();
     };
+    // ===== END PATCH v2026.05.12.42 =====
 
-    var renderDisposisiHalaman_____SEBELUM_HIDE_RINGKASAN_TARGET_2026051241 = renderDisposisiHalaman_;
+
+
+    // ===== PATCH v2026.05.12.43: accordion disposisi =====
+    function toggleDisposisiAccordionV43_(id, forceOpen) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var buka = (typeof forceOpen === 'boolean') ? forceOpen : !el.classList.contains('is-open');
+      el.classList.toggle('is-open', buka);
+      try { localStorage.setItem('disposisiAccordionV43_' + id, buka ? '1' : '0'); } catch (e) {}
+    }
+
+    function restoreDisposisiAccordionV43_() {
+      ['accordionDaftarDisposisiLurah', 'accordionDisposisiSaya'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var saved = '0';
+        try { saved = localStorage.getItem('disposisiAccordionV43_' + id) || '0'; } catch (e) {}
+        el.classList.toggle('is-open', saved === '1');
+      });
+    }
+
+    var renderDisposisiHalaman______SEBELUM_ACCORDION_2026051243 = renderDisposisiHalaman_;
     renderDisposisiHalaman_ = function (res) {
-      renderDisposisiHalaman_____SEBELUM_HIDE_RINGKASAN_TARGET_2026051241(res);
-      setTimeout(sembunyikanRingkasanTargetDisposisiV41_, 0);
-      setTimeout(sembunyikanRingkasanTargetDisposisiV41_, 250);
+      renderDisposisiHalaman______SEBELUM_ACCORDION_2026051243(res);
+      setTimeout(restoreDisposisiAccordionV43_, 0);
+      setTimeout(restoreDisposisiAccordionV43_, 250);
     };
-    // ===== END PATCH v2026.05.12.41 =====
+    // ===== END PATCH v2026.05.12.43 =====
 
 
     try {
@@ -14266,10 +14317,8 @@
         '<span class="badge bg-gray" style="margin-left:8px;">Petugas: ' + escapeHTML(sheetInfo.petugas || 'Disposisi_Petugas') + '</span>' +
         '<div style="margin-top:6px; color:var(--text-muted);">Menu ini mendukung penetapan operator oleh Lurah, input melalui formulir aplikasi, audit penginput, dokumen surat wajib, dan inbox Disposisi Saya untuk semua pegawai termasuk operator.</div>';
 
-      function renderDisposisiSayaCard_(spanStyle) {
-        return '' +
-          '<div class="disposisi-card" style="' + (spanStyle || '') + '">' +
-          '<h3>Disposisi Saya</h3>' +
+      function renderDisposisiSayaCard_(spanStyle, asAccordion) {
+        var isi = '' +
           '<p>Daftar disposisi yang masuk ke akun <b>' + escapeHTML(currentUser.nama || '-') + '</b>. ' +
           (canOperate ? 'Akun ini juga aktif sebagai operator, tetapi tetap dapat menerima dan menindaklanjuti disposisi seperti pegawai lain.' : '') +
           '</p>' +
@@ -14278,7 +14327,26 @@
           '<span class="badge bg-yellow">Baru: ' + totalBaru + '</span>' +
           '<span class="badge bg-green">Dibuka: ' + totalDibuka + '</span>' +
           '</div>' +
-          '<div class="disposisi-table-wrap">' + renderDisposisiSayaTahap1C_(disposisiSaya) + '</div>' +
+          '<div class="disposisi-table-wrap">' + renderDisposisiSayaTahap1C_(disposisiSaya) + '</div>';
+
+        if (asAccordion) {
+          return '' +
+            '<div id="accordionDisposisiSaya" class="disposisi-card disposisi-card-full disposisi-accordion-card" style="' + (spanStyle || '') + '">' +
+            '<button type="button" class="disposisi-accordion-head" onclick="toggleDisposisiAccordionV43_(&quot;accordionDisposisiSaya&quot;)">' +
+            '<div>' +
+            '<div class="disposisi-accordion-title">Disposisi Saya</div>' +
+            '<div class="disposisi-accordion-subtitle">Daftar disposisi yang diterima akun ini. Total masuk: ' + disposisiSaya.length + ', baru: ' + totalBaru + ', dibuka: ' + totalDibuka + '.</div>' +
+            '</div>' +
+            '<span class="material-symbols-outlined disposisi-accordion-icon">expand_more</span>' +
+            '</button>' +
+            '<div class="disposisi-accordion-body">' + isi + '</div>' +
+            '</div>';
+        }
+
+        return '' +
+          '<div class="disposisi-card" style="' + (spanStyle || '') + '">' +
+          '<h3>Disposisi Saya</h3>' +
+          isi +
           '</div>';
       }
 
@@ -14288,24 +14356,26 @@
         if (canManage) html += renderPetugasOperatorDisposisiCard_(res);
         html += renderFormInputDisposisiCard_(canOperate && !canManage);
         html += '' +
-          '<div class="disposisi-card disposisi-card-full">' +
-          '<h3>Ringkasan Target</h3>' +
-          '<p>Ringkasan pegawai aktif, jumlah target terpilih, dan daftar penerima disposisi saat ini.</p>' +
-          '<div class="disposisi-recipient-list" id="disposisiRecipientPreview"></div>' +
+          '<div id="accordionDaftarDisposisiLurah" class="disposisi-card disposisi-card-full disposisi-lurah-list-card disposisi-accordion-card">' +
+          '<button type="button" class="disposisi-accordion-head" onclick="toggleDisposisiAccordionV43_(&quot;accordionDaftarDisposisiLurah&quot;)">' +
+          '<div>' +
+          '<div class="disposisi-accordion-title">Daftar Disposisi Lurah</div>' +
+          '<div class="disposisi-accordion-subtitle">Daftar disposisi yang sudah diterbitkan atas nama Lurah, termasuk yang diinput oleh operator. Total: ' + daftarLurah.length + '.</div>' +
           '</div>' +
-          '<div class="disposisi-card disposisi-card-full disposisi-lurah-list-card">' +
-          '<h3>Daftar Disposisi Lurah</h3>' +
-          '<p>Daftar disposisi yang sudah diterbitkan atas nama Lurah, termasuk yang diinput oleh operator. Daftar ini sekarang ditampilkan sebagai area utama agar tidak terjepit di panel kanan.</p>' +
+          '<span class="material-symbols-outlined disposisi-accordion-icon">expand_more</span>' +
+          '</button>' +
+          '<div class="disposisi-accordion-body">' +
           '<div class="disposisi-list-meta">' +
           '<span class="badge bg-gray">Total: ' + daftarLurah.length + '</span>' +
           '<span class="badge bg-gray">Area utama</span>' +
           '</div>' +
           '<div class="disposisi-table-wrap">' + renderDaftarDisposisiLurahTahap1C_(daftarLurah) + '</div>' +
+          '</div>' +
           '</div>';
 
         // Dual-role fix: Lurah/operator tetap pegawai dan bisa menjadi penerima disposisi.
-        // Karena itu, Disposisi Saya selalu ditampilkan, bukan hanya untuk mode pegawai biasa.
-        html += renderDisposisiSayaCard_('');
+        // Pada mode Lurah/operator, Disposisi Saya dibuat accordion agar halaman tidak terlalu panjang.
+        html += renderDisposisiSayaCard_('', true);
       } else {
         html += renderDisposisiSayaCard_('grid-column: span 2;') +
           '<div class="disposisi-card">' +
