@@ -5290,7 +5290,10 @@
         waktu: Date.now()
       };
       try { sessionStorage.setItem(DISPOSISI_WA_PENDING_KEY, JSON.stringify(data)); } catch (e) { }
-    }
+          if (typeof bersihkanPanelWhatsAppJikaBukanPenerbitV36_ === 'function' && bersihkanPanelWhatsAppJikaBukanPenerbitV36_()) {
+        return;
+      }
+}
 
     function ambilPendingPesanWhatsAppDisposisi_() {
       try {
@@ -5412,7 +5415,10 @@
         renderPenerimaTanpaWaDisposisi_(tanpaWa) +
         '</div>';
       body.insertBefore(panel, body.firstChild);
-    }
+          if (typeof bersihkanPanelWhatsAppJikaBukanPenerbitV36_ === 'function' && bersihkanPanelWhatsAppJikaBukanPenerbitV36_()) {
+        return;
+      }
+}
 
     function getPesanWhatsAppDisposisiAktif_() {
       var el = document.getElementById('dPesanWhatsAppDisposisi');
@@ -5648,10 +5654,7 @@
     }
 
     function userCanAccessDisposisi() {
-      if (!sToken || !sData || !sData.nama) return false;
-      if (userIsLurahDisposisiLocal_()) return true;
-      if (sData.canAccessDisposisi === true || sData.isOperatorDisposisiAktif === true) return true;
-      return !!(disposisiAccessStatus && disposisiAccessStatus.boleh === true);
+      return !!(sToken && sData && sData.nama);
     }
 
     function renderAksesDisposisiDitolak_() {
@@ -5676,21 +5679,31 @@
 
       google.script.run
         .withSuccessHandler(function (res) {
-          disposisiAccessStatus = res || { loaded:true, boleh:false };
+          disposisiAccessStatus = res || { loaded:true, boleh:true, bolehInbox:true, bolehTerbit:false };
           disposisiAccessStatus.loaded = true;
+
           if (res && res.sukses) {
+            sData.canAccessDisposisi = true;
+            sData.canPublishDisposisi = res.bolehTerbit === true || res.canPublishDisposisi === true;
             sData.isLurahDisposisi = res.isLurahDisposisi === true;
             sData.isOperatorDisposisiAktif = res.isOperatorDisposisiAktif === true;
-            sData.canAccessDisposisi = res.boleh === true;
             try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
+          } else {
+            sData.canAccessDisposisi = true;
+            sData.canPublishDisposisi = false;
           }
+
           aturMenuRoleVisibility();
-          if (typeof callback === 'function') callback(!!(res && res.boleh));
+          if (typeof callback === 'function') callback(true);
         })
         .withFailureHandler(function () {
-          disposisiAccessStatus = { loaded:true, boleh:false };
+          disposisiAccessStatus = { loaded:true, boleh:true, bolehInbox:true, bolehTerbit:false };
+          if (sData) {
+            sData.canAccessDisposisi = true;
+            sData.canPublishDisposisi = false;
+          }
           aturMenuRoleVisibility();
-          if (typeof callback === 'function') callback(false);
+          if (typeof callback === 'function') callback(true);
         })
         .getStatusAksesDisposisiModul(sToken);
     }
@@ -5841,7 +5854,10 @@
       }
       filterDisposisiTargetChecklist_();
       syncDisposisiSemuaPegawaiCheckbox_();
-    }
+          if (typeof sembunyikanPreviewTargetDisposisiV42_ === 'function') {
+        sembunyikanPreviewTargetDisposisiV42_();
+      }
+}
 
     function setDisposisiJenisUI_() {
       var jenis = document.getElementById('dJenisDisposisi');
@@ -12806,9 +12822,6 @@
 
 
     // ===== PATCH v2026.05.12.35: Menu Disposisi untuk semua pegawai, penerbitan tetap terbatas =====
-    function userCanAccessDisposisi() {
-      return !!(sToken && sData && sData.nama);
-    }
 
     function userCanPublishDisposisiV35_() {
       return !!(
@@ -12822,42 +12835,6 @@
       );
     }
 
-    function refreshAksesDisposisiModul_(callback) {
-      if (!sToken || !window.google || !google.script || !google.script.run) {
-        if (typeof callback === 'function') callback(false);
-        return;
-      }
-
-      google.script.run
-        .withSuccessHandler(function (res) {
-          disposisiAccessStatus = res || { loaded:true, boleh:true, bolehInbox:true, bolehTerbit:false };
-          disposisiAccessStatus.loaded = true;
-
-          if (res && res.sukses) {
-            sData.canAccessDisposisi = true;
-            sData.canPublishDisposisi = res.bolehTerbit === true || res.canPublishDisposisi === true;
-            sData.isLurahDisposisi = res.isLurahDisposisi === true;
-            sData.isOperatorDisposisiAktif = res.isOperatorDisposisiAktif === true;
-            try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
-          } else {
-            sData.canAccessDisposisi = true;
-            sData.canPublishDisposisi = false;
-          }
-
-          aturMenuRoleVisibility();
-          if (typeof callback === 'function') callback(true);
-        })
-        .withFailureHandler(function () {
-          disposisiAccessStatus = { loaded:true, boleh:true, bolehInbox:true, bolehTerbit:false };
-          if (sData) {
-            sData.canAccessDisposisi = true;
-            sData.canPublishDisposisi = false;
-          }
-          aturMenuRoleVisibility();
-          if (typeof callback === 'function') callback(true);
-        })
-        .getStatusAksesDisposisiModul(sToken);
-    }
 
     var aturMenuRoleVisibility__SEBELUM_DISPOSISI_INBOX_2026051235 = aturMenuRoleVisibility;
     aturMenuRoleVisibility = function () {
@@ -12931,18 +12908,7 @@
       return true;
     }
 
-    var simpanPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236 = simpanPendingPesanWhatsAppDisposisi_;
-    simpanPendingPesanWhatsAppDisposisi_ = function (res) {
-      if (!res || res.canPublishDisposisi !== true) return;
-      if (!bolehMelihatPanelWhatsAppDisposisiV36_()) return;
-      return simpanPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236(res);
-    };
 
-    var renderPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236 = renderPendingPesanWhatsAppDisposisi_;
-    renderPendingPesanWhatsAppDisposisi_ = function () {
-      if (bersihkanPanelWhatsAppJikaBukanPenerbitV36_()) return;
-      return renderPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236();
-    };
     // ===== END PATCH v2026.05.12.36 =====
 
 
@@ -12961,17 +12927,11 @@
       }
     }
 
-    var renderDisposisiTargetChecklist__SEBELUM_SAFE_NO_SUMMARY_2026051242 = renderDisposisiTargetChecklist_;
-    renderDisposisiTargetChecklist_ = function (list) {
-      renderDisposisiTargetChecklist__SEBELUM_SAFE_NO_SUMMARY_2026051242(list);
+    function refreshDisposisiTargetPreview_() {
       sembunyikanPreviewTargetDisposisiV42_();
-    };
+    }
 
-    var refreshDisposisiTargetPreview__SEBELUM_SAFE_NO_SUMMARY_2026051242 = refreshDisposisiTargetPreview_;
-    refreshDisposisiTargetPreview_ = function () {
-      refreshDisposisiTargetPreview__SEBELUM_SAFE_NO_SUMMARY_2026051242();
-      sembunyikanPreviewTargetDisposisiV42_();
-    };
+
     // ===== END PATCH v2026.05.12.42 =====
 
 
@@ -14060,11 +14020,7 @@
     }
 
     function aturDefaultBatasLaporanDisposisiV39_(force) {
-      var pel = document.getElementById('dTanggalMulai');
-      var batas = document.getElementById('dTanggalSelesai');
-      if (!pel || !batas || !pel.value) return;
-      if (!force && batas.value) return;
-      batas.value = tambahHariIsoClientV39_(pel.value, 3);
+      return aturDefaultBatasLaporanDisposisiV40_(force);
     }
 
 
@@ -14084,40 +14040,7 @@
       }
     }
 
-    var aturDefaultBatasLaporanDisposisiV39__SEBELUM_DINAMIS_2026051240 = aturDefaultBatasLaporanDisposisiV39_;
-    aturDefaultBatasLaporanDisposisiV39_ = function (force) {
-      return aturDefaultBatasLaporanDisposisiV40_(force);
-    };
 
-    var renderDisposisiTargetChecklist__SEBELUM_NO_SUMMARY_2026051240 = renderDisposisiTargetChecklist_;
-    renderDisposisiTargetChecklist_ = function (list) {
-      renderDisposisiTargetChecklist__SEBELUM_NO_SUMMARY_2026051240(list);
-      var preview = document.getElementById('disposisiTargetPreview');
-      if (preview) {
-        preview.style.display = 'none';
-        preview.innerHTML = '';
-      }
-      var summary = document.getElementById('dTargetSummary');
-      if (summary) {
-        summary.style.display = 'none';
-        summary.innerHTML = '';
-      }
-    };
-
-    var refreshDisposisiTargetPreview__SEBELUM_NO_SUMMARY_2026051240 = refreshDisposisiTargetPreview_;
-    refreshDisposisiTargetPreview_ = function () {
-      refreshDisposisiTargetPreview__SEBELUM_NO_SUMMARY_2026051240();
-      var preview = document.getElementById('disposisiTargetPreview');
-      if (preview) {
-        preview.style.display = 'none';
-        preview.innerHTML = '';
-      }
-      var summary = document.getElementById('dTargetSummary');
-      if (summary) {
-        summary.style.display = 'none';
-        summary.innerHTML = '';
-      }
-    };
     // ===== END PATCH v2026.05.12.40 =====
 
 
