@@ -12906,18 +12906,6 @@
         body.insertBefore(info, body.firstChild);
       } catch (e) {}
     }
-
-    var renderDisposisiHalaman___SEBELUM_DISPOSISI_INBOX_2026051235 = renderDisposisiHalaman_;
-    renderDisposisiHalaman_ = function (res) {
-      renderDisposisiHalaman___SEBELUM_DISPOSISI_INBOX_2026051235(res);
-      if (res && res.sukses) {
-        sData.canAccessDisposisi = true;
-        sData.canPublishDisposisi = !!(res.canManage || res.canOperateDisposisi || res.canPublishDisposisi);
-        try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
-        aturMenuRoleVisibility();
-        sembunyikanPanelPenerbitanDisposisiJikaPerluV35_(res);
-      }
-    };
     // ===== END PATCH v2026.05.12.35 =====
 
 
@@ -12954,16 +12942,6 @@
     renderPendingPesanWhatsAppDisposisi_ = function () {
       if (bersihkanPanelWhatsAppJikaBukanPenerbitV36_()) return;
       return renderPendingPesanWhatsAppDisposisi__SEBELUM_SCOPE_PUBLISH_2026051236();
-    };
-
-    var renderDisposisiHalaman____SEBELUM_SCOPE_WA_2026051236 = renderDisposisiHalaman_;
-    renderDisposisiHalaman_ = function (res) {
-      if (res && res.sukses) {
-        sData.canPublishDisposisi = !!(res.canManage || res.canOperateDisposisi || res.canPublishDisposisi);
-        try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
-      }
-      renderDisposisiHalaman____SEBELUM_SCOPE_WA_2026051236(res);
-      bersihkanPanelWhatsAppJikaBukanPenerbitV36_();
     };
     // ===== END PATCH v2026.05.12.36 =====
 
@@ -13016,13 +12994,6 @@
         el.classList.toggle('is-open', saved === '1');
       });
     }
-
-    var renderDisposisiHalaman______SEBELUM_ACCORDION_2026051243 = renderDisposisiHalaman_;
-    renderDisposisiHalaman_ = function (res) {
-      renderDisposisiHalaman______SEBELUM_ACCORDION_2026051243(res);
-      setTimeout(restoreDisposisiAccordionV43_, 0);
-      setTimeout(restoreDisposisiAccordionV43_, 250);
-    };
     // ===== END PATCH v2026.05.12.43 =====
 
 
@@ -14283,6 +14254,11 @@
     }
 
     function renderDisposisiHalaman_(res) {
+      if (res && res.sukses) {
+        sData.canPublishDisposisi = !!(res.canManage || res.canOperateDisposisi || res.canPublishDisposisi);
+        try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
+      }
+
       var sum = document.getElementById('disposisiSummary');
       var body = document.getElementById('disposisiBody');
       if (!sum || !body) return;
@@ -14406,6 +14382,16 @@
         if (dt4 && !dt4.value) dt4.value = iso;
         setDisposisiJenisUI_();
       }
+      if (res && res.sukses) {
+        sData.canAccessDisposisi = true;
+        sData.canPublishDisposisi = !!(res.canManage || res.canOperateDisposisi || res.canPublishDisposisi);
+        try { simpanMemori("kinerja_data", JSON.stringify(sData)); } catch (e) {}
+        aturMenuRoleVisibility();
+        sembunyikanPanelPenerbitanDisposisiJikaPerluV35_(res);
+      }
+      bersihkanPanelWhatsAppJikaBukanPenerbitV36_();
+      setTimeout(restoreDisposisiAccordionV43_, 0);
+      setTimeout(restoreDisposisiAccordionV43_, 250);
     }
     // ===== END DISPOSISI SURAT TAHAP 1C =====
 
