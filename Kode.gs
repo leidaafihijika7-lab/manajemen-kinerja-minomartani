@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.31.01";
+var APP_VERSION = "2026.05.31.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -9111,20 +9111,20 @@ function buatPesanWhatsAppDisposisi_(info) {
 
 var DISPOSISI_BATAS_LAPOR_HARI = 2;
 
-function batasLaporDisposisi_(tanggalSelesai) {
-  var d = parseTanggalKosongAman_(tanggalSelesai);
+function batasLaporDisposisi_(tanggalBatasLaporan) {
+  var d = parseTanggalKosongAman_(tanggalBatasLaporan);
   if (!d) return null;
-  // Batas laporan: H+2 dari tanggal selesai pelaksanaan, sampai 23:59:59.
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + DISPOSISI_BATAS_LAPOR_HARI, 23, 59, 59, 999);
+  // v39: tanggal_selesai sudah berarti Tanggal Batas Laporan, bukan akhir pelaksanaan + H+2.
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
 
-function formatBatasLaporDisposisi_(tanggalSelesai) {
-  var batas = batasLaporDisposisi_(tanggalSelesai);
+function formatBatasLaporDisposisi_(tanggalBatasLaporan) {
+  var batas = batasLaporDisposisi_(tanggalBatasLaporan);
   return batas ? formatTanggalIndonesiaDisposisi_(batas, true) : '-';
 }
 
-function isoBatasLaporDisposisi_(tanggalSelesai) {
-  var batas = batasLaporDisposisi_(tanggalSelesai);
+function isoBatasLaporDisposisi_(tanggalBatasLaporan) {
+  var batas = batasLaporDisposisi_(tanggalBatasLaporan);
   if (!batas) return '';
   return Utilities.formatDate(batas, 'GMT+7', "yyyy-MM-dd'T'HH:mm:ss");
 }
@@ -15244,24 +15244,6 @@ function tambahHariTanggalDisposisiV39_(tanggal, jumlahHari) {
 
 function tanggalBatasLaporanDefaultDisposisiV39_(tanggalPelaksanaan) {
   return tambahHariTanggalDisposisiV39_(tanggalPelaksanaan, 3);
-}
-
-function batasLaporDisposisi_(tanggalBatasLaporan) {
-  var d = parseTanggalKosongAman_(tanggalBatasLaporan);
-  if (!d) return null;
-  // v39: tanggal_selesai sudah berarti Tanggal Batas Laporan, bukan akhir pelaksanaan + H+2.
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-}
-
-function formatBatasLaporDisposisi_(tanggalBatasLaporan) {
-  var batas = batasLaporDisposisi_(tanggalBatasLaporan);
-  return batas ? formatTanggalIndonesiaDisposisi_(batas, true) : '-';
-}
-
-function isoBatasLaporDisposisi_(tanggalBatasLaporan) {
-  var batas = batasLaporDisposisi_(tanggalBatasLaporan);
-  if (!batas) return '';
-  return Utilities.formatDate(batas, 'GMT+7', "yyyy-MM-dd'T'HH:mm:ss");
 }
 
 // Override simpan disposisi agar tanggal batas laporan otomatis H+3 bila payload tidak valid/kosong.
