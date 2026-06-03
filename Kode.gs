@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.01.09";
+var APP_VERSION = "2026.06.03.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -363,7 +363,11 @@ function simpanCacheRekapKinerjaReadOnly_(data) {
 
 function invalidasiCacheRekapKinerjaReadOnly_() {
   try {
-    CacheService.getScriptCache().remove(REKAP_KINERJA_READ_CACHE_META_KEY);
+    var cache = CacheService.getScriptCache();
+    cache.remove(REKAP_KINERJA_READ_CACHE_META_KEY);
+    // Klasemen memakai cache turunan dari Rekap_Kinerja. Setiap data kinerja berubah,
+    // cache klasemen juga harus dibuang agar halaman Klasemen tidak stale.
+    try { cache.remove('KLASEMEN_REKAP_CACHE_2026051214'); } catch (eKlasemen) { }
   } catch (e) { }
 }
 
@@ -1936,6 +1940,14 @@ function labelPembayaranPeriode_(periode) {
   if (isNaN(tahun) || isNaN(bulan) || bulan < 1 || bulan > 12) return p;
   return namaBulan[bulan - 1] + " " + tahun;
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: parseJamCutoffTunjangan_
+ * Digantikan oleh definisi final pada baris asli ±9892.
+ * Catatan: Duplikasi helper parsing jam cut-off; gunakan definisi terakhir yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function parseJamCutoffTunjangan_(jamCutoff) {
   var fallback = (DEFAULT_TUNJANGAN_CUTOFF_TIME || "18:00").toString().trim();
@@ -2064,9 +2076,25 @@ function buildDateRangeMeta_(periode, tanggalMulai, tanggalAkhir, jamCutoff) {
 // ===== CUT-OFF POIN & TUNJANGAN =====
 // Laporan yang diajukan setelah cut-off periode tetap disimpan sebagai laporan,
 // tetapi tidak memperoleh poin dan tidak masuk rekap tunjangan periode berjalan.
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: statusReviewLewatCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13867.
+ * Catatan: Legacy status lewat cut-off; logika final tidak lagi menghukum status/poin karena cut-off lama.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 function statusReviewLewatCutoff_() {
   return (REVIEW_STATUS && REVIEW_STATUS.DISETUJUI_LEWAT_CUTOFF) ? REVIEW_STATUS.DISETUJUI_LEWAT_CUTOFF : "Disetujui - Lewat Cut-off";
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: isStatusLewatCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13873.
+ * Catatan: Legacy deteksi status lewat cut-off; versi final tidak dipakai untuk logika hukuman.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function isStatusLewatCutoff_(status) {
   return (status || "").toString().indexOf("Disetujui - Lewat Cut-off") === 0;
@@ -2075,6 +2103,14 @@ function isStatusLewatCutoff_(status) {
 function cutoffPropertyKeyTunjangan_(periode) {
   return "TUNJANGAN_CUTOFF_META_" + normalizePeriode_(periode);
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: metaCutoffTunjanganApril2026_
+ * Digantikan oleh definisi final pada baris asli ±9910.
+ * Catatan: Duplikasi meta historis April 2026; gunakan definisi terakhir yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function metaCutoffTunjanganApril2026_() {
   return buildDateRangeMeta_("2026-04", "2026-04-01", "2026-04-27", "18:13:40");
@@ -2111,12 +2147,28 @@ function ambilCutoffTunjanganPeriode_(periode) {
 
   return buildDefaultDateRangeFromPeriode_(p);
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: periodeDariTanggalLaporan_
+ * Digantikan oleh definisi final pada baris asli ±10456.
+ * Catatan: Versi lama berbasis kalender/cut-off historis; gunakan definisi terakhir yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function periodeDariTanggalLaporan_(tanggalLaporan) {
   var d = parseTanggal(tanggalLaporan);
   if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) return "";
   return Utilities.formatDate(d, "GMT+7", "yyyy-MM");
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: evaluasiCutoffLaporan_
+ * Digantikan oleh definisi final pada baris asli ±13815.
+ * Catatan: Versi lama masih terkait penalti cut-off; versi final hanya memakai meta admin untuk informasi/non-punitif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function evaluasiCutoffLaporan_(tanggalLaporan) {
   var d = parseTanggal(tanggalLaporan);
@@ -2136,12 +2188,28 @@ function evaluasiCutoffLaporan_(tanggalLaporan) {
     tanggalLaporan: d
   };
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: catatanLewatCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13876.
+ * Catatan: Catatan penalti cut-off lama sudah dinonaktifkan pada versi final.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function catatanLewatCutoff_(meta) {
   return "Lewat cut-off " + (meta && meta.labelPembayaran ? meta.labelPembayaran : "periode berjalan") +
     " (" + (meta && meta.tanggalCutoff ? meta.tanggalCutoff : "-") +
     "); tidak dihitung sebagai poin dan tidak masuk rekap tunjangan periode berjalan.";
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: gabungCatatanCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13880.
+ * Catatan: Penggabung catatan cut-off lama tidak dipakai untuk penalti pada versi final.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function gabungCatatanCutoff_(catatanLama, meta) {
   var tambahan = catatanLewatCutoff_(meta);
@@ -2150,6 +2218,14 @@ function gabungCatatanCutoff_(catatanLama, meta) {
   if (lama.indexOf("Lewat cut-off") !== -1) return lama;
   return lama + "\n" + tambahan;
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: aturCutoffTunjanganApril2026
+ * Digantikan oleh definisi final pada baris asli ±9951.
+ * Catatan: Fungsi historis April 2026; gunakan definisi terakhir yang aktif atau pindahkan ke LegacyMaintenance.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function aturCutoffTunjanganApril2026() {
   var meta = simpanCutoffTunjanganPeriode_("2026-04", "2026-04-01", "2026-04-27", "18:13:40");
@@ -2171,10 +2247,26 @@ function aturCutoffTunjanganApril2026() {
     }
   };
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: koreksiLaporanLewatCutoffApril2026
+ * Digantikan oleh definisi final pada baris asli ±13894.
+ * Catatan: Legacy koreksi massal cut-off April 2026; versi final menonaktifkan perubahan massal lama.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function koreksiLaporanLewatCutoffApril2026() {
   return koreksiLaporanLewatCutoffPeriode_("2026-04", "2026-04-01", "2026-04-27", "18:13:40");
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: koreksiLaporanLewatCutoffPeriode_
+ * Digantikan oleh definisi final pada baris asli ±13886.
+ * Catatan: Legacy koreksi massal status/poin lewat cut-off; versi final menolak koreksi massal lama.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function koreksiLaporanLewatCutoffPeriode_(periode, tanggalMulai, tanggalAkhir, jamCutoff) {
   try {
@@ -5475,6 +5567,14 @@ function cekPeriodeRevisiLaporanAktif_(row) {
     pesan: 'Periode revisi masih aktif sampai ' + (meta.tanggalCutoff || formatTanggalJamClient_(meta.endInclusive)) + '.'
   };
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: cekBolehRevisiLaporanPegawai_
+ * Digantikan oleh definisi final pada baris asli ±12258.
+ * Catatan: Duplikasi helper revisi laporan; gunakan definisi terakhir yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function cekBolehRevisiLaporanPegawai_(row, idUser) {
   var C = SHEET_COLUMNS.REKAP_KINERJA;
@@ -6602,6 +6702,14 @@ function pushSpreadsheetReviewFieldUnique_(fields, kolom, label, value, options,
   if (spreadsheetDetailIsSameAs_(value, options, compareList || [])) return;
   pushSpreadsheetReviewField_(fields, kolom, label, value, options);
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: buildAdminSpreadsheetDetailFromRow_
+ * Digantikan oleh definisi final pada baris asli ±10242.
+ * Catatan: Duplikasi builder detail spreadsheet admin; gunakan definisi terakhir/hotfix yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function buildAdminSpreadsheetDetailFromRow_(row) {
   row = row || [];
@@ -6720,6 +6828,14 @@ function buildAdminSpreadsheetDetailFromRow_(row) {
 }
 
 // ===== REVIEW ADMIN v24: sumber kebenaran detail dasar dari kolom K-Q =====
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: buildAdminCoreDetailFromRow_
+ * Digantikan oleh definisi final pada baris asli ±10220.
+ * Catatan: Duplikasi builder core detail admin; gunakan definisi terakhir/hotfix yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 function buildAdminCoreDetailFromRow_(row) {
   row = row || [];
   var C = SHEET_COLUMNS.REKAP_KINERJA;
@@ -7754,6 +7870,14 @@ function formatWaktuAdmin_(w) {
     return (w || "").toString();
   }
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: parsePeriodeBulan_
+ * Digantikan oleh definisi final pada baris asli ±10477.
+ * Catatan: Duplikasi parsing periode bulan; gunakan definisi terakhir yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function parsePeriodeBulan_(periode) {
   var p = (periode || "").toString().trim();
@@ -9923,6 +10047,14 @@ function isBlackoutCutoffApril2026_(tanggalLaporan) {
   var buka = batasBukaKembaliApril2026_();
   return d.getTime() > meta.endInclusive.getTime() && d.getTime() < buka.getTime();
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: evaluasiCutoffLaporan_
+ * Digantikan oleh definisi final pada baris asli ±13815.
+ * Catatan: Versi lama masih terkait penalti cut-off; versi final hanya memakai meta admin untuk informasi/non-punitif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function evaluasiCutoffLaporan_(tanggalLaporan) {
   var d = parseTanggal(tanggalLaporan);
@@ -9971,10 +10103,26 @@ function aturCutoffTunjanganApril2026() {
     }
   };
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: koreksiLaporanLewatCutoffApril2026
+ * Digantikan oleh definisi final pada baris asli ±13894.
+ * Catatan: Legacy koreksi massal cut-off April 2026; versi final menonaktifkan perubahan massal lama.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function koreksiLaporanLewatCutoffApril2026() {
   return koreksiLaporanBlackoutCutoffApril2026_();
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: koreksiLaporanBlackoutCutoffApril2026_
+ * Digantikan oleh definisi final pada baris asli ±13902.
+ * Catatan: Legacy koreksi blackout cut-off April 2026; versi final menonaktifkan perubahan massal lama.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function koreksiLaporanBlackoutCutoffApril2026_() {
   try {
@@ -10095,6 +10243,14 @@ function isTanggalDalamJedaCutoff_(tanggal, meta) {
   if (!(buka instanceof Date) || isNaN(buka.getTime())) return false;
   return d.getTime() > meta.endInclusive.getTime() && d.getTime() < buka.getTime();
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: metaCutoffTunjanganTersimpan_
+ * Digantikan oleh definisi final pada baris asli ±13756.
+ * Catatan: Versi lama masih mencampur default/hard-code; versi final hanya membaca meta yang disimpan admin.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function metaCutoffTunjanganTersimpan_() {
   var metas = [];
@@ -10129,6 +10285,14 @@ function metaCutoffTunjanganTersimpan_() {
 
   return metas;
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: statusInputLaporanCutoffSaatIni_
+ * Digantikan oleh definisi final pada baris asli ±13917.
+ * Catatan: Versi lama masih memungkinkan default/hard-code; versi final hanya memakai cut-off admin tersimpan.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function statusInputLaporanCutoffSaatIni_() {
   var now = new Date();
@@ -10166,6 +10330,14 @@ function ambilStatusInputLaporanCutoff(token) {
     return handleError("ambilStatusInputLaporanCutoff", e, { sukses: false, ditutup: false, pesan: "" });
   }
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: simpanCutoffInputLaporanPeriode
+ * Digantikan oleh definisi final pada baris asli ±10841.
+ * Catatan: Versi lama belum menjadi sumber final; gunakan definisi terakhir yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function simpanCutoffInputLaporanPeriode(periode, tanggalMulai, tanggalAkhir, jamCutoff, token) {
   try {
@@ -10194,6 +10366,14 @@ function simpanCutoffInputLaporanPeriode(periode, tanggalMulai, tanggalAkhir, ja
 // Override evaluasi cut-off laporan: laporan hanya dianggap lewat cut-off pada jeda
 // setelah cut-off sampai sebelum input dibuka kembali. Laporan setelah 00:00 hari
 // berikutnya tidak dikoreksi sebagai lewat cut-off periode sebelumnya.
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: evaluasiCutoffLaporan_
+ * Digantikan oleh definisi final pada baris asli ±13815.
+ * Catatan: Versi lama masih terkait penalti cut-off; versi final hanya memakai meta admin untuk informasi/non-punitif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 function evaluasiCutoffLaporan_(tanggalLaporan) {
   var d = parseTanggal(tanggalLaporan);
   if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) {
@@ -10401,6 +10581,14 @@ function periodeKeyOffset_(periode, offsetBulan) {
   var mo = parseInt(m[2], 10) - 1;
   return Utilities.formatDate(new Date(y, mo + (offsetBulan || 0), 1), 'GMT+7', 'yyyy-MM');
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: rentangPeriodeTunjanganUntukDashboard_
+ * Digantikan oleh definisi final pada baris asli ±11777.
+ * Catatan: Versi lama rentang periode dashboard; gunakan definisi terakhir yang aktif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function rentangPeriodeTunjanganUntukDashboard_(periode) {
   var p = normalizePeriode_(periode);
@@ -10526,6 +10714,14 @@ function dashboardAdminKinerjaPeriodeMeta_(meta) {
 // ===== PATCH v14: Review Admin mengikuti jeda cut-off input laporan dan fallback tanggal pelaksanaan =====
 // Catatan: periode efektif Dashboard dapat menjadi bulan berikutnya, tetapi laporan yang
 // dibuat pada jeda setelah cut-off sampai sebelum 00:00 tetap harus ditandai lewatCutoff.
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: kandidatMetaCutoffUntukTanggalReview_
+ * Digantikan oleh definisi final pada baris asli ±13780.
+ * Catatan: Versi lama kandidat cut-off review; versi final hanya memakai meta admin tersimpan.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 function kandidatMetaCutoffUntukTanggalReview_(tanggalObj) {
   var d = tanggalObj instanceof Date ? tanggalObj : parseTanggal(tanggalObj);
   if (!(d instanceof Date) || isNaN(d.getTime())) return [];
@@ -10565,6 +10761,14 @@ function kandidatMetaCutoffUntukTanggalReview_(tanggalObj) {
 
   return hasil;
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: evaluasiCutoffLaporan_
+ * Digantikan oleh definisi final pada baris asli ±13815.
+ * Catatan: Versi lama masih terkait penalti cut-off; versi final hanya memakai meta admin untuk informasi/non-punitif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function evaluasiCutoffLaporan_(tanggalLaporan) {
   var d = parseTanggal(tanggalLaporan);
@@ -10631,6 +10835,14 @@ function adminTanggalPelaksanaanDariPayload_(payload) {
 // Tanggal Pelaksanaan menjadi dasar periode kegiatan. Jika laporan baru dikirim
 // setelah cut-off periode kegiatan tersebut, Admin hanya dapat menyetujui 0 poin
 // atau menolak, agar kegiatan periode lama tidak masuk rekap periode berjalan.
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: evaluasiPeriodePelaksanaanReviewAdmin_
+ * Digantikan oleh definisi final pada baris asli ±13838.
+ * Catatan: Versi lama dapat memengaruhi hukuman periode tertutup; versi final non-punitif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 function evaluasiPeriodePelaksanaanReviewAdmin_(tanggalPelaksanaan, tanggalLaporan) {
   var tPelaksanaan = parseTanggal(tanggalPelaksanaan);
   var tLapor = parseTanggal(tanggalLaporan);
@@ -10670,11 +10882,27 @@ function evaluasiPeriodePelaksanaanReviewAdmin_(tanggalPelaksanaan, tanggalLapor
     pesan: pesan
   };
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: catatanPeriodePelaksanaanDitutup_
+ * Digantikan oleh definisi final pada baris asli ±13857.
+ * Catatan: Catatan punitif periode tertutup dinonaktifkan pada versi final.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function catatanPeriodePelaksanaanDitutup_(hasilEvaluasi) {
   hasilEvaluasi = hasilEvaluasi || {};
   return hasilEvaluasi.pesan || ('Tanggal pelaksanaan masuk periode yang sudah cut-off; poin otomatis 0 dan tidak masuk rekap tunjangan periode berjalan.');
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: gabungCatatanPeriodePelaksanaanDitutup_
+ * Digantikan oleh definisi final pada baris asli ±13861.
+ * Catatan: Penggabung catatan periode tertutup dinonaktifkan pada versi final.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function gabungCatatanPeriodePelaksanaanDitutup_(catatanLama, hasilEvaluasi) {
   var tambahan = catatanPeriodePelaksanaanDitutup_(hasilEvaluasi);
@@ -10804,6 +11032,14 @@ function daftarLockInputLaporanCutoff_() {
 
 // Override statusInputLaporanCutoffSaatIni_ agar freeze input berlaku umum untuk semua
 // periode yang sudah disimpan cut-off-nya oleh Admin/Carik.
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: statusInputLaporanCutoffSaatIni_
+ * Digantikan oleh definisi final pada baris asli ±13917.
+ * Catatan: Versi lama masih memungkinkan default/hard-code; versi final hanya memakai cut-off admin tersimpan.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 function statusInputLaporanCutoffSaatIni_() {
   var now = new Date();
   var locks = daftarLockInputLaporanCutoff_();
@@ -11449,14 +11685,38 @@ ambilLaporanAdminPerPegawai = function (idPegawai, filterStatus, tanggalMulai, t
 // - Label "Disetujui - Lewat Cut-off" tidak digunakan lagi karena tanggal cut-off lama/default tidak dapat dipastikan.
 // - Penolakan input baru setelah batas akhir hanya menggunakan fitur "Tutup Periode Laporan".
 // - Review admin tidak mengubah status disetujui menjadi lewat cut-off dan tidak otomatis menjadikan poin 0 karena cut-off lama.
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: statusReviewLewatCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13867.
+ * Catatan: Legacy status lewat cut-off; logika final tidak lagi menghukum status/poin karena cut-off lama.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function statusReviewLewatCutoff_() {
   return REVIEW_STATUS.DISETUJUI;
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: isStatusLewatCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13873.
+ * Catatan: Legacy deteksi status lewat cut-off; versi final tidak dipakai untuk logika hukuman.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function isStatusLewatCutoff_(status) {
   return false;
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: evaluasiCutoffLaporan_
+ * Digantikan oleh definisi final pada baris asli ±13815.
+ * Catatan: Versi lama masih terkait penalti cut-off; versi final hanya memakai meta admin untuk informasi/non-punitif.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function evaluasiCutoffLaporan_(tanggalLaporan) {
   var d = parseTanggal(tanggalLaporan);
@@ -11475,10 +11735,26 @@ function evaluasiCutoffLaporan_(tanggalLaporan) {
     bukaKembali: null
   };
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: catatanLewatCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13876.
+ * Catatan: Catatan penalti cut-off lama sudah dinonaktifkan pada versi final.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function catatanLewatCutoff_(meta) {
   return "";
 }
+/**
+ * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
+ * Tanggal: 2026-06-03
+ * Fungsi lama: gabungCatatanCutoff_
+ * Digantikan oleh definisi final pada baris asli ±13880.
+ * Catatan: Penggabung catatan cut-off lama tidak dipakai untuk penalti pada versi final.
+ * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
+ */
 
 function gabungCatatanCutoff_(catatanLama, meta) {
   return (catatanLama || "").toString();
@@ -11615,13 +11891,160 @@ if (typeof buildAdminReviewItemFromRow__SEBELUM_NONAKTIF_CUTOFF_2026051212 !== '
 
 
 
-// ===== PATCH v2026.05.12.14: Optimasi Klasemen Kinerja dengan filter backend + paginasi =====
-// Tidak mengubah rumus bisnis ambilDataRekap(); fungsi ini tetap menjadi sumber perhitungan.
-// Patch hanya membungkus hasilnya dengan filter, offset, dan limit agar frontend tidak harus
-// merender semua data sekaligus. Cache singkat dipakai untuk mengurangi hitung ulang saat klik "Muat Lagi".
+// ===== PATCH v2026.06.03.01: Optimasi Klasemen Kinerja backend lean =====
+// Masalah sebelumnya: ambilDataRekapPaged() sudah paginated di frontend, tetapi backend
+// masih memanggil ambilDataRekap(), yang membaca banyak kolom Rekap_Kinerja dan menghitung
+// seluruh klasemen sebelum dipotong. Halaman Klasemen menjadi berat ketika Rekap_Kinerja besar.
+//
+// Patch ini membuat jalur khusus Klasemen:
+// - hanya membaca kolom A:T Rekap_Kinerja yang memang dibutuhkan Klasemen;
+// - tetap memakai rumus agregasi lama: total poin triwulan, poin Prod/TU periode aktif,
+//   estimasi tunjangan, pengelompokan jabatan, dan sorting total poin;
+// - ambilDataRekap() lama tetap ada untuk kompatibilitas endpoint lain;
+// - cache Klasemen otomatis ikut dihapus saat cache Rekap_Kinerja di-invalidasi.
 
 var KLASMEN_REKAP_CACHE_KEY_2026051214 = 'KLASEMEN_REKAP_CACHE_2026051214';
 var KLASMEN_REKAP_CACHE_TTL_SECONDS_2026051214 = 300;
+
+function getRekapKinerjaKlasemenValuesLean_() {
+  var sh = getSheet_("Rekap_Kinerja");
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var lastNeededCol = Math.max(
+    C.TANGGAL_LAPORAN,
+    C.NAMA,
+    C.JABATAN,
+    C.KATEGORI,
+    C.STATUS_REVIEW,
+    C.POIN_FINAL,
+    C.ID_USER
+  ) + 1;
+
+  // Sheet biasanya sudah memiliki semua kolom. Guard ini hanya defensif untuk salinan/dev sheet.
+  var colCount = Math.min(lastNeededCol, sh.getMaxColumns());
+  return sh.getRange(1, 1, lastRow, colCount).getValues();
+}
+
+function periodeDariTanggalLaporanKlasemenCached_(tanggalLaporan, memo) {
+  var d = parseTanggal(tanggalLaporan);
+  if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) return '';
+
+  memo = memo || {};
+  var key = Utilities.formatDate(d, 'GMT+7', 'yyyy-MM-dd');
+  if (Object.prototype.hasOwnProperty.call(memo, key)) return memo[key];
+
+  var periode = periodeDariTanggalLaporan_(d) || '';
+  memo[key] = periode;
+  return periode;
+}
+
+function ambilDataRekapKlasemenLean_() {
+  try {
+    var data = getRekapKinerjaKlasemenValuesLean_();
+    var mapRekap = {};
+
+    var pegawaiData = [];
+    try { pegawaiData = getPegawaiDataCached_() || []; } catch (ePegawai) { }
+
+    var pegawaiById = {};
+    for (var p = 1; p < pegawaiData.length; p++) {
+      var idPeg = normalizeId_(pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.ID]);
+      if (!idPeg) continue;
+      pegawaiById[idPeg] = {
+        idUser: idPeg,
+        nama: (pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.NAMA] || "").toString().trim(),
+        jabatan: (pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN] || "").toString().trim()
+      };
+    }
+
+    var C = SHEET_COLUMNS.REKAP_KINERJA;
+    var tglSekarang = new Date();
+    var periodeAktifRekap = periodeDariTanggalLaporan_(tglSekarang) || Utilities.formatDate(tglSekarang, "GMT+7", "yyyy-MM");
+    var metaPeriodeAktifRekap = parsePeriodeBulan_(periodeAktifRekap);
+    var periodeMemo = {};
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i] || [];
+      var tglLap = parseTanggal(row[C.TANGGAL_LAPORAN]);
+      if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
+
+      // Filter triwulan lebih dulu agar perhitungan periode efektif hanya dilakukan untuk kandidat relevan.
+      if (!(tglLap >= metaPeriodeAktifRekap.triStart && tglLap < metaPeriodeAktifRekap.triEnd)) continue;
+      if (!isStatusApproved_(row[C.STATUS_REVIEW])) continue;
+
+      var idUser = normalizeId_(row[C.ID_USER]);
+      var kategori = (row[C.KATEGORI] || "").toString();
+      var poin = Number(row[C.POIN_FINAL]) || 0;
+
+      var master = idUser && pegawaiById[idUser] ? pegawaiById[idUser] : null;
+      var nama = master && master.nama ? master.nama : (row[C.NAMA] || "").toString().trim();
+      var jabatan = master && master.jabatan ? master.jabatan : (row[C.JABATAN] || "").toString().trim();
+
+      if (!nama || !jabatan) continue;
+
+      var jLow = (jabatan || "").toString().toLowerCase();
+      if (jLow.indexOf("lurah") !== -1 || jLow.indexOf("phl") !== -1 || jLow.indexOf("lepas") !== -1) continue;
+
+      var kelompok = identifikasiKelompok_(jabatan);
+      var key = idUser || (nama + "__" + jabatan);
+
+      if (!mapRekap[key]) {
+        mapRekap[key] = {
+          idUser: idUser,
+          nama: nama,
+          jabatan: jabatan,
+          kelompok: kelompok,
+          jumlahLaporan: 0,
+          totalPoin: 0,
+          poinProd: 0,
+          poinTU: 0,
+          estimasiTunjangan: 0
+        };
+      }
+
+      mapRekap[key].jumlahLaporan++;
+      mapRekap[key].totalPoin += poin;
+
+      var periodeEfektifLap = periodeDariTanggalLaporanKlasemenCached_(tglLap, periodeMemo);
+      if (periodeEfektifLap === periodeAktifRekap) {
+        if (isKategoriProduktivitas_(kategori)) mapRekap[key].poinProd += poin;
+        else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) mapRekap[key].poinTU += poin;
+      }
+    }
+
+    var hasil = Object.values(mapRekap);
+    var tunjanganMemo = {};
+
+    hasil.forEach(function (r) {
+      var tunjangan = { maxProd: 0, maxTU: 0 };
+      var tunjanganKey = (r.idUser || '') + '__' + canonicalizeJabatan_(r.jabatan || '');
+      if (Object.prototype.hasOwnProperty.call(tunjanganMemo, tunjanganKey)) {
+        tunjangan = tunjanganMemo[tunjanganKey] || tunjangan;
+      } else {
+        try { tunjangan = getTunjanganPegawai_(r.idUser, r.jabatan) || tunjangan; } catch (eTunjangan) { }
+        tunjanganMemo[tunjanganKey] = tunjangan;
+      }
+
+      var maxProd = Number(tunjangan.maxProd) || 0;
+      var maxTU = Number(tunjangan.maxTU) || 0;
+      var prProd = r.poinProd > 100 ? 100 : r.poinProd;
+      var prTU = r.poinTU > 100 ? 100 : r.poinTU;
+
+      r.estimasiTunjangan = ((prProd / 100) * maxProd) + ((prTU / 100) * maxTU);
+    });
+
+    hasil.sort(function (a, b) {
+      return Number(b.totalPoin || 0) - Number(a.totalPoin || 0);
+    });
+
+    return hasil;
+  } catch (e) {
+    Logger.log('ambilDataRekapKlasemenLean_ ERROR, fallback ke ambilDataRekap: ' + (e && e.message ? e.message : e));
+    try { return ambilDataRekap() || []; } catch (eFallback) { return []; }
+  }
+}
 
 function ambilDataRekapKlasemenCached_() {
   try {
@@ -11631,7 +12054,7 @@ function ambilDataRekapKlasemenCached_() {
       try { return JSON.parse(raw); } catch (eParse) { }
     }
 
-    var rows = ambilDataRekap() || [];
+    var rows = ambilDataRekapKlasemenLean_() || [];
     try {
       var json = JSON.stringify(rows);
       // CacheService limit aman sekitar 100KB per item; jika terlalu besar, abaikan cache.
@@ -13864,19 +14287,43 @@ function gabungCatatanPeriodePelaksanaanDitutup_(catatanLama, hasilEvaluasi) {
 }
 
 // Override final: status lama "Lewat Cut-off" tidak dibuat lagi.
+/**
+ * CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS — FINAL/ACTIVE
+ * Tanggal: 2026-06-03
+ * Fungsi aktif: statusReviewLewatCutoff_
+ * Wrapper kompatibilitas final setelah pembersihan duplikasi; pertahankan definisi ini.
+ */
 function statusReviewLewatCutoff_() {
   return REVIEW_STATUS.DISETUJUI;
 }
 
 // Tetap kenali status lama hanya untuk tampilan/audit historis? Tidak untuk logika hukuman.
 // Karena fitur Audit Koreksi Cut-off Lama memakai isStatusDisetujuiLewatCutoffLama_ tersendiri.
+/**
+ * CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS — FINAL/ACTIVE
+ * Tanggal: 2026-06-03
+ * Fungsi aktif: isStatusLewatCutoff_
+ * Wrapper kompatibilitas final setelah pembersihan duplikasi; pertahankan definisi ini.
+ */
 function isStatusLewatCutoff_(status) {
   return false;
 }
+/**
+ * CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS — FINAL/ACTIVE
+ * Tanggal: 2026-06-03
+ * Fungsi aktif: catatanLewatCutoff_
+ * Wrapper kompatibilitas final setelah pembersihan duplikasi; pertahankan definisi ini.
+ */
 
 function catatanLewatCutoff_(meta) {
   return '';
 }
+/**
+ * CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS — FINAL/ACTIVE
+ * Tanggal: 2026-06-03
+ * Fungsi aktif: gabungCatatanCutoff_
+ * Wrapper kompatibilitas final setelah pembersihan duplikasi; pertahankan definisi ini.
+ */
 
 function gabungCatatanCutoff_(catatanLama, meta) {
   return (catatanLama || '').toString();
