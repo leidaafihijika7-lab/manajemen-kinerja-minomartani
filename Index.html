@@ -13652,9 +13652,11 @@
           ((item.periodePelaporanDitutup) ? '<span class="badge bg-red">Pelaporan Ditutup: ' + escapeHTML(item.periodePelaporanLabel || '-') + '</span>' : '') +
           '</div>' +
           (safeLampiranUrl !== '#' ? '<div style="margin-top:12px;"><a class="admin-bukti-chip" href="' + escapeHTML(safeLampiranUrl) + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHTML(item.lampiranNama || 'Buka Dokumen Surat') + '</a></div>' : '') +
+          ((String(item.status || '').toUpperCase() === 'DIBATALKAN') ? '<div style="margin-top:12px; padding:10px 12px; border-radius:12px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; font-size:12px; line-height:1.55;"><b>Disposisi dibatalkan.</b><br>' + escapeHTML(item.catatanOperator || 'Data tetap disimpan sebagai arsip dan tidak dapat dipakai untuk laporan baru.') + '</div>' : '') +
           '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">' +
-          '<button type="button" class="btn-action btn-edit" style="width:auto; margin-top:0;" onclick="bukaKelolaPenerimaDisposisi_(&quot;' + escapeJsSingleQuote_(item.idDisposisi || '') + '&quot;)">Kelola Penerima</button>' +
-          '<button type="button" class="btn-action btn-reject" style="width:auto; margin-top:0;" onclick="bukaKoreksiJenisDisposisi_(&quot;' + escapeJsSingleQuote_(item.idDisposisi || '') + '&quot;)">Koreksi Jenis</button>' +
+          ((String(item.status || '').toUpperCase() === 'DIBATALKAN') ? '' : '<button type="button" class="btn-action btn-edit" style="width:auto; margin-top:0;" onclick="bukaKelolaPenerimaDisposisi_(&quot;' + escapeJsSingleQuote_(item.idDisposisi || '') + '&quot;)">Kelola Penerima</button>') +
+          ((String(item.status || '').toUpperCase() === 'DIBATALKAN') ? '' : '<button type="button" class="btn-action btn-reject" style="width:auto; margin-top:0;" onclick="bukaKoreksiJenisDisposisi_(&quot;' + escapeJsSingleQuote_(item.idDisposisi || '') + '&quot;)">Koreksi Jenis</button>') +
+          ((String(item.status || '').toUpperCase() === 'DIBATALKAN') ? '' : '<button type="button" class="btn-action btn-reject" style="width:auto; margin-top:0;" onclick="batalkanDisposisiSuratUI_(\'' + escapeJsSingleQuote_(item.idDisposisi || '') + '\')">Batalkan Disposisi</button>') +
           '</div>' +
           '</div>';
       }).join('');
@@ -13844,6 +13846,93 @@
         .tambahPenerimaDisposisi({ idDisposisi: idDisposisi, penerimaIds: ids, alasan: alasan }, sToken);
     }
 
+    function batalkanDisposisiSuratUI_(idDisposisi) {
+      idDisposisi = String(idDisposisi || '').trim();
+      if (!idDisposisi) {
+        alert('ID disposisi tidak valid.');
+        return;
+      }
+
+      var item = (disposisiDaftarLurahAktif || []).filter(function (d) {
+        return String(d.idDisposisi || '') === idDisposisi;
+      })[0];
+
+      if (!item) {
+        alert('Data disposisi tidak ditemukan. Silakan muat ulang halaman Disposisi.');
+        return;
+      }
+
+      if (String(item.status || '').toUpperCase() === 'DIBATALKAN') {
+        alert('Disposisi ini sudah berstatus DIBATALKAN.');
+        return;
+      }
+
+      var duplikatDari = prompt(
+        'Opsional: isi nomor/ref disposisi utama jika pembatalan karena duplikat.\n\n' +
+        'Kosongkan bila bukan karena duplikat.',
+        ''
+      );
+      if (duplikatDari === null) return;
+
+      var alasanDefault = duplikatDari
+        ? ('Dibatalkan karena duplikat dari ' + duplikatDari + '.')
+        : 'Dibatalkan karena salah input/duplikat.';
+      var alasan = prompt(
+        'Masukkan alasan pembatalan disposisi.\n\n' +
+        'Catatan: data tidak akan dihapus. Status akan diubah menjadi DIBATALKAN.',
+        alasanDefault
+      );
+      if (alasan === null) return;
+      alasan = String(alasan || '').trim();
+      if (!alasan) {
+        alert('Alasan pembatalan wajib diisi.');
+        return;
+      }
+
+      if (!confirm(
+        'Batalkan disposisi ini?\n\n' +
+        'Perihal: ' + (item.perihal || '-') + '\n' +
+        'Ref: ' + (item.nomor || '-') + '\n\n' +
+        'Disposisi tidak akan dihapus, tetapi pegawai tidak bisa membuat laporan baru dari disposisi ini.'
+      )) {
+        return;
+      }
+
+      var btns = Array.prototype.slice.call(document.querySelectorAll('button') || []);
+      btns.forEach(function (b) {
+        if (b && b.getAttribute && String(b.getAttribute('onclick') || '').indexOf("batalkanDisposisiSuratUI_") !== -1) {
+          b.disabled = true;
+        }
+      });
+
+      var sum = document.getElementById('disposisiSummary');
+      if (sum) sum.innerHTML = '<span class="badge bg-yellow">Proses</span> Membatalkan disposisi...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btns.forEach(function (b) { if (b) b.disabled = false; });
+          if (!res || res.sukses === false) {
+            alert((res && res.pesan) || 'Pembatalan disposisi gagal.');
+            if (sum) sum.innerHTML = '<span class="badge bg-red">Gagal</span> ' + escapeHTML((res && res.pesan) || 'Pembatalan disposisi gagal.');
+            return;
+          }
+          alert((res && res.pesan) || 'Disposisi berhasil dibatalkan.');
+          muatDisposisiHalaman(true);
+        })
+        .withFailureHandler(function (err) {
+          btns.forEach(function (b) { if (b) b.disabled = false; });
+          alert('Gagal membatalkan disposisi. Silakan coba lagi.');
+          if (sum) sum.innerHTML = '<span class="badge bg-red">Gagal</span> ' + escapeHTML((err && err.message) || err || 'Gagal membatalkan disposisi.');
+          console.error('batalkanDisposisiSurat failed:', err);
+        })
+        .batalkanDisposisiSurat({
+          idDisposisi: idDisposisi,
+          alasan: alasan,
+          duplikatDari: duplikatDari
+        }, sToken);
+    }
+
+
     function renderDisposisiSayaTahap1C_(list) {
       list = Array.isArray(list) ? list : [];
       var isPHL = isDisposisiCurrentUserPHL_();
@@ -13877,6 +13966,7 @@
           '<span class="badge ' + badgeStatusLaporDisposisiClass_(item.statusLaporCode) + '">' + escapeHTML(item.statusLaporLabel || '-') + '</span>' +
           '<span class="badge ' + badgeDisposisiClass_(item.statusDisposisi) + '">' + escapeHTML(textDisposisiStatus_(item.statusDisposisi)) + '</span>' +
           '</div>' +
+          ((String(item.statusDisposisi || '').toUpperCase() === 'DIBATALKAN') ? '<div style="margin-top:12px; padding:10px 12px; border-radius:12px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; font-size:12px; line-height:1.55;"><b>Disposisi dibatalkan.</b><br>Disposisi ini tidak perlu ditindaklanjuti dan tidak dapat dipakai untuk membuat laporan baru.</div>' : '') +
           '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">' +
           (safeLampiranUrl !== '#' ? '<a class="admin-bukti-chip" href="' + escapeHTML(safeLampiranUrl) + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHTML(item.lampiranNama || 'Buka Dokumen Surat') + '</a>' : '') +
           ((String(item.statusBaca || '').toUpperCase() === 'BARU') ? '<button type="button" class="btn-action btn-edit" style="width:auto; margin-top:0;" onclick="tandaiDisposisiSudahDibukaUI_(\'' + escapeJsSingleQuote_(item.idDisposisi || '') + '\')">Tandai Dibuka</button>' : '') +

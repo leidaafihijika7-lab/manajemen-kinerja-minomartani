@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.05.31.03";
+var APP_VERSION = "2026.06.01.09";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -1791,13 +1791,13 @@ function getDaftarPegawaiAktifUntukDisposisiInternal_() {
 function ambilDaftarPegawaiAktifUntukDisposisi(token) {
   try {
     var idUser = validasiSession(token);
-    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', data: [] };
+    if (!idUser) return { sukses: false, pesan: "Sesi habis. Silakan login ulang.", data: [] };
     if (!cekHakAksesDisposisiModul_(idUser)) {
-      return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah dan Operator Disposisi aktif.', data: [] };
+      return { sukses: false, pesan: "Akses ditolak. Hanya Lurah dan Operator Disposisi aktif.", data: [] };
     }
     return { sukses: true, data: getDaftarPegawaiAktifUntukDisposisiInternal_() };
   } catch (e) {
-    return handleError('ambilDaftarPegawaiAktifUntukDisposisi_v34', e, { sukses: false, pesan: '', data: [] });
+    return handleError("ambilDaftarPegawaiAktifUntukDisposisi", e, { sukses: false, pesan: "", data: [] });
   }
 }
 
@@ -4381,21 +4381,9 @@ function validasiDisposisiSubmitKinerja_(paket, pegawaiUser, kategoriSheet) {
       return { sukses: false, pesan: "Disposisi tidak ditemukan atau sudah tidak tersedia." };
     }
 
-    // Konsolidasi v19/v20: validasi batas lama tetap dipertahankan, tetapi batas final
-    // berasal dari Tanggal Batas Laporan/tanggal_selesai disposisi.
-    var batasTanggalSelesai = hitungBatasPelaporanDisposisiTanggalSelesai_(disposisiSuratRef, paket || {});
-    if (batasTanggalSelesai.periodeDitutup) {
-      return { sukses: false, pesan: batasTanggalSelesai.pesan };
-    }
-
-    var batasH2 = hitungBatasPelaporanDisposisiH2_(disposisiSuratRef, paket || {});
-    if (batasH2.periodeDitutup) {
-      return { sukses: false, pesan: batasH2.pesan };
-    }
-
-    var cutoffDisposisiSubmit = cutoffPelaporanDisposisi_(disposisiSuratRef);
-    if (cutoffDisposisiSubmit.periodeDitutup) {
-      return { sukses: false, pesan: cutoffDisposisiSubmit.pesan };
+    var batasDisposisi = hitungBatasPelaporanDisposisiTanggalSelesai_(disposisiSuratRef, paket || {});
+    if (batasDisposisi.periodeDitutup) {
+      return { sukses: false, pesan: batasDisposisi.pesan };
     }
 
     var validRouteDisposisi = validasiRouteFormLaporanDisposisi_(pegawaiUser, disposisiSuratRef, paket, kategoriSheet);
@@ -8531,13 +8519,13 @@ function simpanPetugasDisposisi(payload, token) {
       detailJson: { petugas_id: petugas.id, petugas_nama: petugas.nama, petugas_jabatan: petugas.jabatan, status_petugas: "AKTIF" }
     });
 
-    var hasilSimpanPetugas = {
+    try { if (typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (e) {}
+
+    return {
       sukses: true,
       pesan: "Petugas operator disposisi berhasil ditetapkan: " + petugas.nama,
       petugasAktif: petugasDisposisiToClient_(rowPetugasDisposisiToObject_(row, sh.getLastRow()))
     };
-    try { if (hasilSimpanPetugas && hasilSimpanPetugas.sukses && typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (eCache) {}
-    return hasilSimpanPetugas;
   } catch (e) {
     return handleError("simpanPetugasDisposisi", e, { sukses: false, pesan: "Gagal menyimpan petugas operator: " + (e && e.message ? e.message : e) });
   } finally {
@@ -8626,39 +8614,20 @@ function buatTargetWhatsAppDisposisi_(penerima, info) {
 }
 
 function simpanDisposisiSurat(payload, token) {
-  payload = payload || {};
-  var tglPelaksanaan = parseTanggalKosongAman_(payload.tanggalMulai || payload.tanggalPelaksanaan || payload.tanggalKegiatan);
-  var tglBatas = parseTanggalKosongAman_(payload.tanggalSelesai || payload.tanggalBatasLaporan);
-
-  if (tglPelaksanaan && !tglBatas) {
-    var def = tanggalBatasLaporanDefaultDisposisiV39_(tglPelaksanaan);
-    if (def) {
-      payload.tanggalSelesai = Utilities.formatDate(def, 'GMT+7', 'yyyy-MM-dd');
-      payload.tanggalBatasLaporan = payload.tanggalSelesai;
-    }
-  }
-
-  var res = simpanDisposisiSuratCore_(payload, token);
-
-  try {
-    var idUser = validasiSession(token);
-    var boleh = cekHakAksesDisposisiTerbit_(idUser);
-    if (res && typeof res === 'object') {
-      res.canPublishDisposisi = !!boleh;
-      res.pesanWhatsAppKhususPenerbit = true;
-    }
-  } catch (e) {}
-
-  try { if (res && res.sukses && typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (eCache) {}
-  return res;
-}
-
-function simpanDisposisiSuratCore_(payload, token) {
   try {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, pesan: "Sesi habis. Silakan login ulang." };
 
     payload = payload || {};
+    var tglPelaksanaanDefault = parseTanggalKosongAman_(payload.tanggalMulai || payload.tanggalPelaksanaan || payload.tanggalKegiatan);
+    var tglBatasDefault = parseTanggalKosongAman_(payload.tanggalSelesai || payload.tanggalBatasLaporan);
+    if (tglPelaksanaanDefault && !tglBatasDefault) {
+      var tanggalBatasDefault = tanggalBatasLaporanDefaultDisposisiV39_(tglPelaksanaanDefault);
+      if (tanggalBatasDefault) {
+        payload.tanggalSelesai = Utilities.formatDate(tanggalBatasDefault, "GMT+7", "yyyy-MM-dd");
+        payload.tanggalBatasLaporan = payload.tanggalSelesai;
+      }
+    }
     var pembuat = getPegawaiByIdDisposisi_(idUser);
     if (!pembuat) return { sukses: false, pesan: "Data penginput disposisi tidak ditemukan." };
 
@@ -8809,6 +8778,7 @@ function simpanDisposisiSuratCore_(payload, token) {
     };
     var pesanWhatsApp = buatPesanWhatsAppDisposisi_(infoWhatsApp);
     var targetWhatsApp = buatTargetWhatsAppDisposisi_(penerima, infoWhatsApp);
+    try { if (typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (e) {}
     return {
       sukses: true,
       pesan: "Disposisi berhasil diterbitkan kepada " + rows.length + " penerima.",
@@ -8817,7 +8787,9 @@ function simpanDisposisiSuratCore_(payload, token) {
       jumlahPenerima: rows.length,
       pesanWhatsApp: pesanWhatsApp,
       penerimaWhatsApp: targetWhatsApp.targets,
-      penerimaTanpaWa: targetWhatsApp.tanpaNomor
+      penerimaTanpaWa: targetWhatsApp.tanpaNomor,
+      canPublishDisposisi: !!cekHakAksesDisposisiTerbit_(idUser),
+      pesanWhatsAppKhususPenerbit: true
     };
   } catch (e) {
     return handleError("terbitkanDisposisiSurat", e, { sukses: false, pesan: "" });
@@ -9805,9 +9777,8 @@ function tandaiDisposisiSudahDibuka(idDisposisi, token) {
       }
     });
     logDisposisi_(idDisposisi, "BUKA_DISPOSISI", idUser, "Penerima membuka disposisi.");
-    var hasilTandaiDibuka = { sukses: true, pesan: "Status baca disposisi diperbarui." };
-    try { if (hasilTandaiDibuka && hasilTandaiDibuka.sukses && typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (eCache) {}
-    return hasilTandaiDibuka;
+    try { if (typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (e) {}
+    return { sukses: true, pesan: "Status baca disposisi diperbarui." };
   } catch (e) {
     return handleError("tandaiDisposisiSudahDibuka", e, { sukses: false, pesan: "" });
   }
@@ -9875,6 +9846,7 @@ function getDisposisiBootstrap(token) {
     return handleError('getDisposisiBootstrap_v38', e, { sukses: false, pesan: 'Gagal memuat modul disposisi.' });
   }
 }
+
 // ===== END DISPOSISI SURAT TAHAP 1C =====
 
 // ===== PATCH UTILITAS TUNJANGAN APRIL 2026 =====
@@ -12432,6 +12404,11 @@ function hitungBatasPelaporanDisposisiH2_(surat, paket) {
     pesan: pesan
   };
 }
+
+// Override validasi submit disposisi agar memakai tanggal pelaksanaan yang benar-benar dikirim user.
+
+
+
 // ===== PATCH v2026.05.12.20: Tanggal Selesai Disposisi = Batas Maksimal Pelaporan =====
 // Mengganti kebijakan v2026.05.12.19.
 // Sebelumnya: batas disposisi = Tanggal Pelaksanaan/Selesai + H+2.
@@ -12516,6 +12493,12 @@ function hitungBatasPelaporanDisposisiTanggalSelesai_(surat, paket) {
     pesan: pesan
   };
 }
+
+// Override ulang validasi submit dari v19 agar tanggal pelaksanaan yang dikirim pegawai
+// tidak memperpanjang batas. Batas berasal dari Tanggal Selesai disposisi.
+
+
+
 // ===== PATCH v2026.05.12.21: Batas H+2 untuk Kegiatan Reguler/Tupoksi Pamong tertentu =====
 // Ruang lingkup:
 // Laporan Produktivitas -> Pelaksanaan Tugas Pokok dan Fungsi -> Kegiatan Reguler/Tupoksi
@@ -14419,6 +14402,12 @@ function getStatusAksesDisposisiModul(token) {
     return handleError('getStatusAksesDisposisiModul_v35', e, { sukses: false, boleh: false, bolehInbox: false, bolehTerbit: false, pesan: '' });
   }
 }
+
+
+
+
+
+
 // ===== PATCH v2026.05.12.35: Menu Disposisi Tetap untuk Inbox Pegawai =====
 // Koreksi v34:
 // - v34 terlalu ketat karena menutup seluruh modul Disposisi untuk akun selain Lurah/operator.
@@ -14438,6 +14427,21 @@ function cekHakAksesDisposisiInbox_(idUser) {
   if (!idUser) return false;
   return !!getPegawaiById_(idUser);
 }
+
+
+
+
+
+// ===== PATCH v2026.05.12.36: Sembunyikan Panel WhatsApp Penerbitan untuk Non-Penerbit =====
+// Koreksi lanjutan v35:
+// - Menu Disposisi boleh tampil untuk semua pegawai.
+// - Namun panel hasil penerbitan/WhatsApp hanya boleh tampil untuk Lurah/operator aktif.
+// - Backend menandai setiap response simpanDisposisiSurat dengan canPublishDisposisi.
+// - Data pending WhatsApp lama di browser non-penerbit harus dibersihkan oleh frontend.
+
+
+
+
 // ===== PATCH v2026.05.12.37: Optimasi Timeline =====
 // Fokus:
 // - Timeline memakai getRekapKinerjaValuesReadOnly_() supaya tidak membaca sheet berat berulang.
@@ -14933,6 +14937,14 @@ function ambilDaftarDisposisiLurahOptimizedV38_(idUser, suratRows, penerimaRows)
     })
     .sort(function (a, b) { return (b.dibuatPadaTs || 0) - (a.dibuatPadaTs || 0); });
 }
+
+
+// Invalidasi cache setelah write disposisi penting.
+
+
+
+
+
 // ===== PATCH v2026.05.12.39: Disposisi H+3 dari Tanggal Pelaksanaan =====
 // Kebijakan final:
 // - tanggal_mulai pada sheet tetap dipakai sebagai Tanggal Pelaksanaan Kegiatan.
@@ -14952,6 +14964,10 @@ function tambahHariTanggalDisposisiV39_(tanggal, jumlahHari) {
 function tanggalBatasLaporanDefaultDisposisiV39_(tanggalPelaksanaan) {
   return tambahHariTanggalDisposisiV39_(tanggalPelaksanaan, 3);
 }
+
+// Override simpan disposisi agar tanggal batas laporan otomatis H+3 bila payload tidak valid/kosong.
+// Jika operator mengubah tanggal batas laporan secara manual, tanggal tersebut tetap dihormati.
+
 // ===== PATCH v2026.05.12.40: Disposisi H+3 Dinamis dan Sembunyikan Ringkasan Target =====
 // Perubahan utama di Index.html:
 // - Tanggal Batas Laporan selalu diperbarui H+3 ketika Tanggal Pelaksanaan Kegiatan berubah,
@@ -14975,3 +14991,100 @@ function tanggalBatasLaporanDefaultDisposisiV39_(tanggalPelaksanaan) {
 // - Disposisi Saya dibuat accordion/dropdown default tertutup untuk Lurah/operator.
 // - Untuk pegawai biasa/non-penerbit, Disposisi Saya tetap tampil seperti sebelumnya.
 // - Tidak mengubah backend, H+3, hak akses, atau data disposisi.
+
+// ===== PATCH v2026.06.01.02: Batalkan Disposisi tanpa menghapus data =====
+// Tujuan:
+// - Menangani salah input/duplikasi disposisi dengan status DIBATALKAN.
+// - Data sheet tetap utuh; baris tidak dihapus agar referensi/histori/laporan terkait tidak rusak.
+// - Pegawai tidak dapat membuat laporan baru dari disposisi yang sudah dibatalkan.
+function batalkanDisposisiSurat(payload, token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: "Sesi habis. Silakan login ulang." };
+
+    payload = payload || {};
+    if (typeof payload === 'string') payload = { idDisposisi: payload };
+
+    var idDisposisi = normalizeId_(payload.idDisposisi || payload.id_disposisi || "");
+    var alasan = sanitizeForSheet_(payload.alasan || payload.catatan || "Dibatalkan karena salah input/duplikat.");
+    var duplikatDari = normalizeId_(payload.duplikatDari || payload.duplikat_dari || "");
+
+    if (!idDisposisi) return { sukses: false, pesan: "ID disposisi tidak valid." };
+    if (!alasan) return { sukses: false, pesan: "Alasan pembatalan wajib diisi." };
+
+    var surat = getSuratDisposisiByIdInternal_(idDisposisi);
+    if (!surat) return { sukses: false, pesan: "Disposisi tidak ditemukan." };
+
+    if (!cekHakKoreksiDisposisi_(idUser, surat)) {
+      return { sukses: false, pesan: "Akses ditolak. Hanya Lurah pemberi disposisi atau operator aktif yang dapat membatalkan disposisi." };
+    }
+
+    var statusLama = String(surat.status_disposisi || DISPOSISI_STATUS.TERBIT).toUpperCase();
+    if (statusLama === DISPOSISI_STATUS.DIBATALKAN) {
+      return { sukses: true, pesan: "Disposisi sudah berstatus DIBATALKAN.", idDisposisi: idDisposisi, status: DISPOSISI_STATUS.DIBATALKAN };
+    }
+
+    var sh = ensureSheetDisposisiSurat_();
+    var C = SHEET_COLUMNS.DISPOSISI_SURAT;
+    var rowIndex = cariRowDisposisiSuratById_(sh, idDisposisi);
+    if (!rowIndex) return { sukses: false, pesan: "Baris disposisi tidak ditemukan." };
+
+    var now = new Date();
+    var stamp = Utilities.formatDate(now, "GMT+7", "dd/MM/yyyy HH:mm");
+    var catatanLama = String(surat.catatan_operator || "").trim();
+    var tambahanCatatan = "[" + stamp + "] DIBATALKAN";
+    if (duplikatDari) tambahanCatatan += " - duplikat dari " + duplikatDari;
+    tambahanCatatan += ". Alasan: " + alasan;
+
+    sh.getRange(rowIndex, C.STATUS_DISPOSISI + 1).setValue(DISPOSISI_STATUS.DIBATALKAN);
+    sh.getRange(rowIndex, C.DIUBAH_PADA + 1).setValue(now);
+    sh.getRange(rowIndex, C.CATATAN_OPERATOR + 1).setValue(
+      catatanLama ? (catatanLama + "\n" + tambahanCatatan) : tambahanCatatan
+    );
+
+    var penerimaRows = ambilSemuaPenerimaDisposisiInternal_();
+    var totalPenerima = 0;
+    var totalSudahLapor = 0;
+    penerimaRows.forEach(function (p) {
+      if (!idsEqual_(p.id_disposisi, idDisposisi)) return;
+      totalPenerima++;
+      if (String(p.status_tindak_lanjut || '').toUpperCase() === DISPOSISI_TINDAK.SUDAH || normalizeId_(p.id_laporan_terkait)) {
+        totalSudahLapor++;
+      }
+    });
+
+    logDisposisi_(
+      idDisposisi,
+      "BATALKAN_DISPOSISI",
+      idUser,
+      "Status: " + statusLama + " -> " + DISPOSISI_STATUS.DIBATALKAN + " | Alasan: " + alasan + (duplikatDari ? " | Duplikat dari: " + duplikatDari : ""),
+      {
+        targetTipe: "SURAT",
+        targetId: idDisposisi,
+        targetNama: surat.perihal || "",
+        alasan: alasan,
+        detailJson: {
+          status_lama: statusLama,
+          status_baru: DISPOSISI_STATUS.DIBATALKAN,
+          duplikat_dari: duplikatDari,
+          total_penerima: totalPenerima,
+          total_sudah_lapor: totalSudahLapor
+        }
+      }
+    );
+
+    try { if (typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (e) {}
+
+    return {
+      sukses: true,
+      pesan: "Disposisi berhasil dibatalkan. Data tidak dihapus; status diubah menjadi DIBATALKAN.",
+      idDisposisi: idDisposisi,
+      status: DISPOSISI_STATUS.DIBATALKAN,
+      totalPenerima: totalPenerima,
+      totalSudahLapor: totalSudahLapor
+    };
+  } catch (e) {
+    return handleError("batalkanDisposisiSurat", e, { sukses: false, pesan: "Gagal membatalkan disposisi." });
+  }
+}
+
