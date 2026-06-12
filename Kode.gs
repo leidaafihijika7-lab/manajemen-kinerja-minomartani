@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.03.02";
+var APP_VERSION = "2026.06.10.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -363,11 +363,7 @@ function simpanCacheRekapKinerjaReadOnly_(data) {
 
 function invalidasiCacheRekapKinerjaReadOnly_() {
   try {
-    var cache = CacheService.getScriptCache();
-    cache.remove(REKAP_KINERJA_READ_CACHE_META_KEY);
-    // Klasemen memakai cache turunan dari Rekap_Kinerja. Setiap data kinerja berubah,
-    // cache klasemen juga harus dibuang agar halaman Klasemen tidak stale.
-    try { cache.remove('KLASEMEN_REKAP_CACHE_2026051214'); } catch (eKlasemen) { }
+    CacheService.getScriptCache().remove(REKAP_KINERJA_READ_CACHE_META_KEY);
   } catch (e) { }
 }
 
@@ -969,10 +965,12 @@ function cekNotifikasiLaporanWajib(token) {
     }
 
     var sekarang = new Date();
-    var tahunHak = sekarang.getFullYear();
-    var bulanHakIdx = sekarang.getMonth();
+    var periodeAktifHak = periodeKinerjaAktifUntukLaporanWajibV34_(sekarang);
+    var tahunHak = parseInt(periodeAktifHak.slice(0, 4), 10);
+    var bulanHakIdx = parseInt(periodeAktifHak.slice(5, 7), 10) - 1;
 
     var hak = hitungHakPasal33UntukBulanHak_(idUser, jabatan, tahunHak, bulanHakIdx, sekarang);
+    hak.periodeKinerjaAktif = periodeAktifHak;
     var periodeTarget = hak.periodeLaporan || "";
     var labelPeriodeTarget = formatPeriodeLabelWajib_(periodeTarget);
 
@@ -1003,10 +1001,11 @@ function cekNotifikasiLaporanWajib(token) {
     var formatRp = "Rp " + Math.round(rpPotensi).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
     var pesan =
-      "Anda belum mengunggah paket laporan wajib untuk periode " + labelPeriodeTarget + ".\n" +
+      "Periode kinerja aktif: " + labelPembayaranPeriode_(hak.periodeKinerjaAktif || periodeAktifHak) + ".\n" +
+      "Isi laporan wajib yang harus diunggah: hasil kegiatan bulan " + labelPeriodeTarget + ".\n" +
       "Status saat ini: " + (statusLabel || "-") + ".\n" +
       "(Potensi Sisa Hak Produktivitas Anda saat ini tinggal " + poinHak + "% / " + formatRp + " bila menyerahkan hari ini)\n\n" +
-      "Silakan unggah melalui menu Input → Laporan Produktifitas → Pelaksanaan kegiatan wajib.";
+      "Silakan unggah melalui menu Input → Laporan Produktifitas → Pelaksanaan kegiatan wajib. Bulan lama di luar target periode aktif tidak dapat dikirim melalui input normal.";
 
     return {
       sukses: true,
@@ -4119,6 +4118,22 @@ function buatKonteksSubmitKinerja_() {
   };
 }
 
+
+// ===== PATCH_PASAL33_CUTOFF_BYPASS_BACKEND =====
+function isPaketLaporanWajibPasal33_(paket) {
+  try {
+    if (!paket || typeof paket !== 'object') return false;
+    if (paket.detailWajibPamong || paket.detailWajibDukuh) return true;
+    var kategori = (paket.kategori || '').toString();
+    if (typeof isKategoriWajibBulanan_ === 'function' && isKategoriWajibBulanan_(kategori)) return true;
+    return kategori.indexOf('Pelaksanaan Kegiatan Wajib Bulanan') !== -1 ||
+           kategori.indexOf('Kegiatan Wajib Bulanan') !== -1;
+  } catch (e) {
+    return false;
+  }
+}
+// ===== END PATCH_PASAL33_CUTOFF_BYPASS_BACKEND =====
+
 function validasiRequestAwalSubmitKinerja_(ctx, paket, token) {
   ctx.idUser = validasiSession(token);
   if (!ctx.idUser) return "ERROR_SESSION_EXPIRED";
@@ -4129,11 +4144,14 @@ function validasiRequestAwalSubmitKinerja_(ctx, paket, token) {
   }
 
   // BLOKIR INPUT SAAT JEDA CUT-OFF
-  // Jika Admin/Carik sudah menetapkan cut-off periode, pegawai tidak dapat
-  // mengirim laporan mulai setelah jam cut-off sampai input dibuka kembali.
-  var statusInputCutoff = statusInputLaporanCutoffSaatIni_();
+  // Kebijakan final Pasal 33: laporan wajib bulanan tetap mengikuti cut-off
+  // periode kinerja aktif. Bulan isi laporan boleh bulan sebelumnya, tetapi
+  // bukan alasan untuk menembus cut-off/jeda input.
+  var statusInputCutoff = statusInputLaporanCutoffSaatIni_({});
   if (statusInputCutoff && statusInputCutoff.ditutup) {
-    return "❌ INPUT LAPORAN DITUTUP SEMENTARA\n\n" + statusInputCutoff.pesan;
+    return "❌ INPUT LAPORAN DITUTUP SEMENTARA\n\n" +
+      "Laporan wajib bulanan tetap mengikuti cut-off periode kinerja aktif.\n\n" +
+      statusInputCutoff.pesan;
   }
 
   ctx.submitNonce = (paket.submitNonce || "").toString().trim();
@@ -10294,7 +10312,9 @@ function metaCutoffTunjanganTersimpan_() {
  * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
  */
 
-function statusInputLaporanCutoffSaatIni_() {
+function statusInputLaporanCutoffSaatIni_(opsi) {
+  opsi = opsi || {};
+  // Laporan wajib bulanan tetap mengikuti cut-off/tutup periode kinerja aktif; tidak ada bypass di sini.
   var now = new Date();
   var metas = metaCutoffTunjanganTersimpan_();
   for (var i = 0; i < metas.length; i++) {
@@ -10321,11 +10341,11 @@ function statusInputLaporanCutoffSaatIni_() {
   return { sukses: true, ditutup: false, pesan: "Input laporan sedang dibuka." };
 }
 
-function ambilStatusInputLaporanCutoff(token) {
+function ambilStatusInputLaporanCutoff(token, opsi) {
   try {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, sessionExpired: true, ditutup: false, pesan: "Sesi habis, silakan login ulang." };
-    return statusInputLaporanCutoffSaatIni_();
+    return statusInputLaporanCutoffSaatIni_(opsi);
   } catch (e) {
     return handleError("ambilStatusInputLaporanCutoff", e, { sukses: false, ditutup: false, pesan: "" });
   }
@@ -11040,7 +11060,9 @@ function daftarLockInputLaporanCutoff_() {
  * Catatan: Versi lama masih memungkinkan default/hard-code; versi final hanya memakai cut-off admin tersimpan.
  * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
  */
-function statusInputLaporanCutoffSaatIni_() {
+function statusInputLaporanCutoffSaatIni_(opsi) {
+  opsi = opsi || {};
+  // Laporan wajib bulanan tetap mengikuti cut-off/tutup periode kinerja aktif; tidak ada bypass di sini.
   var now = new Date();
   var locks = daftarLockInputLaporanCutoff_();
 
@@ -11891,96 +11913,127 @@ if (typeof buildAdminReviewItemFromRow__SEBELUM_NONAKTIF_CUTOFF_2026051212 !== '
 
 
 
-// ===== PATCH v2026.06.03.01: Optimasi Klasemen Kinerja backend lean =====
-// Masalah sebelumnya: ambilDataRekapPaged() sudah paginated di frontend, tetapi backend
-// masih memanggil ambilDataRekap(), yang membaca banyak kolom Rekap_Kinerja dan menghitung
-// seluruh klasemen sebelum dipotong. Halaman Klasemen menjadi berat ketika Rekap_Kinerja besar.
-//
-// Patch ini membuat jalur khusus Klasemen:
-// - hanya membaca kolom A:T Rekap_Kinerja yang memang dibutuhkan Klasemen;
-// - tetap memakai rumus agregasi lama: total poin triwulan, poin Prod/TU periode aktif,
-//   estimasi tunjangan, pengelompokan jabatan, dan sorting total poin;
-// - ambilDataRekap() lama tetap ada untuk kompatibilitas endpoint lain;
-// - cache Klasemen otomatis ikut dihapus saat cache Rekap_Kinerja di-invalidasi.
+// ===== PATCH v2026.05.12.14: Optimasi Klasemen Kinerja dengan filter backend + paginasi =====
+// Tidak mengubah rumus bisnis ambilDataRekap(); fungsi ini tetap menjadi sumber perhitungan.
+// Patch hanya membungkus hasilnya dengan filter, offset, dan limit agar frontend tidak harus
+// merender semua data sekaligus. Cache singkat dipakai untuk mengurangi hitung ulang saat klik "Muat Lagi".
 
 var KLASMEN_REKAP_CACHE_KEY_2026051214 = 'KLASEMEN_REKAP_CACHE_2026051214';
 var KLASMEN_REKAP_CACHE_TTL_SECONDS_2026051214 = 300;
 
-function getRekapKinerjaKlasemenValuesLean_() {
-  var sh = getSheet_("Rekap_Kinerja");
-  var lastRow = sh.getLastRow();
-  if (lastRow < 2) return [];
-
-  var C = SHEET_COLUMNS.REKAP_KINERJA;
-  var lastNeededCol = Math.max(
-    C.TANGGAL_LAPORAN,
-    C.NAMA,
-    C.JABATAN,
-    C.KATEGORI,
-    C.STATUS_REVIEW,
-    C.POIN_FINAL,
-    C.ID_USER
-  ) + 1;
-
-  // Sheet biasanya sudah memiliki semua kolom. Guard ini hanya defensif untuk salinan/dev sheet.
-  var colCount = Math.min(lastNeededCol, sh.getMaxColumns());
-  return sh.getRange(1, 1, lastRow, colCount).getValues();
-}
-
-function periodeDariTanggalLaporanKlasemenCached_(tanggalLaporan, memo) {
-  var d = parseTanggal(tanggalLaporan);
-  if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) return '';
-
-  memo = memo || {};
-  var key = Utilities.formatDate(d, 'GMT+7', 'yyyy-MM-dd');
-  if (Object.prototype.hasOwnProperty.call(memo, key)) return memo[key];
-
-  var periode = periodeDariTanggalLaporan_(d) || '';
-  memo[key] = periode;
-  return periode;
-}
-
-function ambilDataRekapKlasemenLean_() {
+function ambilDataRekapKlasemenCached_() {
   try {
-    var data = getRekapKinerjaKlasemenValuesLean_();
-    var mapRekap = {};
-
-    var pegawaiData = [];
-    try { pegawaiData = getPegawaiDataCached_() || []; } catch (ePegawai) { }
-
-    var pegawaiById = {};
-    for (var p = 1; p < pegawaiData.length; p++) {
-      var idPeg = normalizeId_(pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.ID]);
-      if (!idPeg) continue;
-      pegawaiById[idPeg] = {
-        idUser: idPeg,
-        nama: (pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.NAMA] || "").toString().trim(),
-        jabatan: (pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN] || "").toString().trim()
-      };
+    var cache = CacheService.getScriptCache();
+    var raw = cache.get(KLASMEN_REKAP_CACHE_KEY_2026051214);
+    if (raw) {
+      try { return JSON.parse(raw); } catch (eParse) { }
     }
 
-    var C = SHEET_COLUMNS.REKAP_KINERJA;
-    var tglSekarang = new Date();
-    var periodeAktifRekap = periodeDariTanggalLaporan_(tglSekarang) || Utilities.formatDate(tglSekarang, "GMT+7", "yyyy-MM");
-    var metaPeriodeAktifRekap = parsePeriodeBulan_(periodeAktifRekap);
-    var periodeMemo = {};
+    var rows = ambilDataRekap() || [];
+    try {
+      var json = JSON.stringify(rows);
+      // CacheService limit aman sekitar 100KB per item; jika terlalu besar, abaikan cache.
+      if (json && json.length < 90000) {
+        cache.put(KLASMEN_REKAP_CACHE_KEY_2026051214, json, KLASMEN_REKAP_CACHE_TTL_SECONDS_2026051214);
+      }
+    } catch (eCache) { }
 
-    for (var i = 1; i < data.length; i++) {
-      var row = data[i] || [];
-      var tglLap = parseTanggal(row[C.TANGGAL_LAPORAN]);
+    return rows;
+  } catch (e) {
+    Logger.log('ambilDataRekapKlasemenCached_ ERROR: ' + (e && e.message ? e.message : e));
+    return [];
+  }
+}
+
+// ===== HOTFIX v2026.06.06: Klasemen cepat untuk menghindari ambilDataRekapPaged menggantung =====
+// Fungsi lama ambilDataRekapPaged memanggil ambilDataRekap(), yang membaca seluruh data Rekap_Kinerja
+// lengkap dan bisa sangat lambat saat sheet membesar. Versi cepat ini hanya membaca kolom yang
+// dibutuhkan Klasemen: tanggal, status, id/nama/jabatan, kategori, dan poin final.
+// Logika ranking/predikat tidak diubah.
+
+var KLASMEN_FAST_CACHE_TTL_SECONDS_2026060614 = 120;
+
+function kolomMaksRekapKlasemenCepat_() {
+  var c = SHEET_COLUMNS.REKAP_KINERJA;
+  return Math.max(
+    c.TANGGAL_LAPORAN,
+    c.STATUS_REVIEW,
+    c.ID_USER,
+    c.KATEGORI,
+    c.POIN_FINAL,
+    c.NAMA,
+    c.JABATAN
+  ) + 1;
+}
+
+function ambilDataRekapKlasemenFastCached_() {
+  var periodeAktif = periodeDariTanggalLaporan_(new Date()) || Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM");
+  var sh = getSheet_("Rekap_Kinerja");
+  var lastRow = sh.getLastRow();
+  var cacheKey = "KLASEMEN_FAST_2026060614_" + periodeAktif + "_R" + lastRow;
+
+  try {
+    var cache = CacheService.getScriptCache();
+    var raw = cache.get(cacheKey);
+    if (raw) {
+      try { return JSON.parse(raw); } catch (eParse) { }
+    }
+  } catch (eCacheRead) { }
+
+  var rows = ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow);
+
+  try {
+    var json = JSON.stringify(rows || []);
+    if (json && json.length < 90000) {
+      CacheService.getScriptCache().put(cacheKey, json, KLASMEN_FAST_CACHE_TTL_SECONDS_2026060614);
+    }
+  } catch (eCacheWrite) { }
+
+  return rows;
+}
+
+function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
+  var started = new Date().getTime();
+  var meta = parsePeriodeBulan_(periodeAktif);
+  var c = SHEET_COLUMNS.REKAP_KINERJA;
+  var maxCol = kolomMaksRekapKlasemenCepat_();
+
+  var pegawaiData = [];
+  try { pegawaiData = getPegawaiDataCached_() || []; } catch (ePeg) { pegawaiData = []; }
+
+  var pegawaiById = {};
+  for (var p = 1; p < pegawaiData.length; p++) {
+    var idPeg = normalizeId_(pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.ID]);
+    if (!idPeg) continue;
+    pegawaiById[idPeg] = {
+      idUser: idPeg,
+      nama: (pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.NAMA] || "").toString().trim(),
+      jabatan: (pegawaiData[p][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN] || "").toString().trim()
+    };
+  }
+
+  var mapRekap = {};
+  var jumlahBaris = Math.max(0, Number(lastRow || 0) - 1);
+  if (jumlahBaris > 0) {
+    // Baca hanya kolom awal yang diperlukan; jangan memakai getDataRange() agar tidak ikut membaca
+    // kolom bukti/catatan/AI yang panjang dan tidak diperlukan oleh Klasemen.
+    var data = sh.getRange(2, 1, jumlahBaris, maxCol).getValues();
+
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      var rawTgl = row[c.TANGGAL_LAPORAN];
+      var tglLap = rawTgl instanceof Date ? rawTgl : parseTanggal(rawTgl);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
+      if (tglLap < meta.triStart || tglLap >= meta.triEnd) continue;
+      if (!isStatusApproved_(row[c.STATUS_REVIEW])) continue;
 
-      // Filter triwulan lebih dulu agar perhitungan periode efektif hanya dilakukan untuk kandidat relevan.
-      if (!(tglLap >= metaPeriodeAktifRekap.triStart && tglLap < metaPeriodeAktifRekap.triEnd)) continue;
-      if (!isStatusApproved_(row[C.STATUS_REVIEW])) continue;
-
-      var idUser = normalizeId_(row[C.ID_USER]);
-      var kategori = (row[C.KATEGORI] || "").toString();
-      var poin = Number(row[C.POIN_FINAL]) || 0;
+      var idUser = normalizeId_(row[c.ID_USER]);
+      var kategori = (row[c.KATEGORI] || "").toString();
+      var poin = Number(row[c.POIN_FINAL]) || 0;
 
       var master = idUser && pegawaiById[idUser] ? pegawaiById[idUser] : null;
-      var nama = master && master.nama ? master.nama : (row[C.NAMA] || "").toString().trim();
-      var jabatan = master && master.jabatan ? master.jabatan : (row[C.JABATAN] || "").toString().trim();
+      var nama = master && master.nama ? master.nama : (row[c.NAMA] || "").toString().trim();
+      var jabatan = master && master.jabatan ? master.jabatan : (row[c.JABATAN] || "").toString().trim();
 
       if (!nama || !jabatan) continue;
 
@@ -12007,67 +12060,47 @@ function ambilDataRekapKlasemenLean_() {
       mapRekap[key].jumlahLaporan++;
       mapRekap[key].totalPoin += poin;
 
-      var periodeEfektifLap = periodeDariTanggalLaporanKlasemenCached_(tglLap, periodeMemo);
-      if (periodeEfektifLap === periodeAktifRekap) {
+      // Periode aktif untuk komponen tunjangan bulanan tetap memakai bulan kalender berjalan,
+      // sesuai perilaku lama periodeDariTanggalLaporan_(tglLap) === periodeAktif.
+      if (tglLap >= meta.start && tglLap < meta.end) {
         if (isKategoriProduktivitas_(kategori)) mapRekap[key].poinProd += poin;
         else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) mapRekap[key].poinTU += poin;
       }
     }
-
-    var hasil = Object.values(mapRekap);
-    var tunjanganMemo = {};
-
-    hasil.forEach(function (r) {
-      var tunjangan = { maxProd: 0, maxTU: 0 };
-      var tunjanganKey = (r.idUser || '') + '__' + canonicalizeJabatan_(r.jabatan || '');
-      if (Object.prototype.hasOwnProperty.call(tunjanganMemo, tunjanganKey)) {
-        tunjangan = tunjanganMemo[tunjanganKey] || tunjangan;
-      } else {
-        try { tunjangan = getTunjanganPegawai_(r.idUser, r.jabatan) || tunjangan; } catch (eTunjangan) { }
-        tunjanganMemo[tunjanganKey] = tunjangan;
-      }
-
-      var maxProd = Number(tunjangan.maxProd) || 0;
-      var maxTU = Number(tunjangan.maxTU) || 0;
-      var prProd = r.poinProd > 100 ? 100 : r.poinProd;
-      var prTU = r.poinTU > 100 ? 100 : r.poinTU;
-
-      r.estimasiTunjangan = ((prProd / 100) * maxProd) + ((prTU / 100) * maxTU);
-    });
-
-    hasil.sort(function (a, b) {
-      return Number(b.totalPoin || 0) - Number(a.totalPoin || 0);
-    });
-
-    return hasil;
-  } catch (e) {
-    Logger.log('ambilDataRekapKlasemenLean_ ERROR, fallback ke ambilDataRekap: ' + (e && e.message ? e.message : e));
-    try { return ambilDataRekap() || []; } catch (eFallback) { return []; }
   }
-}
 
-function ambilDataRekapKlasemenCached_() {
-  try {
-    var cache = CacheService.getScriptCache();
-    var raw = cache.get(KLASMEN_REKAP_CACHE_KEY_2026051214);
-    if (raw) {
-      try { return JSON.parse(raw); } catch (eParse) { }
-    }
+  var hasil = Object.keys(mapRekap).map(function (key) { return mapRekap[key]; });
+  var tunjanganMemo = {};
 
-    var rows = ambilDataRekapKlasemenLean_() || [];
+  hasil.forEach(function (r) {
+    var tunjangan = { maxProd: 0, maxTU: 0 };
     try {
-      var json = JSON.stringify(rows);
-      // CacheService limit aman sekitar 100KB per item; jika terlalu besar, abaikan cache.
-      if (json && json.length < 90000) {
-        cache.put(KLASMEN_REKAP_CACHE_KEY_2026051214, json, KLASMEN_REKAP_CACHE_TTL_SECONDS_2026051214);
-      }
-    } catch (eCache) { }
+      var jabKey = canonicalizeJabatan_(r.jabatan || "");
+      if (!tunjanganMemo[jabKey]) tunjanganMemo[jabKey] = getTunjanganPegawai_(r.idUser, r.jabatan) || tunjangan;
+      tunjangan = tunjanganMemo[jabKey] || tunjangan;
+    } catch (eTj) { }
 
-    return rows;
-  } catch (e) {
-    Logger.log('ambilDataRekapKlasemenCached_ ERROR: ' + (e && e.message ? e.message : e));
-    return [];
-  }
+    var maxProd = Number(tunjangan.maxProd) || 0;
+    var maxTU = Number(tunjangan.maxTU) || 0;
+    var prProd = r.poinProd > 100 ? 100 : r.poinProd;
+    var prTU = r.poinTU > 100 ? 100 : r.poinTU;
+
+    r.estimasiTunjangan = ((prProd / 100) * maxProd) + ((prTU / 100) * maxTU);
+  });
+
+  hasil.sort(function (a, b) {
+    var diff = Number(b.totalPoin || 0) - Number(a.totalPoin || 0);
+    if (diff !== 0) return diff;
+    diff = Number(b.jumlahLaporan || 0) - Number(a.jumlahLaporan || 0);
+    if (diff !== 0) return diff;
+    return (a.nama || "").localeCompare(b.nama || "");
+  });
+
+  try {
+    Logger.log("ambilDataRekapKlasemenFast_: " + hasil.length + " pegawai, " + jumlahBaris + " baris dibaca, " + (new Date().getTime() - started) + " ms");
+  } catch (eLog) { }
+
+  return hasil;
 }
 
 function ambilDataRekapPaged(params, token) {
@@ -12094,7 +12127,7 @@ function ambilDataRekapPaged(params, token) {
     if (isNaN(limit) || limit < 1) limit = 20;
     if (limit > 50) limit = 50;
 
-    var semua = ambilDataRekapKlasemenCached_();
+    var semua = ambilDataRekapKlasemenFastCached_();
 
     var filtered = semua;
     if (kelompok && kelompok !== 'Semua') {
@@ -12118,7 +12151,8 @@ function ambilDataRekapPaged(params, token) {
       limit: limit,
       hasMore: offset + limit < filtered.length,
       kelompok: kelompok,
-      generatedAt: formatTanggalJamISO_(new Date())
+      generatedAt: formatTanggalJamISO_(new Date()),
+      sumber: 'fast_klasemen_2026060614'
     };
   } catch (e) {
     return handleError('ambilDataRekapPaged', e, {
@@ -14361,7 +14395,9 @@ function koreksiLaporanBlackoutCutoffApril2026() {
 
 // Status input cut-off tetap boleh menutup form, tetapi hanya jika ada meta cut-off admin tersimpan.
 // Tidak ada meta default/hard-code.
-function statusInputLaporanCutoffSaatIni_() {
+function statusInputLaporanCutoffSaatIni_(opsi) {
+  opsi = opsi || {};
+  // Laporan wajib bulanan tetap mengikuti cut-off/tutup periode kinerja aktif; tidak ada bypass di sini.
   var now = new Date();
   var metas = metaCutoffTunjanganTersimpan_();
 
@@ -14538,6 +14574,47 @@ function cariLockTutupPeriodeUntukTanggalPelaksanaanV31_(tanggalPelaksanaan) {
   return null;
 }
 
+
+// ===== HOTFIX_PASAL33_PERIODE_AKTIF_V1 =====
+function periodeKinerjaAktifUntukLaporanWajibV34_(tanggalAcuan) {
+  var d = tanggalAcuan instanceof Date ? tanggalAcuan : parseTanggal(tanggalAcuan);
+  if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) d = new Date();
+  var p = '';
+  try { p = periodeDariTanggalLaporan_(d); } catch (e) { p = ''; }
+  if (!p) p = Utilities.formatDate(d, 'GMT+7', 'yyyy-MM');
+  return normalizePeriode_(p);
+}
+
+function bulanLaporanWajibYangBolehDiinputV34_(tanggalAcuan) {
+  var periodeAktif = periodeKinerjaAktifUntukLaporanWajibV34_(tanggalAcuan || new Date());
+  return periodeKeyOffset_(periodeAktif, -1);
+}
+
+function validasiBulanWajibPasal33PeriodeAktifV34_(paket, tanggalAcuan) {
+  var bulanIsi = bulanLaporanWajibDariPaketSubmitV31_(paket);
+  if (!bulanIsi) return { sukses: true, bulanIsi: '', periodeAktif: periodeKinerjaAktifUntukLaporanWajibV34_(tanggalAcuan), bulanWajib: '' };
+
+  var periodeAktif = periodeKinerjaAktifUntukLaporanWajibV34_(tanggalAcuan || new Date());
+  var bulanWajib = bulanLaporanWajibYangBolehDiinputV34_(tanggalAcuan || new Date());
+  if (bulanIsi === bulanWajib) {
+    return { sukses: true, bulanIsi: bulanIsi, periodeAktif: periodeAktif, bulanWajib: bulanWajib };
+  }
+
+  return {
+    sukses: false,
+    bulanIsi: bulanIsi,
+    periodeAktif: periodeAktif,
+    bulanWajib: bulanWajib,
+    pesan:
+      '❌ BULAN LAPORAN WAJIB TIDAK SESUAI PERIODE AKTIF\n\n' +
+      'Periode kinerja aktif saat ini adalah ' + labelPembayaranPeriode_(periodeAktif) + '.\n' +
+      'Pada periode ini, laporan wajib bulanan hanya boleh berisi hasil kegiatan bulan ' + labelPembayaranPeriode_(bulanWajib) + '.\n\n' +
+      'Bulan yang dipilih: ' + labelPembayaranPeriode_(bulanIsi) + '.\n' +
+      'Laporan wajib bulan lama tidak dapat dikirim melalui input normal. Jika diperlukan, gunakan kebijakan pembukaan periode/koreksi administrasi.'
+  };
+}
+// ===== END HOTFIX_PASAL33_PERIODE_AKTIF_V1 =====
+
 function bulanLaporanWajibDariPaketSubmitV31_(paket) {
   paket = paket || {};
   function normMonth_(value) {
@@ -14603,22 +14680,39 @@ validasiTutupPeriodeLaporanBaru_ = function (paket) {
     };
   }
 
-  // Fallback hanya untuk laporan wajib bulanan atau payload yang memang tidak punya tanggal pelaksanaan tunggal.
+  // Fallback untuk laporan wajib bulanan: bulan pada form adalah bulan isi kegiatan,
+  // bukan periode kinerja/cut-off. Karena itu validasi bulan wajib memakai periode kinerja aktif.
   var periodeWajib = bulanLaporanWajibDariPaketSubmitV31_(paket);
   if (periodeWajib) {
-    var lock = bacaTutupPeriodeLaporan_(periodeWajib);
-    if (!lock || lock.status !== 'DITUTUP') return { sukses: true, periode: periodeWajib, pesan: '' };
-
     var now2 = new Date();
-    if (now2.getTime() <= lock.cutoffDate.getTime()) return { sukses: true, periode: periodeWajib, pesan: '' };
+    var validasiBulanWajib = validasiBulanWajibPasal33PeriodeAktifV34_(paket, now2);
+    if (!validasiBulanWajib.sukses) {
+      return {
+        sukses: false,
+        periode: validasiBulanWajib.periodeAktif,
+        pesan: validasiBulanWajib.pesan
+      };
+    }
+
+    var periodeAktifWajib = validasiBulanWajib.periodeAktif || periodeKinerjaAktifUntukLaporanWajibV34_(now2);
+    var lock = bacaTutupPeriodeLaporan_(periodeAktifWajib);
+    if (!lock || lock.status !== 'DITUTUP') {
+      return { sukses: true, periode: periodeAktifWajib, bulanIsiLaporanWajib: periodeWajib, pesan: '' };
+    }
+
+    if (now2.getTime() <= lock.cutoffDate.getTime()) {
+      return { sukses: true, periode: periodeAktifWajib, bulanIsiLaporanWajib: periodeWajib, pesan: '' };
+    }
 
     return {
       sukses: false,
-      periode: periodeWajib,
+      periode: periodeAktifWajib,
+      bulanIsiLaporanWajib: periodeWajib,
       pesan:
-        '❌ PERIODE LAPORAN SUDAH DITUTUP\n\n' +
-        'Periode laporan ' + lock.labelPeriode + ' sudah ditutup untuk input laporan baru sejak ' + formatTutupPeriodeClient_(lock.cutoffDate) + '.\n\n' +
-        'Jika laporan sebelumnya ditolak admin, silakan gunakan menu revisi laporan. Jika memang perlu input baru, hubungi Admin Kinerja untuk membuka kembali periode.'
+        '❌ PERIODE KINERJA AKTIF SUDAH DITUTUP\n\n' +
+        'Laporan wajib bulanan berisi kegiatan ' + labelPembayaranPeriode_(periodeWajib) + ', tetapi tetap mengikuti cut-off periode kinerja aktif ' + lock.labelPeriode + '.\n' +
+        'Periode aktif tersebut sudah ditutup untuk input laporan baru sejak ' + formatTutupPeriodeClient_(lock.cutoffDate) + '.\n\n' +
+        'Jika laporan sebelumnya ditolak admin, silakan gunakan menu revisi laporan. Jika memang perlu input baru, hubungi Admin Kinerja untuk membuka kembali periode/koreksi administrasi.'
     };
   }
 
