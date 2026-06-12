@@ -3531,10 +3531,272 @@ function detailIntiJoin_(arr, sep) {
   return (arr || []).map(detailIntiText_).filter(function (x) { return !detailIntiIsBlank_(x); }).join(sep || ' - ');
 }
 
+// ===== v29 REFACTORED: HANDLER REGISTRY PATTERN =====
+// Setiap handler menerima (detail, missing, ctx) dan mengembalikan objek core
+// dengan 6 kolom normalisasi K-Q: dasarKegiatan, namaKegiatan, tanggalKegiatan,
+// lokasiKegiatan, penyelenggaraKeg, peranKeg.
+// ctx = { jLow, paketDeskripsi, fallbackPenyelenggara }
+
+function validasiDetailIntiTU_(tu, missing, ctx) {
+  var dasarTU = detailIntiText_(tu.dasar);
+  var dasarOpsiTU = detailIntiText_(tu.dasarOpsi || tu.dasarPilihan || tu.dasar);
+  var dasarLainnyaTU = detailIntiText_(tu.dasarLainnya || tu.dasarManual || tu.dasarKehadiranLainnya);
+
+  // Jika frontend lama mengirim dasar = "Lainnya", backend wajib meminta isi manual.
+  if (dasarOpsiTU === 'Lainnya' || dasarTU === 'Lainnya') {
+    dasarTU = dasarLainnyaTU;
+  }
+
+  // Semua field pada form Tugas Umum wajib. Untuk opsi "Lainnya", yang wajib adalah isi manualnya.
+  detailIntiRequire_(missing, 'Jenis Tugas Umum', tu.jenis);
+  detailIntiRequire_(missing, 'Dasar Kehadiran', dasarTU);
+  detailIntiRequire_(missing, 'Pemberi Perintah / Sumber Undangan', tu.pemberi);
+  detailIntiRequire_(missing, 'Nama Kegiatan', tu.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', tu.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi', tu.lokasi);
+  detailIntiRequire_(missing, 'Penyelenggara', tu.penyelenggara);
+  detailIntiRequire_(missing, 'Peran/Partisipasi', tu.peran);
+
+  return {
+    dasarKegiatan: dasarTU,
+    namaKegiatan: tu.namaKeg,
+    tanggalKegiatan: tu.tanggal,
+    lokasiKegiatan: tu.lokasi,
+    penyelenggaraKeg: tu.penyelenggara,
+    peranKeg: tu.peran
+  };
+}
+
+function validasiDetailIntiPHL_(phl, missing, ctx) {
+  // Form PHL memang tidak menanyakan dasar/peran; server normalisasi otomatis.
+  detailIntiRequire_(missing, 'Nama Pekerjaan', phl.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', phl.tanggal);
+  detailIntiRequire_(missing, 'Lokasi Tugas', phl.lokasi);
+
+  return {
+    dasarKegiatan: 'Penugasan harian PHL',
+    namaKegiatan: phl.namaKeg,
+    tanggalKegiatan: phl.tanggal,
+    lokasiKegiatan: phl.lokasi,
+    penyelenggaraKeg: 'Pemerintah Kalurahan Minomartani',
+    peranKeg: 'Pelaksana pekerjaan harian'
+  };
+}
+
+function validasiDetailIntiReguler_(reg, missing, ctx) {
+  // Kegiatan Reguler/Tupoksi: semua field form wajib.
+  detailIntiRequire_(missing, 'Nama Kegiatan', reg.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', reg.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi', reg.lokasi);
+  detailIntiRequire_(missing, 'Sasaran/Pihak Terlibat', reg.pihakTerlibat);
+  detailIntiRequire_(missing, 'Peran/Partisipasi', reg.peranAnda);
+  detailIntiRequire_(missing, 'Ringkasan Output/Hasil', reg.outputRingkas);
+  detailIntiRequire_(missing, 'Tindak Lanjut/Rekomendasi', reg.tindakLanjut);
+
+  return {
+    dasarKegiatan: ctx.jLow.indexOf('lurah') !== -1 ? 'Kewenangan dan kebijakan Lurah' : 'Pelaksanaan tugas pokok dan fungsi',
+    namaKegiatan: reg.namaKeg,
+    tanggalKegiatan: reg.tanggal,
+    lokasiKegiatan: reg.lokasi,
+    penyelenggaraKeg: reg.pihakTerlibat,
+    peranKeg: reg.peranAnda
+  };
+}
+
+function validasiDetailIntiWajibDukuh_(wd, missing, ctx) {
+  detailIntiRequire_(missing, 'Jenis Pertemuan Wajib Dukuh', wd.jenis || wd.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', wd.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi', wd.lokasi);
+  detailIntiRequire_(missing, 'Penyelenggara', wd.penyelenggara);
+  detailIntiRequire_(missing, 'Output / Hasil Kegiatan', wd.outputRingkas || ctx.paketDeskripsi);
+
+  return {
+    dasarKegiatan: 'Kegiatan wajib Dukuh Pasal 41',
+    namaKegiatan: wd.jenis || wd.namaKeg,
+    tanggalKegiatan: wd.tanggal,
+    lokasiKegiatan: wd.lokasi,
+    penyelenggaraKeg: wd.penyelenggara,
+    peranKeg: 'Dukuh / Pelaksana kegiatan wajib'
+  };
+}
+
+function validasiDetailIntiDukuh_(duk, missing, ctx) {
+  var namaDukuh = duk.namaKeg || detailIntiJoin_([duk.kategoriFungsi, duk.detailFungsi], ' - ');
+  var pihakDukuh = duk.penyelenggara || duk.pihakTerlibat;
+
+  // Field yang ada pada formulir Dukuh wajib.
+  if (duk.kategoriFungsi !== undefined) detailIntiRequire_(missing, 'Kategori Utama Tupoksi Dukuh', duk.kategoriFungsi);
+  if (duk.detailFungsi !== undefined) detailIntiRequire_(missing, 'Detail Fungsi Tupoksi Dukuh', duk.detailFungsi);
+  detailIntiRequire_(missing, 'Nama Kegiatan / Detail Fungsi Dukuh', namaDukuh);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', duk.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi', duk.lokasi);
+  detailIntiRequire_(missing, 'Penyelenggara / Pihak Terlibat', pihakDukuh);
+  if (duk.outputRingkas !== undefined) detailIntiRequire_(missing, 'Output / Hasil Kegiatan', duk.outputRingkas);
+
+  return {
+    dasarKegiatan: duk.kategoriFungsi ? ('Tupoksi Dukuh: ' + detailIntiText_(duk.kategoriFungsi)) : 'Tugas pokok dan fungsi Dukuh',
+    namaKegiatan: namaDukuh,
+    tanggalKegiatan: duk.tanggal,
+    lokasiKegiatan: duk.lokasi,
+    penyelenggaraKeg: pihakDukuh,
+    peranKeg: duk.peran || 'Dukuh / Pelaksana kewilayahan'
+  };
+}
+
+function validasiDetailIntiPimpinan_(pim, missing, ctx) {
+  // Semua field form Tugas/Instruksi Pimpinan wajib.
+  detailIntiRequire_(missing, 'Jenis Tugas Pimpinan', pim.jenis);
+  detailIntiRequire_(missing, 'Dasar Tugas / Instruksi', pim.dasar);
+  detailIntiRequire_(missing, 'Pemberi Tugas / Instruksi', pim.pemberi);
+  detailIntiRequire_(missing, 'Nama Agenda/Kegiatan', pim.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', pim.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi', pim.lokasi);
+  detailIntiRequire_(missing, 'Penyelenggara', pim.penyelenggara);
+
+  return {
+    dasarKegiatan: pim.dasar,
+    namaKegiatan: pim.namaKeg,
+    tanggalKegiatan: pim.tanggal,
+    lokasiKegiatan: pim.lokasi,
+    penyelenggaraKeg: pim.penyelenggara,
+    peranKeg: pim.jenis
+  };
+}
+
+function validasiDetailIntiAPBKal_(apb, missing, ctx) {
+  // Semua field form APBKal wajib. Metode adalah turunan otomatis dari termin, bukan input manual.
+  detailIntiRequire_(missing, 'Bidang APBKal', apb.bidang);
+  detailIntiRequire_(missing, 'Kode Rekening', apb.kodeRek);
+  detailIntiRequire_(missing, 'Nama Kegiatan APBKal', apb.namaKeg);
+  detailIntiRequire_(missing, 'Termin Pencairan', apb.termin);
+  detailIntiRequire_(missing, 'Tahapan Kegiatan', apb.tahap);
+  detailIntiRequire_(missing, 'Status Pelaksanaan TPK', apb.isTPK);
+  detailIntiRequire_(missing, 'Batas Waktu Pelaporan', apb.batasWaktu);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan Riil', apb.tanggal);
+  detailIntiRequire_(missing, 'Lokasi/Tempat', apb.lokasi);
+
+  if (String(apb.tahap || '') === APB_TAHAP.P54) {
+    var p52 = apb.pasal52 || {};
+    detailIntiRequire_(missing, 'Pasal 52: Apakah ada dokumentasi pengadaan barang?', p52.adaDokumentasiBarang);
+    detailIntiRequire_(missing, 'Pasal 52: Apakah ada transaksi/pembayaran?', p52.adaTransaksiPembayaran);
+    detailIntiRequire_(missing, 'Pasal 52: Apakah kegiatan menghadirkan orang?', p52.menghadirkanOrang);
+
+    var dokWajib52 = apbPasal52DokumenWajib_(apb);
+    for (var i = 0; i < dokWajib52.length; i++) {
+      var dok52 = apbPasal52CariDokumen_(apb, dokWajib52[i].key);
+      detailIntiRequire_(missing, 'Pasal 52: ' + dokWajib52[i].label, dok52 && (dok52.fileUrl || dok52.url || dok52.fileName));
+    }
+  }
+
+  return {
+    dasarKegiatan: 'Pelaksanaan kegiatan APBKal',
+    namaKegiatan: '[' + detailIntiText_(apb.kodeRek) + '] ' + detailIntiText_(apb.namaKeg),
+    tanggalKegiatan: apb.tanggal,
+    lokasiKegiatan: apb.lokasi,
+    penyelenggaraKeg: apb.bidang,
+    peranKeg: detailIntiJoin_([apb.termin, apb.tahap ? tahapApbLabel_(apb.tahap) : ''], ' | ')
+  };
+}
+
+function validasiDetailIntiAPBKalCarik_(apbc, missing, ctx) {
+  // Form APBKal Carik kini memiliki lokasi eksplisit dan wajib diisi.
+  detailIntiRequire_(missing, 'Jenis Pelaksanaan APBKal Tahun Berjalan', apbc.jenis);
+  detailIntiRequire_(missing, 'Nama Dokumen/Kegiatan', apbc.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', apbc.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi Pelaksanaan', apbc.lokasi);
+
+  return {
+    dasarKegiatan: 'Pelaksanaan APBKal Tahun Berjalan (Pasal 44)',
+    namaKegiatan: apbc.namaKeg,
+    tanggalKegiatan: apbc.tanggal,
+    lokasiKegiatan: apbc.lokasi,
+    penyelenggaraKeg: detailIntiDefault_(ctx.fallbackPenyelenggara, 'Pemerintah Kalurahan Minomartani'),
+    peranKeg: apbc.jenis
+  };
+}
+
+function validasiDetailIntiStafInstruksi_(inst, missing, ctx) {
+  // Form instruksi staf kini memiliki lokasi eksplisit dan wajib diisi.
+  detailIntiRequire_(missing, 'Pemberi Instruksi', inst.pemberi);
+  detailIntiRequire_(missing, 'Bentuk Instruksi', inst.bentuk);
+  detailIntiRequire_(missing, 'Nama Tugas/Instruksi', inst.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', inst.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi Pelaksanaan Instruksi', inst.lokasi);
+
+  return {
+    dasarKegiatan: detailIntiJoin_(['Instruksi', inst.bentuk, 'dari ' + detailIntiText_(inst.pemberi)], ' '),
+    namaKegiatan: inst.namaKeg,
+    tanggalKegiatan: inst.tanggal,
+    lokasiKegiatan: inst.lokasi,
+    penyelenggaraKeg: detailIntiDefault_(ctx.fallbackPenyelenggara, 'Pemerintah Kalurahan Minomartani'),
+    peranKeg: 'Pelaksana instruksi'
+  };
+}
+
+function validasiDetailIntiStafReguler_(sr, missing, ctx) {
+  // Semua field form staf reguler/unit kerja wajib.
+  detailIntiRequire_(missing, 'Nama Tugas/Pekerjaan', sr.namaKeg);
+  detailIntiRequire_(missing, 'Tanggal Pelaksanaan', sr.tanggal);
+  detailIntiRequire_(missing, 'Tempat/Lokasi', sr.lokasi);
+  detailIntiRequire_(missing, 'Sasaran/Pihak Terlibat', sr.sasaran);
+  detailIntiRequire_(missing, 'Peran Anda', sr.peran);
+
+  return {
+    dasarKegiatan: 'Tugas reguler unit kerja',
+    namaKegiatan: sr.namaKeg,
+    tanggalKegiatan: sr.tanggal,
+    lokasiKegiatan: sr.lokasi,
+    penyelenggaraKeg: sr.sasaran,
+    peranKeg: sr.peran
+  };
+}
+
+function validasiDetailIntiWajibPamong_(wajib, missing, ctx) {
+  detailIntiRequire_(missing, 'Bulan Laporan Wajib', wajib.bulan);
+  if (!wajib.tugasData || !wajib.tugasData.length) {
+    missing.push('Rincian tugas wajib bulanan');
+  } else {
+    for (var i = 0; i < wajib.tugasData.length; i++) {
+      var tugas = wajib.tugasData[i] || {};
+      detailIntiRequire_(missing, 'Deskripsi tugas wajib #' + (i + 1), tugas.deskripsi);
+      detailIntiRequire_(missing, 'Bukti tugas wajib #' + (i + 1), tugas.fileName || tugas.fileData || tugas.fileUrl);
+    }
+  }
+
+  return {
+    dasarKegiatan: 'Laporan wajib pamong bulanan',
+    namaKegiatan: 'Paket kegiatan wajib bulan: ' + detailIntiText_(wajib.bulan),
+    tanggalKegiatan: detailIntiText_(wajib.bulan),
+    lokasiKegiatan: 'Wilayah Kerja / Kalurahan Minomartani',
+    penyelenggaraKeg: 'Pemerintah Kalurahan Minomartani',
+    peranKeg: 'Pelaksana kewajiban bulanan'
+  };
+}
+
+// --- Urutan dispatch harus sesuai prioritas if-else asli ---
+var DETAIL_INTI_HANDLER_ORDER_ = [
+  'detailTU', 'detailPHL', 'detailReguler', 'detailWajibDukuh', 'detailDukuh',
+  'detailPimpinan', 'detailAPBKal', 'detailAPBKalCarik', 'detailStafInstruksi',
+  'detailStafReguler', 'detailWajibPamong'
+];
+
+var DETAIL_INTI_HANDLERS_ = {
+  detailTU:             validasiDetailIntiTU_,
+  detailPHL:            validasiDetailIntiPHL_,
+  detailReguler:        validasiDetailIntiReguler_,
+  detailWajibDukuh:     validasiDetailIntiWajibDukuh_,
+  detailDukuh:          validasiDetailIntiDukuh_,
+  detailPimpinan:       validasiDetailIntiPimpinan_,
+  detailAPBKal:         validasiDetailIntiAPBKal_,
+  detailAPBKalCarik:    validasiDetailIntiAPBKalCarik_,
+  detailStafInstruksi:  validasiDetailIntiStafInstruksi_,
+  detailStafReguler:    validasiDetailIntiStafReguler_,
+  detailWajibPamong:    validasiDetailIntiWajibPamong_
+};
+
 function validasiDanNormalisasiDetailIntiLaporan_(paket, kategoriSheet, namaKegiatan, tanggalKegiatan, lokasiKegiatan, dasarKegiatan, penyelenggaraKeg, peranKeg) {
   paket = paket || {};
   var missing = [];
-  var jLow = String(paket.jabatan || '').toLowerCase();
 
   var core = {
     dasarKegiatan: detailIntiText_(dasarKegiatan),
@@ -3545,221 +3807,24 @@ function validasiDanNormalisasiDetailIntiLaporan_(paket, kategoriSheet, namaKegi
     peranKeg: detailIntiText_(peranKeg)
   };
 
-  if (paket.detailTU) {
-    var tu = paket.detailTU || {};
-    var dasarTU = detailIntiText_(tu.dasar);
-    var dasarOpsiTU = detailIntiText_(tu.dasarOpsi || tu.dasarPilihan || tu.dasar);
-    var dasarLainnyaTU = detailIntiText_(tu.dasarLainnya || tu.dasarManual || tu.dasarKehadiranLainnya);
+  var ctx = {
+    jLow: String(paket.jabatan || '').toLowerCase(),
+    paketDeskripsi: paket.deskripsi || '',
+    fallbackPenyelenggara: core.penyelenggaraKeg
+  };
 
-    // Jika frontend lama mengirim dasar = "Lainnya", backend wajib meminta isi manual.
-    if (dasarOpsiTU === 'Lainnya' || dasarTU === 'Lainnya') {
-      dasarTU = dasarLainnyaTU;
+  // Dispatch ke handler yang sesuai berdasarkan jenis detail dalam paket
+  var handlerDitemukan = false;
+  for (var i = 0; i < DETAIL_INTI_HANDLER_ORDER_.length; i++) {
+    var key = DETAIL_INTI_HANDLER_ORDER_[i];
+    if (paket[key]) {
+      core = DETAIL_INTI_HANDLERS_[key](paket[key], missing, ctx);
+      handlerDitemukan = true;
+      break;
     }
+  }
 
-    // Semua field pada form Tugas Umum wajib. Untuk opsi "Lainnya", yang wajib adalah isi manualnya.
-    detailIntiRequire_(missing, 'Jenis Tugas Umum', tu.jenis);
-    detailIntiRequire_(missing, 'Dasar Kehadiran', dasarTU);
-    detailIntiRequire_(missing, 'Pemberi Perintah / Sumber Undangan', tu.pemberi);
-    detailIntiRequire_(missing, 'Nama Kegiatan', tu.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', tu.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi', tu.lokasi);
-    detailIntiRequire_(missing, 'Penyelenggara', tu.penyelenggara);
-    detailIntiRequire_(missing, 'Peran/Partisipasi', tu.peran);
-
-    core.dasarKegiatan = dasarTU;
-    core.namaKegiatan = tu.namaKeg;
-    core.tanggalKegiatan = tu.tanggal;
-    core.lokasiKegiatan = tu.lokasi;
-    core.penyelenggaraKeg = tu.penyelenggara;
-    core.peranKeg = tu.peran;
-
-  } else if (paket.detailPHL) {
-    var phl = paket.detailPHL || {};
-    // Form PHL memang tidak menanyakan dasar/peran; server normalisasi otomatis.
-    detailIntiRequire_(missing, 'Nama Pekerjaan', phl.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', phl.tanggal);
-    detailIntiRequire_(missing, 'Lokasi Tugas', phl.lokasi);
-
-    core.dasarKegiatan = 'Penugasan harian PHL';
-    core.namaKegiatan = phl.namaKeg;
-    core.tanggalKegiatan = phl.tanggal;
-    core.lokasiKegiatan = phl.lokasi;
-    core.penyelenggaraKeg = 'Pemerintah Kalurahan Minomartani';
-    core.peranKeg = 'Pelaksana pekerjaan harian';
-
-  } else if (paket.detailReguler) {
-    var reg = paket.detailReguler || {};
-    // Kegiatan Reguler/Tupoksi: semua field form wajib.
-    detailIntiRequire_(missing, 'Nama Kegiatan', reg.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', reg.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi', reg.lokasi);
-    detailIntiRequire_(missing, 'Sasaran/Pihak Terlibat', reg.pihakTerlibat);
-    detailIntiRequire_(missing, 'Peran/Partisipasi', reg.peranAnda);
-    detailIntiRequire_(missing, 'Ringkasan Output/Hasil', reg.outputRingkas);
-    detailIntiRequire_(missing, 'Tindak Lanjut/Rekomendasi', reg.tindakLanjut);
-
-    core.dasarKegiatan = jLow.includes('lurah') ? 'Kewenangan dan kebijakan Lurah' : 'Pelaksanaan tugas pokok dan fungsi';
-    core.namaKegiatan = reg.namaKeg;
-    core.tanggalKegiatan = reg.tanggal;
-    core.lokasiKegiatan = reg.lokasi;
-    core.penyelenggaraKeg = reg.pihakTerlibat;
-    core.peranKeg = reg.peranAnda;
-
-  } else if (paket.detailWajibDukuh) {
-    var wd = paket.detailWajibDukuh || {};
-    detailIntiRequire_(missing, 'Jenis Pertemuan Wajib Dukuh', wd.jenis || wd.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', wd.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi', wd.lokasi);
-    detailIntiRequire_(missing, 'Penyelenggara', wd.penyelenggara);
-    detailIntiRequire_(missing, 'Output / Hasil Kegiatan', wd.outputRingkas || paket.deskripsi);
-
-    core.dasarKegiatan = 'Kegiatan wajib Dukuh Pasal 41';
-    core.namaKegiatan = wd.jenis || wd.namaKeg;
-    core.tanggalKegiatan = wd.tanggal;
-    core.lokasiKegiatan = wd.lokasi;
-    core.penyelenggaraKeg = wd.penyelenggara;
-    core.peranKeg = 'Dukuh / Pelaksana kegiatan wajib';
-
-  } else if (paket.detailDukuh) {
-    var duk = paket.detailDukuh || {};
-    var namaDukuh = duk.namaKeg || detailIntiJoin_([duk.kategoriFungsi, duk.detailFungsi], ' - ');
-    var pihakDukuh = duk.penyelenggara || duk.pihakTerlibat;
-
-    // Field yang ada pada formulir Dukuh wajib.
-    if (duk.kategoriFungsi !== undefined) detailIntiRequire_(missing, 'Kategori Utama Tupoksi Dukuh', duk.kategoriFungsi);
-    if (duk.detailFungsi !== undefined) detailIntiRequire_(missing, 'Detail Fungsi Tupoksi Dukuh', duk.detailFungsi);
-    detailIntiRequire_(missing, 'Nama Kegiatan / Detail Fungsi Dukuh', namaDukuh);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', duk.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi', duk.lokasi);
-    detailIntiRequire_(missing, 'Penyelenggara / Pihak Terlibat', pihakDukuh);
-    if (duk.outputRingkas !== undefined) detailIntiRequire_(missing, 'Output / Hasil Kegiatan', duk.outputRingkas);
-
-    core.dasarKegiatan = duk.kategoriFungsi ? ('Tupoksi Dukuh: ' + detailIntiText_(duk.kategoriFungsi)) : 'Tugas pokok dan fungsi Dukuh';
-    core.namaKegiatan = namaDukuh;
-    core.tanggalKegiatan = duk.tanggal;
-    core.lokasiKegiatan = duk.lokasi;
-    core.penyelenggaraKeg = pihakDukuh;
-    core.peranKeg = duk.peran || 'Dukuh / Pelaksana kewilayahan';
-
-  } else if (paket.detailPimpinan) {
-    var pim = paket.detailPimpinan || {};
-    // Semua field form Tugas/Instruksi Pimpinan wajib.
-    detailIntiRequire_(missing, 'Jenis Tugas Pimpinan', pim.jenis);
-    detailIntiRequire_(missing, 'Dasar Tugas / Instruksi', pim.dasar);
-    detailIntiRequire_(missing, 'Pemberi Tugas / Instruksi', pim.pemberi);
-    detailIntiRequire_(missing, 'Nama Agenda/Kegiatan', pim.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', pim.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi', pim.lokasi);
-    detailIntiRequire_(missing, 'Penyelenggara', pim.penyelenggara);
-
-    core.dasarKegiatan = pim.dasar;
-    core.namaKegiatan = pim.namaKeg;
-    core.tanggalKegiatan = pim.tanggal;
-    core.lokasiKegiatan = pim.lokasi;
-    core.penyelenggaraKeg = pim.penyelenggara;
-    core.peranKeg = pim.jenis;
-
-  } else if (paket.detailAPBKal) {
-    var apb = paket.detailAPBKal || {};
-    // Semua field form APBKal wajib. Metode adalah turunan otomatis dari termin, bukan input manual.
-    detailIntiRequire_(missing, 'Bidang APBKal', apb.bidang);
-    detailIntiRequire_(missing, 'Kode Rekening', apb.kodeRek);
-    detailIntiRequire_(missing, 'Nama Kegiatan APBKal', apb.namaKeg);
-    detailIntiRequire_(missing, 'Termin Pencairan', apb.termin);
-    detailIntiRequire_(missing, 'Tahapan Kegiatan', apb.tahap);
-    detailIntiRequire_(missing, 'Status Pelaksanaan TPK', apb.isTPK);
-    detailIntiRequire_(missing, 'Batas Waktu Pelaporan', apb.batasWaktu);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan Riil', apb.tanggal);
-    detailIntiRequire_(missing, 'Lokasi/Tempat', apb.lokasi);
-
-    if (String(apb.tahap || '') === APB_TAHAP.P54) {
-      var p52 = apb.pasal52 || {};
-      detailIntiRequire_(missing, 'Pasal 52: Apakah ada dokumentasi pengadaan barang?', p52.adaDokumentasiBarang);
-      detailIntiRequire_(missing, 'Pasal 52: Apakah ada transaksi/pembayaran?', p52.adaTransaksiPembayaran);
-      detailIntiRequire_(missing, 'Pasal 52: Apakah kegiatan menghadirkan orang?', p52.menghadirkanOrang);
-
-      var dokWajib52 = apbPasal52DokumenWajib_(apb);
-      for (var p52i = 0; p52i < dokWajib52.length; p52i++) {
-        var dok52 = apbPasal52CariDokumen_(apb, dokWajib52[p52i].key);
-        detailIntiRequire_(missing, 'Pasal 52: ' + dokWajib52[p52i].label, dok52 && (dok52.fileUrl || dok52.url || dok52.fileName));
-      }
-    }
-
-    core.dasarKegiatan = 'Pelaksanaan kegiatan APBKal';
-    core.namaKegiatan = '[' + detailIntiText_(apb.kodeRek) + '] ' + detailIntiText_(apb.namaKeg);
-    core.tanggalKegiatan = apb.tanggal;
-    core.lokasiKegiatan = apb.lokasi;
-    core.penyelenggaraKeg = apb.bidang;
-    core.peranKeg = detailIntiJoin_([apb.termin, apb.tahap ? tahapApbLabel_(apb.tahap) : ''], ' | ');
-
-  } else if (paket.detailAPBKalCarik) {
-    var apbc = paket.detailAPBKalCarik || {};
-    // Form APBKal Carik kini memiliki lokasi eksplisit dan wajib diisi.
-    detailIntiRequire_(missing, 'Jenis Pelaksanaan APBKal Tahun Berjalan', apbc.jenis);
-    detailIntiRequire_(missing, 'Nama Dokumen/Kegiatan', apbc.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', apbc.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi Pelaksanaan', apbc.lokasi);
-
-    core.dasarKegiatan = 'Pelaksanaan APBKal Tahun Berjalan (Pasal 44)';
-    core.namaKegiatan = apbc.namaKeg;
-    core.tanggalKegiatan = apbc.tanggal;
-    core.lokasiKegiatan = apbc.lokasi;
-    core.penyelenggaraKeg = detailIntiDefault_(core.penyelenggaraKeg, 'Pemerintah Kalurahan Minomartani');
-    core.peranKeg = apbc.jenis;
-
-  } else if (paket.detailStafInstruksi) {
-    var inst = paket.detailStafInstruksi || {};
-    // Form instruksi staf kini memiliki lokasi eksplisit dan wajib diisi.
-    detailIntiRequire_(missing, 'Pemberi Instruksi', inst.pemberi);
-    detailIntiRequire_(missing, 'Bentuk Instruksi', inst.bentuk);
-    detailIntiRequire_(missing, 'Nama Tugas/Instruksi', inst.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', inst.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi Pelaksanaan Instruksi', inst.lokasi);
-
-    core.dasarKegiatan = detailIntiJoin_(['Instruksi', inst.bentuk, 'dari ' + detailIntiText_(inst.pemberi)], ' ');
-    core.namaKegiatan = inst.namaKeg;
-    core.tanggalKegiatan = inst.tanggal;
-    core.lokasiKegiatan = inst.lokasi;
-    core.penyelenggaraKeg = detailIntiDefault_(core.penyelenggaraKeg, 'Pemerintah Kalurahan Minomartani');
-    core.peranKeg = 'Pelaksana instruksi';
-
-  } else if (paket.detailStafReguler) {
-    var sr = paket.detailStafReguler || {};
-    // Semua field form staf reguler/unit kerja wajib.
-    detailIntiRequire_(missing, 'Nama Tugas/Pekerjaan', sr.namaKeg);
-    detailIntiRequire_(missing, 'Tanggal Pelaksanaan', sr.tanggal);
-    detailIntiRequire_(missing, 'Tempat/Lokasi', sr.lokasi);
-    detailIntiRequire_(missing, 'Sasaran/Pihak Terlibat', sr.sasaran);
-    detailIntiRequire_(missing, 'Peran Anda', sr.peran);
-
-    core.dasarKegiatan = 'Tugas reguler unit kerja';
-    core.namaKegiatan = sr.namaKeg;
-    core.tanggalKegiatan = sr.tanggal;
-    core.lokasiKegiatan = sr.lokasi;
-    core.penyelenggaraKeg = sr.sasaran;
-    core.peranKeg = sr.peran;
-
-  } else if (paket.detailWajibPamong) {
-    var wajib = paket.detailWajibPamong || {};
-    detailIntiRequire_(missing, 'Bulan Laporan Wajib', wajib.bulan);
-    if (!wajib.tugasData || !wajib.tugasData.length) {
-      missing.push('Rincian tugas wajib bulanan');
-    } else {
-      for (var wt = 0; wt < wajib.tugasData.length; wt++) {
-        var tugas = wajib.tugasData[wt] || {};
-        detailIntiRequire_(missing, 'Deskripsi tugas wajib #' + (wt + 1), tugas.deskripsi);
-        detailIntiRequire_(missing, 'Bukti tugas wajib #' + (wt + 1), tugas.fileName || tugas.fileData || tugas.fileUrl);
-      }
-    }
-
-    core.dasarKegiatan = 'Laporan wajib pamong bulanan';
-    core.namaKegiatan = 'Paket kegiatan wajib bulan: ' + detailIntiText_(wajib.bulan);
-    core.tanggalKegiatan = detailIntiText_(wajib.bulan);
-    core.lokasiKegiatan = 'Wilayah Kerja / Kalurahan Minomartani';
-    core.penyelenggaraKeg = 'Pemerintah Kalurahan Minomartani';
-    core.peranKeg = 'Pelaksana kewajiban bulanan';
-
-  } else {
+  if (!handlerDitemukan) {
     missing.push('Jenis formulir/detail laporan tidak dikenali oleh server');
   }
 
@@ -3774,7 +3839,7 @@ function validasiDanNormalisasiDetailIntiLaporan_(paket, kategoriSheet, namaKegi
 
   if (missing.length) {
     var unique = [];
-    for (var i = 0; i < missing.length; i++) if (unique.indexOf(missing[i]) === -1) unique.push(missing[i]);
+    for (var u = 0; u < missing.length; u++) if (unique.indexOf(missing[u]) === -1) unique.push(missing[u]);
     return {
       sukses: false,
       pesan: 'Detail formulir belum lengkap. Mohon lengkapi isian wajib berikut:\n- ' + unique.join('\n- ')
@@ -3783,7 +3848,7 @@ function validasiDanNormalisasiDetailIntiLaporan_(paket, kategoriSheet, namaKegi
 
   return { sukses: true, data: core };
 }
-// ===== END v29 =====
+// ===== END v29 REFACTORED =====
 
 
 function safeUploadFileName_(name) {
