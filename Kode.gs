@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.10.01";
+var APP_VERSION = "2026.06.14.07";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -2924,9 +2924,7 @@ function getPinPepper_() {
   var key = CONFIG.SECURITY.PIN_PEPPER_PROPERTY || "PIN_PEPPER";
   var pepper = props.getProperty(key);
   if (!pepper) {
-    pepper = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-    props.setProperty(key, pepper);
-    Logger.log("PIN pepper dibuat otomatis. Jangan hapus Script Property: " + key);
+  throw new Error("PIN_PEPPER tidak ditemukan.");
   }
   return pepper;
 }
@@ -2940,20 +2938,15 @@ function hashPinLegacy_(pin) {
 }
 
 function hashPinV2_(pin, salt) {
-  return sha256Hex(String(salt || "") + "|" + String(pin || "") + "|" + getPinPepper_()).toLowerCase();
+  return sha256Hex(
+    String(salt || "").trim() + "|" +
+    String(pin || "").trim() + "|" +
+    String(getPinPepper_()).trim()
+  ).toLowerCase();
 }
 
 function constantTimeEquals_(a, b) {
-  a = String(a || "");
-  b = String(b || "");
-  var diff = a.length ^ b.length;
-  var maxLen = Math.max(a.length, b.length);
-  for (var i = 0; i < maxLen; i++) {
-    var ca = i < a.length ? a.charCodeAt(i) : 0;
-    var cb = i < b.length ? b.charCodeAt(i) : 0;
-    diff |= (ca ^ cb);
-  }
-  return diff === 0;
+  return String(a || "").trim() === String(b || "").trim();
 }
 
 function verifikasiPinPegawai_(pinInput, hashTersimpan, salt, hashVersion) {
@@ -3175,7 +3168,9 @@ function adminGantiPinPegawai(username, pinBaru6Digit, token) {
 
 function cekLogin(username, pin, clientId) {
   try {
-    var data = getPegawaiDataCached_();
+    var sheet = SpreadsheetApp.openById("1MpHIgbn66sbTdu8Mj1voqjuvI1UT5vDhbHo3BTdzkOE")
+      .getSheetByName("Data_Pegawai");
+    var data = sheet.getDataRange().getValues();
     if (!data) return { sukses: false, pesan: "Database Pegawai tidak dapat diakses!" };
 
     var inputUserBersih = String(username || '').trim().toLowerCase();
@@ -3222,6 +3217,7 @@ function cekLogin(username, pin, clientId) {
 
       if (dbUser === inputUserBersih) {
         usernameDitemukan = true;
+          
         var verifikasi = verifikasiPinPegawai_(inputPinMentah, dbPin, dbSalt, dbHashVersion);
         if (verifikasi.valid) {
           clearLoginUserFailures_(inputUserBersih);
