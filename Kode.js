@@ -3168,8 +3168,7 @@ function adminGantiPinPegawai(username, pinBaru6Digit, token) {
 
 function cekLogin(username, pin, clientId) {
   try {
-    var sheet = SpreadsheetApp.openById("1MpHIgbn66sbTdu8Mj1voqjuvI1UT5vDhbHo3BTdzkOE")
-      .getSheetByName("Data_Pegawai");
+    var sheet = getSheet_("Data_Pegawai");
     var data = sheet.getDataRange().getValues();
     if (!data) return { sukses: false, pesan: "Database Pegawai tidak dapat diakses!" };
 
