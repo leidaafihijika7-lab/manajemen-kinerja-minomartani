@@ -9,10 +9,10 @@ function doGet() {
 
 // ===== SHEET SCHEMA =====
 // Sumber kebenaran SHEET_COLUMNS sekarang berada di file SheetSchema.gs.
-// Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.js.
+// Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.14.07";
+var APP_VERSION = "2026.06.26.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -64,7 +64,8 @@ var CONFIG = {
 var KEBIJAKAN_TRANSISI_PRODUKTIFITAS = {
   MULAI_APLIKASI: "2026-04-01",
   PASAL33_PENGURANGAN_MINGGUAN_AKTIF: true,
-  PASAL60_BATAS_DUA_HARI_KERJA_AKTIF: false
+  PASAL60_BATAS_DUA_HARI_KERJA_AKTIF: false,
+  LAPORAN_REGULER_H2_AKTIF: false
 };
 
 function isPasal33PenguranganMingguanAktif_() {
@@ -73,6 +74,9 @@ function isPasal33PenguranganMingguanAktif_() {
 
 function isPasal60BatasDuaHariKerjaAktif_() {
   return KEBIJAKAN_TRANSISI_PRODUKTIFITAS.PASAL60_BATAS_DUA_HARI_KERJA_AKTIF === true;
+}
+function isLaporanRegulerH2Aktif_() {
+  return KEBIJAKAN_TRANSISI_PRODUKTIFITAS.LAPORAN_REGULER_H2_AKTIF === true;
 }
 // ===== END KEBIJAKAN TRANSISI PRODUKTIFITAS =====
 
@@ -267,20 +271,62 @@ function getAppVersion() {
   return APP_VERSION;
 }
 
+// ===== PATCH PERFORMA TAHAP 1: RUNTIME MEMOIZATION =====
+// Cache ini hanya hidup selama satu eksekusi Apps Script. Tidak mengubah data,
+// formula, hak akses, cut-off, poin, ataupun tunjangan.
+var PORTAL_RUNTIME_CACHE_ = {
+  scriptPropertiesService: null,
+  scriptPropertiesSnapshot: null,
+  spreadsheet: null,
+  sheets: {},
+  rekapReadOnlyValues: null,
+  pegawaiData: null,
+  cutoffRawMetaByPeriode: {},
+  sessionByToken: {}
+};
+
+function portalScriptProperties_() {
+  if (!PORTAL_RUNTIME_CACHE_.scriptPropertiesService) {
+    PORTAL_RUNTIME_CACHE_.scriptPropertiesService = PropertiesService.getScriptProperties();
+  }
+  return PORTAL_RUNTIME_CACHE_.scriptPropertiesService;
+}
+
+function portalScriptPropertiesSnapshot_() {
+  if (!PORTAL_RUNTIME_CACHE_.scriptPropertiesSnapshot) {
+    PORTAL_RUNTIME_CACHE_.scriptPropertiesSnapshot = portalScriptProperties_().getProperties();
+  }
+  return PORTAL_RUNTIME_CACHE_.scriptPropertiesSnapshot;
+}
+
+function invalidasiRuntimeCutoffTunjangan_() {
+  PORTAL_RUNTIME_CACHE_.scriptPropertiesSnapshot = null;
+  PORTAL_RUNTIME_CACHE_.cutoffRawMetaByPeriode = {};
+}
+
 function getSS_() {
-  var props = PropertiesService.getScriptProperties();
-  var sheetId = (props.getProperty("SPREADSHEET_ID") || "").trim();
+  if (PORTAL_RUNTIME_CACHE_.spreadsheet) return PORTAL_RUNTIME_CACHE_.spreadsheet;
+
+  var sheetId = (portalScriptProperties_().getProperty("SPREADSHEET_ID") || "").trim();
   if (!sheetId) {
     throw new Error("Konfigurasi SPREADSHEET_ID belum diatur di Script Properties. Aplikasi diblokir untuk mencegah salah target database.");
   }
-  return SpreadsheetApp.openById(sheetId);
+
+  PORTAL_RUNTIME_CACHE_.spreadsheet = SpreadsheetApp.openById(sheetId);
+  return PORTAL_RUNTIME_CACHE_.spreadsheet;
 }
 
 function getSheet_(name) {
-  const sh = getSS_().getSheetByName(name);
+  name = String(name || '').trim();
+  if (PORTAL_RUNTIME_CACHE_.sheets[name]) return PORTAL_RUNTIME_CACHE_.sheets[name];
+
+  var sh = getSS_().getSheetByName(name);
   if (!sh) throw new Error("Sheet '" + name + "' tidak ditemukan.");
+
+  PORTAL_RUNTIME_CACHE_.sheets[name] = sh;
   return sh;
 }
+// ===== END PATCH PERFORMA TAHAP 1: RUNTIME MEMOIZATION =====
 
 
 // ===== CACHE READ-ONLY REKAP_KINERJA (v2026.05.09.03) =====
@@ -295,6 +341,11 @@ var REKAP_KINERJA_READ_CACHE_CHUNK_SIZE = 85000;
 var REKAP_KINERJA_READ_CACHE_MAX_CHUNKS = 45;
 
 function getRekapKinerjaValuesReadOnly_() {
+  // Hindari membaca/parsing data yang sama lebih dari sekali dalam satu eksekusi.
+  if (PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues) {
+    return PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues;
+  }
+
   var cache = CacheService.getScriptCache();
   var metaRaw = "";
   try {
@@ -308,18 +359,27 @@ function getRekapKinerjaValuesReadOnly_() {
       var meta = JSON.parse(metaRaw);
       var chunks = Number(meta.chunks || 0);
       if (chunks > 0 && chunks <= REKAP_KINERJA_READ_CACHE_MAX_CHUNKS) {
+        var keys = [];
+        for (var i = 0; i < chunks; i++) {
+          keys.push(REKAP_KINERJA_READ_CACHE_CHUNK_PREFIX + i);
+        }
+
+        // Satu operasi batch menggantikan puluhan cache.get().
+        var parts = cache.getAll(keys);
         var joined = "";
         var lengkap = true;
-        for (var i = 0; i < chunks; i++) {
-          var part = cache.get(REKAP_KINERJA_READ_CACHE_CHUNK_PREFIX + i);
+        for (var k = 0; k < keys.length; k++) {
+          var part = parts[keys[k]];
           if (part === null || part === undefined) {
             lengkap = false;
             break;
           }
           joined += part;
         }
+
         if (lengkap && joined) {
-          return JSON.parse(joined);
+          PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues = JSON.parse(joined);
+          return PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues;
         }
       }
     } catch (eReadCache) {
@@ -328,6 +388,7 @@ function getRekapKinerjaValuesReadOnly_() {
   }
 
   var data = getSheet_("Rekap_Kinerja").getDataRange().getValues();
+  PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues = data;
   simpanCacheRekapKinerjaReadOnly_(data);
   return data;
 }
@@ -347,14 +408,18 @@ function simpanCacheRekapKinerjaReadOnly_(data) {
     }
 
     var cache = CacheService.getScriptCache();
+    var cacheEntries = {};
     for (var c = 0; c < chunks.length; c++) {
-      cache.put(REKAP_KINERJA_READ_CACHE_CHUNK_PREFIX + c, chunks[c], REKAP_KINERJA_READ_CACHE_TTL_SECONDS);
+      cacheEntries[REKAP_KINERJA_READ_CACHE_CHUNK_PREFIX + c] = chunks[c];
     }
-    cache.put(REKAP_KINERJA_READ_CACHE_META_KEY, JSON.stringify({
+    cacheEntries[REKAP_KINERJA_READ_CACHE_META_KEY] = JSON.stringify({
       chunks: chunks.length,
       createdAt: new Date().getTime(),
       rows: data && data.length ? data.length : 0
-    }), REKAP_KINERJA_READ_CACHE_TTL_SECONDS);
+    });
+
+    // Satu operasi batch menggantikan puluhan cache.put().
+    cache.putAll(cacheEntries, REKAP_KINERJA_READ_CACHE_TTL_SECONDS);
   } catch (eCache) {
     // Cache hanyalah optimasi. Jika gagal, fungsi pemanggil tetap memakai hasil baca sheet.
     try { Logger.log("Peringatan cache Rekap_Kinerja read-only gagal: " + (eCache && eCache.message ? eCache.message : eCache)); } catch (eLog) { }
@@ -362,6 +427,7 @@ function simpanCacheRekapKinerjaReadOnly_(data) {
 }
 
 function invalidasiCacheRekapKinerjaReadOnly_() {
+  PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues = null;
   try {
     CacheService.getScriptCache().remove(REKAP_KINERJA_READ_CACHE_META_KEY);
   } catch (e) { }
@@ -418,6 +484,8 @@ function tahapApbLabel_(code) {
 }
 
 function getPegawaiDataCached_() {
+  if (PORTAL_RUNTIME_CACHE_.pegawaiData) return PORTAL_RUNTIME_CACHE_.pegawaiData;
+
   // FIX #2: Scalability Cache — gunakan versi key + chunk kecil
   // Cache GAS max 100KB per key. Jika data pegawai bertambah besar,
   // simpan hanya kolom esensial (sudah dilakukan) dan tambah fallback
@@ -427,7 +495,8 @@ function getPegawaiDataCached_() {
   var cached = cache.get(CACHE_KEY);
   if (cached) {
     try {
-      return JSON.parse(cached);
+      PORTAL_RUNTIME_CACHE_.pegawaiData = JSON.parse(cached);
+      return PORTAL_RUNTIME_CACHE_.pegawaiData;
     } catch (e) { }
   }
 
@@ -436,9 +505,10 @@ function getPegawaiDataCached_() {
   // selalu truthy) digunakan sebagai kondisi, membuat blok ini tidak pernah
   // mengambil data dari PropertiesService sama sekali.
   try {
-    var propsCached = PropertiesService.getScriptProperties().getProperty(CACHE_KEY);
+    var propsCached = portalScriptProperties_().getProperty(CACHE_KEY);
     if (propsCached) {
-      return JSON.parse(propsCached);
+      PORTAL_RUNTIME_CACHE_.pegawaiData = JSON.parse(propsCached);
+      return PORTAL_RUNTIME_CACHE_.pegawaiData;
     }
   } catch (e) { }
 
@@ -474,10 +544,12 @@ function getPegawaiDataCached_() {
       Logger.log("Peringatan Cache+Props: " + e2.message);
     }
   }
+  PORTAL_RUNTIME_CACHE_.pegawaiData = optimizedData;
   return optimizedData;
 }
 
 function bersihkanCacheDataPegawai_() {
+  PORTAL_RUNTIME_CACHE_.pegawaiData = null;
   var keys = ["DATA_PEGAWAI_V2", "DATA_PEGAWAI_V3_SECURE_PIN"];
   for (var i = 0; i < keys.length; i++) {
     try { CacheService.getScriptCache().remove(keys[i]); } catch (e) { }
@@ -528,9 +600,18 @@ function getPegawaiByUsername_(username) {
 function buatToken() { return Utilities.getUuid(); }
 
 function validasiSession(token) {
+  token = String(token || '').trim();
+  if (!token) return null;
+
+  if (Object.prototype.hasOwnProperty.call(PORTAL_RUNTIME_CACHE_.sessionByToken, token)) {
+    return PORTAL_RUNTIME_CACHE_.sessionByToken[token];
+  }
+
   var cache = CacheService.getScriptCache();
   var idUser = cache.get(token);
   if (idUser) cache.put(token, idUser, CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+
+  PORTAL_RUNTIME_CACHE_.sessionByToken[token] = idUser || null;
   return idUser;
 }
 
@@ -538,6 +619,7 @@ function akhiriSession(token) {
   try {
     token = String(token || '').trim();
     if (!token) return { sukses: true };
+    delete PORTAL_RUNTIME_CACHE_.sessionByToken[token];
     CacheService.getScriptCache().remove(token);
     return { sukses: true };
   } catch (e) {
@@ -1101,13 +1183,17 @@ function evaluasiPasal60TugasPimpinan_(detail, tanggalSubmit) {
     return out;
   }
 
-  out.hariKerjaLewat = hitungHariKerjaSetelahTanggal_(detail.tanggal, tanggalSubmit || new Date());
-  out.tepatWaktu = out.hariKerjaLewat <= 2;
-
   if (!out.aktif) {
-    out.catatan = 'Masa transisi: batas laporan 2 hari kerja Pasal 60 belum diberlakukan otomatis.';
-    return out;
-  }
+  out.catatan = 'Masa transisi: batas laporan 2 hari kerja Pasal 60 belum diberlakukan otomatis.';
+  return out;
+}
+
+out.hariKerjaLewat = hitungHariKerjaSetelahTanggal_(
+  detail.tanggal,
+  tanggalSubmit || new Date()
+);
+
+out.tepatWaktu = out.hariKerjaLewat <= 2;
 
   out.catatan = out.tepatWaktu
     ? 'Laporan tugas pimpinan masih dalam batas 2 hari kerja Pasal 60.'
@@ -2126,6 +2212,7 @@ function simpanCutoffTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamC
     jamCutoff: meta.jamCutoff,
     labelPembayaran: meta.labelPembayaran
   }));
+  invalidasiRuntimeCutoffTunjangan_();
   return meta;
 }
 
@@ -3168,7 +3255,8 @@ function adminGantiPinPegawai(username, pinBaru6Digit, token) {
 
 function cekLogin(username, pin, clientId) {
   try {
-    var sheet = getSheet_("Data_Pegawai");
+    var sheet = SpreadsheetApp.openById("1MpHIgbn66sbTdu8Mj1voqjuvI1UT5vDhbHo3BTdzkOE")
+      .getSheetByName("Data_Pegawai");
     var data = sheet.getDataRange().getValues();
     if (!data) return { sukses: false, pesan: "Database Pegawai tidak dapat diakses!" };
 
@@ -4628,24 +4716,39 @@ function simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, barisBaru) 
   var lastRowIdx = 0;
   try {
     var sheetRekap = getSheet_("Rekap_Kinerja");
-    var dataRekap = sheetRekap.getDataRange().getValues();
     var IDX_IDUSER = SHEET_COLUMNS.REKAP_KINERJA.ID_USER;
     var IDX_NONCE = SHEET_COLUMNS.REKAP_KINERJA.NONCE;
+    var lastRowSebelumSimpan = sheetRekap.getLastRow();
 
-    for (var rr = dataRekap.length - 1; rr >= 1; rr--) {
-      var existingUserId = dataRekap[rr][IDX_IDUSER] != null ? dataRekap[rr][IDX_IDUSER].toString().trim() : "";
-      var existingNonce = dataRekap[rr][IDX_NONCE] != null ? dataRekap[rr][IDX_NONCE].toString().trim() : "";
-      if (idsEqual_(existingUserId, ctx.idUser) && existingNonce === ctx.submitNonce) {
-        ctx.submitCache.put(ctx.nonceKey, "DONE", CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
-        ctx.pertahankanNonce = true;
-        return {
-          sukses: false,
-          pesan: "⚠️ Permintaan yang sama sudah pernah diproses. Laporan tidak dikirim ulang."
-        };
+    // Untuk cek idempotensi submit biasa, baca hanya rentang kolom ID_USER..NONCE,
+    // bukan seluruh puluhan kolom Rekap_Kinerja.
+    if (lastRowSebelumSimpan > 1) {
+      var firstNonceIdx = Math.min(IDX_IDUSER, IDX_NONCE);
+      var nonceWidth = Math.abs(IDX_NONCE - IDX_IDUSER) + 1;
+      var nonceRows = sheetRekap
+        .getRange(2, firstNonceIdx + 1, lastRowSebelumSimpan - 1, nonceWidth)
+        .getValues();
+      var relIdUser = IDX_IDUSER - firstNonceIdx;
+      var relNonce = IDX_NONCE - firstNonceIdx;
+
+      for (var rr = nonceRows.length - 1; rr >= 0; rr--) {
+        var existingUserId = nonceRows[rr][relIdUser] != null ? nonceRows[rr][relIdUser].toString().trim() : "";
+        var existingNonce = nonceRows[rr][relNonce] != null ? nonceRows[rr][relNonce].toString().trim() : "";
+        if (idsEqual_(existingUserId, ctx.idUser) && existingNonce === ctx.submitNonce) {
+          ctx.submitCache.put(ctx.nonceKey, "DONE", CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+          ctx.pertahankanNonce = true;
+          return {
+            sukses: false,
+            pesan: "⚠️ Permintaan yang sama sudah pernah diproses. Laporan tidak dikirim ulang."
+          };
+        }
       }
     }
 
+    // Validasi APBKal tetap memakai data lengkap agar seluruh aturan bisnis lama
+    // tetap identik. Full-sheet read hanya dilakukan untuk kategori ini.
     if (paket.detailAPBKal) {
+      var dataRekap = sheetRekap.getDataRange().getValues();
       var hasilApb = terapkanValidasiAPBKalSubmit_(paket, ctx, draft, evaluasi, barisBaru, dataRekap);
       if (!hasilApb.sukses) return hasilApb;
     }
@@ -10549,12 +10652,19 @@ function buildAdminSpreadsheetDetailFromRow_(row) {
 
 function cutoffTunjanganRawMeta_(periode) {
   var p = normalizePeriode_(periode);
+  if (PORTAL_RUNTIME_CACHE_.cutoffRawMetaByPeriode[p]) {
+    return PORTAL_RUNTIME_CACHE_.cutoffRawMetaByPeriode[p];
+  }
+
+  var hasil = null;
   try {
-    var raw = PropertiesService.getScriptProperties().getProperty(cutoffPropertyKeyTunjangan_(p));
+    // Seluruh Script Properties dibaca satu kali per eksekusi, bukan per baris laporan.
+    var propsSnapshot = portalScriptPropertiesSnapshot_();
+    var raw = propsSnapshot[cutoffPropertyKeyTunjangan_(p)] || '';
     if (raw) {
       var obj = JSON.parse(raw);
       if (obj && obj.periode) {
-        return {
+        hasil = {
           ada: true,
           sumber: 'tersimpan_modul_tunjangan',
           periode: p,
@@ -10567,10 +10677,8 @@ function cutoffTunjanganRawMeta_(periode) {
     Logger.log('Gagal membaca meta cut-off Tunjangan untuk dashboard ' + p + ': ' + (e && e.message ? e.message : e));
   }
 
-  // Kebijakan khusus yang sudah disepakati tetap berada di helper Tunjangan,
-  // bukan di Dashboard Admin Kinerja.
-  if (p === '2026-04') {
-    return {
+  if (!hasil && p === '2026-04') {
+    hasil = {
       ada: true,
       sumber: 'kebijakan_tunjangan_april_2026',
       periode: p,
@@ -10579,13 +10687,18 @@ function cutoffTunjanganRawMeta_(periode) {
     };
   }
 
-  return {
-    ada: false,
-    sumber: 'default_cutoff_tunjangan',
-    periode: p,
-    obj: null,
-    meta: buildDefaultDateRangeFromPeriode_(p)
-  };
+  if (!hasil) {
+    hasil = {
+      ada: false,
+      sumber: 'default_cutoff_tunjangan',
+      periode: p,
+      obj: null,
+      meta: buildDefaultDateRangeFromPeriode_(p)
+    };
+  }
+
+  PORTAL_RUNTIME_CACHE_.cutoffRawMetaByPeriode[p] = hasil;
+  return hasil;
 }
 
 function periodeKeyOffset_(periode, offsetBulan) {
@@ -12206,7 +12319,8 @@ function cutoffSebelumnyaDashboardAktual_(periodeSebelumnya, prevMeta) {
   // Jika ada meta tersimpan lain untuk periode yang sama, ikut dipertimbangkan,
   // tetapi yang dipakai untuk tampilan adalah tanggal cut-off paling akhir.
   try {
-    var raw = PropertiesService.getScriptProperties().getProperty(cutoffPropertyKeyTunjangan_(p));
+    var propsSnapshot = portalScriptPropertiesSnapshot_();
+    var raw = propsSnapshot[cutoffPropertyKeyTunjangan_(p)] || '';
     if (raw) {
       var obj = JSON.parse(raw);
       if (obj && obj.periode) {
@@ -13042,6 +13156,10 @@ function hitungBatasRegulerTupoksiH2_(paket) {
 }
 
 function validasiRegulerTupoksiH2_(paket, pegawaiUser) {
+
+  // Nonaktif sementara validasi H+2 Reguler/Tupoksi
+  if (!isLaporanRegulerH2Aktif_()) return '';
+
   if (!isPaketRegulerTupoksiH2_(paket, pegawaiUser)) return '';
 
   // Revisi ditangani oleh alur revisi dan validasi periode aktif tersendiri.

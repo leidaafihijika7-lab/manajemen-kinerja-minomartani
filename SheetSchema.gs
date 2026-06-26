@@ -1,5 +1,5 @@
 // SheetSchema.gs adalah sumber kebenaran tunggal untuk SHEET_COLUMNS.
-// Jangan mendefinisikan SHEET_COLUMNS lagi di Kode.js; cukup pastikan file ini ada di project Apps Script.
+// Jangan mendefinisikan SHEET_COLUMNS lagi di Kode.gs; cukup pastikan file ini ada di project Apps Script.
 var SHEET_COLUMNS = {
   DATA_PEGAWAI: {
     ID: 0, USERNAME: 1, NAMA: 2, JABATAN: 3, PIN_HASH: 4, AKSES: 5,

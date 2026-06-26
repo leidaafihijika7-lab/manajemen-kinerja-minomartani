@@ -7779,7 +7779,7 @@
                 style="background:linear-gradient(135deg,#1a56db,#2563eb);" onclick="adminGantiPinPegawaiUI()">
                 <span class="material-symbols-outlined" style="font-size:18px;">key</span> Simpan PIN Baru
               </button>
-              <button type="button" class="btn-modal-cancel" onclick="muatDaftarPegawaiPin()">Muat Ulang Daftar</button>
+              <button type="button" class="btn-modal-cancel" onclick="muatDaftarPegawaiPin(true)">Muat Ulang Daftar</button>
             </div>
             <div id="msgGantiPinAdmin" style="margin-top:12px; font-size:13px; font-weight:700;"></div>
           </div>
@@ -8122,7 +8122,7 @@
     };
     var sToken = ""; var sData = { nama: "", jabatan: "" }; var disposisiAccessStatus = { loaded:false, boleh:false, isLurahDisposisi:false, isOperatorDisposisiAktif:false };
     var APP_VERSION_KEY = "kinerja_app_version";
-    var APP_VERSION_INTERVAL_MS = 120000; // cek tiap 2 menit
+    var APP_VERSION_INTERVAL_MS = 900000; // PATCH TAHAP 1: cek tiap 15 menit
     var APP_PENDING_VERSION_KEY = "kinerja_pending_version";
     var appVersionMonitorId = null;
     var appVersionBannerId = "bannerVersiBaru";
@@ -8640,13 +8640,14 @@
       }
     });
 
-    document.addEventListener('input', function () {
-      setTimeout(cekPendingReloadSaatAman, 300);
-    }, true);
+    var pendingReloadDebounceTimer_ = null;
+    function jadwalkanCekPendingReload_() {
+      if (pendingReloadDebounceTimer_) clearTimeout(pendingReloadDebounceTimer_);
+      pendingReloadDebounceTimer_ = setTimeout(cekPendingReloadSaatAman, 300);
+    }
 
-    document.addEventListener('change', function () {
-      setTimeout(cekPendingReloadSaatAman, 300);
-    }, true);
+    document.addEventListener('input', jadwalkanCekPendingReload_, true);
+    document.addEventListener('change', jadwalkanCekPendingReload_, true);
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', function () {
@@ -8776,13 +8777,25 @@
       };
     }
     var notifLaporanWajibAktif = null;
+    var notifLaporanWajibRequestAktif_ = false;
+    var notifLaporanWajibTerakhirMs_ = 0;
+    var NOTIF_LAPORAN_WAJIB_MIN_GAP_MS_ = 30000;
 
-    function refreshNotifikasiLaporanWajib() {
+    function refreshNotifikasiLaporanWajib(force) {
+      force = force === true;
+      if (!sToken || !window.google || !google.script || !google.script.run) return;
+      if (notifLaporanWajibRequestAktif_) return;
+      if (!force && notifLaporanWajibTerakhirMs_ && (Date.now() - notifLaporanWajibTerakhirMs_ < NOTIF_LAPORAN_WAJIB_MIN_GAP_MS_)) return;
+
+      notifLaporanWajibRequestAktif_ = true;
       google.script.run
         .withSuccessHandler(function (res) {
+          notifLaporanWajibRequestAktif_ = false;
+          notifLaporanWajibTerakhirMs_ = Date.now();
           renderNotifikasiLaporanWajib(res);
         })
         .withFailureHandler(function (err) {
+          notifLaporanWajibRequestAktif_ = false;
           console.error("Gagal memuat notifikasi laporan wajib:", (err && err.message) ? err.message : err);
           renderNotifikasiLaporanWajib({ sukses: false, aktif: false });
         })
@@ -8840,6 +8853,10 @@
     var DISPOSISI_WA_PENDING_KEY = 'disposisi_pending_whatsapp_v1';
     var disposisiNotifTimerId = null;
     var disposisiNotifDisembunyikanSampai = 0;
+    var disposisiNotifRequestAktif_ = false;
+    var disposisiNotifTerakhirMs_ = 0;
+    var DISPOSISI_NOTIF_MIN_GAP_MS_ = 30000;
+    var DISPOSISI_NOTIF_INTERVAL_MS_ = 300000; // PATCH TAHAP 1: 5 menit
 
     function isDashboardAktifUntukNotifDisposisi_() {
       var dash = document.getElementById('halDash');
@@ -8931,26 +8948,39 @@
         '</div>';
     }
 
-    function refreshNotifikasiDisposisiBaru() {
+    function refreshNotifikasiDisposisiBaru(force) {
+      force = force === true;
       if (!isDashboardAktifUntukNotifDisposisi_()) {
         sembunyikanNotifikasiDisposisiBaruTanpaSnooze_();
         return;
       }
       if (!sToken || !window.google || !google.script || !google.script.run) return;
+      if (disposisiNotifRequestAktif_) return;
+      if (!force && disposisiNotifTerakhirMs_ && (Date.now() - disposisiNotifTerakhirMs_ < DISPOSISI_NOTIF_MIN_GAP_MS_)) return;
+
+      disposisiNotifRequestAktif_ = true;
       google.script.run
-        .withSuccessHandler(function (res) { renderNotifikasiDisposisiBaru(res); })
-        .withFailureHandler(function () { renderNotifikasiDisposisiBaru({ sukses: false, totalBaru: 0 }); })
+        .withSuccessHandler(function (res) {
+          disposisiNotifRequestAktif_ = false;
+          disposisiNotifTerakhirMs_ = Date.now();
+          renderNotifikasiDisposisiBaru(res);
+        })
+        .withFailureHandler(function () {
+          disposisiNotifRequestAktif_ = false;
+          renderNotifikasiDisposisiBaru({ sukses: false, totalBaru: 0 });
+        })
         .ambilRingkasanDisposisiBaru(sToken);
     }
 
     function mulaiMonitorNotifikasiDisposisiBaru_() {
-      refreshNotifikasiDisposisiBaru();
+      // Panggilan awal sudah dilakukan oleh muatDashboard(); jangan duplikasi.
       if (disposisiNotifTimerId) clearInterval(disposisiNotifTimerId);
       disposisiNotifTimerId = setInterval(function () {
         if (document.hidden) return;
         if (!sToken) return;
+        if (_halamanAktif !== 'halDash') return;
         refreshNotifikasiDisposisiBaru();
-      }, 90000);
+      }, DISPOSISI_NOTIF_INTERVAL_MS_);
     }
 
     function bukaDisposisiDariNotifikasi_() {
@@ -9593,6 +9623,23 @@
       if (btn) btn.innerHTML = '<span class="spinner"></span><span>Memeriksa...</span>';
     }
 
+    function resetPortalRequestState_() {
+      if (typeof dashboardRequestState_ !== 'undefined' && dashboardRequestState_) {
+        dashboardRequestState_.loading = false;
+        dashboardRequestState_.lastLoadedAt = 0;
+        dashboardRequestState_.requestId++;
+      }
+      if (typeof notifLaporanWajibRequestAktif_ !== 'undefined') notifLaporanWajibRequestAktif_ = false;
+      if (typeof notifLaporanWajibTerakhirMs_ !== 'undefined') notifLaporanWajibTerakhirMs_ = 0;
+      if (typeof disposisiNotifRequestAktif_ !== 'undefined') disposisiNotifRequestAktif_ = false;
+      if (typeof disposisiNotifTerakhirMs_ !== 'undefined') disposisiNotifTerakhirMs_ = 0;
+      if (typeof adminDashboardRequestId_ !== 'undefined') adminDashboardRequestId_++;
+      if (typeof daftarPegawaiPinState_ !== 'undefined' && daftarPegawaiPinState_) {
+        daftarPegawaiPinState_.loaded = false;
+        daftarPegawaiPinState_.loading = false;
+      }
+    }
+
         function prosesLogin() {
       var u = document.getElementById('inputUsername').value;
       var p = document.getElementById('inputPin').value;
@@ -9614,6 +9661,7 @@
           if (res && res.sukses) {
             sToken = res.token;
             sData = buatDataSesiAman_(res);
+            resetPortalRequestState_();
             simpanMemori("kinerja_token", res.token);
             simpanMemori("kinerja_data", JSON.stringify(sData));
 
@@ -9628,7 +9676,7 @@
               document.getElementById('aplikasiUtama').style.display = "flex";
               muatDashboard();
               prosesLevel1();
-              cekStatusInputCutoff();
+              // Status cut-off dibaca saat halaman Input dibuka dan divalidasi ulang oleh backend saat submit.
               mulaiMonitorNotifikasiDisposisiBaru_();
             });
           } else {
@@ -9665,6 +9713,7 @@
       hapusMemori("kinerja_data");
       sToken = "";
       sData = { nama: "", jabatan: "" };
+      resetPortalRequestState_();
       disposisiAccessStatus = { loaded:false, boleh:false, isLurahDisposisi:false, isOperatorDisposisiAktif:false };
 
       document.getElementById('inputUsername').value = "";
@@ -10262,11 +10311,28 @@
       if (id === 'halTunjangan') muatTunjangan();
       if (id === 'halAdmin') muatAdmin();
       if (id === 'halAdminKinerja') muatDashboardAdminKinerja();
-      if (id === 'halDash' && sToken) setTimeout(refreshNotifikasiDisposisiBaru, 250);
     }
 
-    function muatDashboard() {
+    var dashboardRequestState_ = {
+      loading: false,
+      lastLoadedAt: 0,
+      requestId: 0,
+      minRefreshMs: 15000
+    };
+
+    function muatDashboard(force) {
+      force = force === true;
+      if (!sToken || !window.google || !google.script || !google.script.run) return;
+      if (dashboardRequestState_.loading) return;
+      if (!force && dashboardRequestState_.lastLoadedAt && (Date.now() - dashboardRequestState_.lastLoadedAt < dashboardRequestState_.minRefreshMs)) return;
+
+      dashboardRequestState_.loading = true;
+      var dashboardRequestId = ++dashboardRequestState_.requestId;
+
       google.script.run.withSuccessHandler(function (stats) {
+        if (dashboardRequestId !== dashboardRequestState_.requestId) return;
+        dashboardRequestState_.loading = false;
+        dashboardRequestState_.lastLoadedAt = Date.now();
         if (stats) {
           var kotakSatu = document.querySelectorAll('.stat-card')[0];
           var kotakDua = document.querySelectorAll('.stat-card')[1];
@@ -10310,6 +10376,8 @@
           }
         }
       }).withFailureHandler(function (err) {
+        if (dashboardRequestId !== dashboardRequestState_.requestId) return;
+        dashboardRequestState_.loading = false;
         var detail = (err && err.message) ? err.message : err;
         console.error("Gagal memuat dashboard:", detail);
         var kotakStats = document.querySelectorAll('.stat-card');
@@ -11896,15 +11964,24 @@
     }
 
 
-    function muatDaftarPegawaiPin() {
+    var daftarPegawaiPinState_ = { loaded: false, loading: false };
+
+    function muatDaftarPegawaiPin(force) {
+      force = force === true;
       var selectEl = document.getElementById('fPegawaiPin');
       var msgEl = document.getElementById('msgGantiPinAdmin');
       if (!selectEl) return;
+      if (daftarPegawaiPinState_.loading) return;
+      if (!force && daftarPegawaiPinState_.loaded && selectEl.options && selectEl.options.length > 1) return;
+
+      daftarPegawaiPinState_.loading = true;
       selectEl.innerHTML = '<option value="">Memuat daftar pegawai...</option>';
       if (msgEl) { msgEl.innerText = ''; msgEl.style.color = ''; }
 
       google.script.run.withSuccessHandler(function (res) {
+        daftarPegawaiPinState_.loading = false;
         if (!res || !res.sukses) {
+          daftarPegawaiPinState_.loaded = false;
           selectEl.innerHTML = '<option value="">Gagal memuat daftar pegawai</option>';
           if (msgEl) { msgEl.innerText = res && res.pesan ? res.pesan : 'Gagal memuat daftar pegawai.'; msgEl.style.color = 'var(--danger)'; }
           return;
@@ -11920,7 +11997,10 @@
           html += '<option value="' + escapeHTML(p.username || '') + '">' + escapeHTML(label) + '</option>';
         });
         selectEl.innerHTML = html;
+        daftarPegawaiPinState_.loaded = true;
       }).withFailureHandler(function (err) {
+        daftarPegawaiPinState_.loading = false;
+        daftarPegawaiPinState_.loaded = false;
         selectEl.innerHTML = '<option value="">Gagal memuat daftar pegawai</option>';
         if (msgEl) { msgEl.innerText = 'Gagal memuat daftar pegawai: ' + ((err && err.message) ? err.message : err); msgEl.style.color = 'var(--danger)'; }
       }).ambilDaftarPegawaiUntukAdmin(sToken);
@@ -13472,7 +13552,10 @@
       panel.innerHTML = html;
     }
 
+    var adminDashboardRequestId_ = 0;
+
     function muatDashboardAdminKinerja() {
+      var requestId = ++adminDashboardRequestId_;
       var tb = document.getElementById('tbAdminKinerja');
       var panel = document.getElementById('panelDetailAdminKinerja');
       aturVisibilitasPanelTutupPeriodeLaporan_();
@@ -13499,6 +13582,7 @@
       if (panel) panel.innerHTML = 'Pilih pegawai dari tabel untuk melihat detail capaian.';
 
       google.script.run.withSuccessHandler(function (res) {
+        if (requestId !== adminDashboardRequestId_) return;
         if (!res || res.sukses === false) {
           adminKinerjaPayloadAktif = null;
           renderRingkasanAdminKinerja({});
@@ -13511,6 +13595,7 @@
         renderInfoPeriodeAdminKinerja(res.periodeMeta || {});
         renderTabelAdminKinerja(res.rows || []);
       }).withFailureHandler(function (err) {
+        if (requestId !== adminDashboardRequestId_) return;
         adminKinerjaPayloadAktif = null;
         renderRingkasanAdminKinerja({});
         renderInfoPeriodeAdminKinerja(null);
@@ -15791,8 +15876,9 @@
     window.onload = function () {
       try {
         setInterval(function () {
+          if (document.hidden) return;
           if (typeof _halamanAktif !== 'undefined' && _halamanAktif === 'halInput') cekStatusInputCutoff();
-        }, 60000);
+        }, 300000); // PATCH TAHAP 1: 5 menit; backend submit tetap menjadi sumber kebenaran
       } catch (cutoffIntervalErr) { }
       var formKinerja = document.getElementById('kinerjaForm');
       if (formKinerja) {
@@ -15976,7 +16062,7 @@
 
               if (pktWajibPamong) {
                 setTimeout(function () {
-                  refreshNotifikasiLaporanWajib();
+                  refreshNotifikasiLaporanWajib(true);
                 }, 250);
               }
             } catch (uiErr) {
