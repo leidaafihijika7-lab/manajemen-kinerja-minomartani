@@ -12,7 +12,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.26.01";
+var APP_VERSION = "2026.06.26.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -14688,14 +14688,74 @@ function cariLockTutupPeriodeUntukTanggalPelaksanaanV31_(tanggalPelaksanaan) {
 }
 
 
-// ===== HOTFIX_PASAL33_PERIODE_AKTIF_V1 =====
-function periodeKinerjaAktifUntukLaporanWajibV34_(tanggalAcuan) {
-  var d = tanggalAcuan instanceof Date ? tanggalAcuan : parseTanggal(tanggalAcuan);
+// ===== HOTFIX_PASAL33_PERIODE_AKTIF_V2_ADMIN_ONLY =====
+// Sumber kebenaran periode aktif laporan wajib:
+// 1) cut-off Tunjangan yang benar-benar disimpan admin; atau
+// 2) Tutup Periode Laporan yang benar-benar disimpan admin.
+// Tidak menggunakan DEFAULT_CUTOFF_DAY untuk memajukan periode.
+// Dengan demikian, periode berikutnya baru aktif setelah periode sebelumnya
+// benar-benar mencapai cut-off/penutupan resmi.
+function periodeResmiTerakhirDitutupUntukLaporanWajibV35_(tanggalAcuan) {
+  var d = tanggalAcuan instanceof Date ? new Date(tanggalAcuan) : parseTanggal(tanggalAcuan);
   if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) d = new Date();
-  var p = '';
-  try { p = periodeDariTanggalLaporan_(d); } catch (e) { p = ''; }
-  if (!p) p = Utilities.formatDate(d, 'GMT+7', 'yyyy-MM');
-  return normalizePeriode_(p);
+
+  var props = portalScriptPropertiesSnapshot_();
+  var terbaru = '';
+
+  function catatJikaLebihBaru_(periode, cutoffDate) {
+    var p = '';
+    try { p = normalizePeriode_(periode || ''); } catch (e) { p = ''; }
+    if (!p) return;
+    if (!(cutoffDate instanceof Date) || isNaN(cutoffDate.getTime())) return;
+    if (cutoffDate.getTime() > d.getTime()) return;
+    if (!terbaru || p > terbaru) terbaru = p;
+  }
+
+  for (var key in props) {
+    if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
+
+    if (key.indexOf('TUTUP_PERIODE_LAPORAN_') === 0) {
+      try {
+        var lockObj = JSON.parse(props[key] || '{}');
+        if (String(lockObj.status || 'DITUTUP').toUpperCase() !== 'DITUTUP') continue;
+        var lockPeriode = lockObj.periode || key.replace('TUTUP_PERIODE_LAPORAN_', '');
+        var lockDate = parseTanggal(lockObj.tanggalTutup || lockObj.cutoffAt || '');
+        catatJikaLebihBaru_(lockPeriode, lockDate);
+      } catch (eLock) { }
+      continue;
+    }
+
+    if (key.indexOf('TUNJANGAN_CUTOFF_META_') === 0) {
+      try {
+        var cutoffObj = JSON.parse(props[key] || '{}');
+        var cutoffPeriode = cutoffObj.periode || key.replace('TUNJANGAN_CUTOFF_META_', '');
+        if (!cutoffObj.tanggalMulaiPeriode || !cutoffObj.tanggalAkhirPeriode) continue;
+        var cutoffMeta = buildDateRangeMeta_(
+          cutoffPeriode,
+          cutoffObj.tanggalMulaiPeriode,
+          cutoffObj.tanggalAkhirPeriode,
+          cutoffObj.jamCutoff || DEFAULT_TUNJANGAN_CUTOFF_TIME
+        );
+        catatJikaLebihBaru_(cutoffPeriode, cutoffMeta.endInclusive);
+      } catch (eCutoff) { }
+    }
+  }
+
+  return terbaru;
+}
+
+function periodeKinerjaAktifUntukLaporanWajibV34_(tanggalAcuan) {
+  var d = tanggalAcuan instanceof Date ? new Date(tanggalAcuan) : parseTanggal(tanggalAcuan);
+  if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) d = new Date();
+
+  var periodeTerakhirDitutup = periodeResmiTerakhirDitutupUntukLaporanWajibV35_(d);
+  if (periodeTerakhirDitutup) {
+    return normalizePeriode_(periodeKeyOffset_(periodeTerakhirDitutup, 1));
+  }
+
+  // Fallback aman bila belum ada riwayat penutupan resmi sama sekali:
+  // gunakan bulan kalender, bukan fallback cut-off tanggal 25.
+  return normalizePeriode_(Utilities.formatDate(d, 'GMT+7', 'yyyy-MM'));
 }
 
 function bulanLaporanWajibYangBolehDiinputV34_(tanggalAcuan) {
