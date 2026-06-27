@@ -7839,7 +7839,7 @@
                 <option value="Staf PHL">Staf PHL</option>
               </select>
               <input type="text" id="admCariNama" class="input-cari" placeholder="🔍 Cari nama pegawai...">
-              <button class="btn-unduh" type="button" onclick="muatDashboardAdminKinerja()">
+              <button id="btnMuatDashboardAdminKinerja" class="btn-unduh" type="button" onclick="muatDashboardAdminKinerja(true)">
                 <span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat Data
               </button>
             </div>
@@ -14057,9 +14057,64 @@
     }
 
     var adminDashboardRequestId_ = 0;
+    var adminDashboardStateV2A2_ = {
+      loading: false,
+      activeKey: '',
+      pending: false,
+      pendingForce: false,
+      cache: {},
+      cacheTtlMs: 30000
+    };
+    var adminDetailStateV2A2_ = {
+      loadingKey: '',
+      requestId: 0,
+      cache: {},
+      cacheTtlMs: 60000
+    };
 
-    function muatDashboardAdminKinerja() {
-      var requestId = ++adminDashboardRequestId_;
+    function invalidasiAdminDashboardClientCacheV2A2_() {
+      adminDashboardStateV2A2_.cache = {};
+      adminDetailStateV2A2_.cache = {};
+    }
+
+    function adminDashboardFilterKeyV2A2_() {
+      var periode = admPeriodeAktif();
+      var kelompok = (document.getElementById('admFilterKelompok') || {}).value || 'Semua';
+      var keyword = ((document.getElementById('admCariNama') || {}).value || '').trim().toLowerCase();
+      return periode + '|' + kelompok + '|' + keyword;
+    }
+
+    function setAdminDashboardLoadingV2A2_(loading) {
+      var btn = document.getElementById('btnMuatDashboardAdminKinerja');
+      if (!btn) return;
+      btn.disabled = !!loading;
+      btn.innerHTML = loading
+        ? '<span class="spinner" style="width:16px;height:16px;"></span> Memuat'
+        : '<span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat Data';
+    }
+
+    function renderHasilDashboardAdminV2A2_(res) {
+      adminPeriodeAutoKoreksi_ = false;
+      adminKinerjaPayloadAktif = res;
+      terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi || (res.periodeMeta && res.periodeMeta.periodeAktifResmi) || '');
+      renderRingkasanAdminKinerja(res.summary || {});
+      renderInfoPeriodeAdminKinerja(res.periodeMeta || {});
+      renderTabelAdminKinerja(res.rows || []);
+    }
+
+    function selesaikanRequestDashboardAdminV2A2_() {
+      adminDashboardStateV2A2_.loading = false;
+      adminDashboardStateV2A2_.activeKey = '';
+      setAdminDashboardLoadingV2A2_(false);
+      if (adminDashboardStateV2A2_.pending) {
+        var force = adminDashboardStateV2A2_.pendingForce;
+        adminDashboardStateV2A2_.pending = false;
+        adminDashboardStateV2A2_.pendingForce = false;
+        setTimeout(function () { muatDashboardAdminKinerja(force); }, 50);
+      }
+    }
+
+    function muatDashboardAdminKinerja(force) {
       var tb = document.getElementById('tbAdminKinerja');
       var panel = document.getElementById('panelDetailAdminKinerja');
       aturVisibilitasPanelTutupPeriodeLaporan_();
@@ -14077,10 +14132,27 @@
         return;
       }
 
+      var key = adminDashboardFilterKeyV2A2_();
+      if (adminDashboardStateV2A2_.loading) {
+        if (key === adminDashboardStateV2A2_.activeKey && !force) return;
+        adminDashboardStateV2A2_.pending = true;
+        adminDashboardStateV2A2_.pendingForce = adminDashboardStateV2A2_.pendingForce || !!force;
+        return;
+      }
+
+      var cached = adminDashboardStateV2A2_.cache[key];
+      if (!force && cached && Date.now() - cached.at < adminDashboardStateV2A2_.cacheTtlMs) {
+        renderHasilDashboardAdminV2A2_(cached.data);
+        return;
+      }
+
+      var requestId = ++adminDashboardRequestId_;
+      adminDashboardStateV2A2_.loading = true;
+      adminDashboardStateV2A2_.activeKey = key;
+      setAdminDashboardLoadingV2A2_(true);
       var periode = admPeriodeAktif();
       var kelompok = (document.getElementById('admFilterKelompok') || {}).value || 'Semua';
       var keyword = (document.getElementById('admCariNama') || {}).value || '';
-
       tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">Memuat dashboard admin kinerja...</td></tr>';
       renderInfoPeriodeAdminKinerja(null);
       if (panel) panel.innerHTML = 'Pilih pegawai dari tabel untuk melihat detail capaian.';
@@ -14092,50 +14164,58 @@
           renderRingkasanAdminKinerja({});
           if (res && res.periodeAktifResmi) terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi);
           renderInfoPeriodeAdminKinerja((res && res.periodeMeta) || null);
-
           if (res && res.kode === 'PERIODE_BELUM_DIBUKA' && res.periodeAktifResmi && !adminPeriodeAutoKoreksi_) {
             adminPeriodeAutoKoreksi_ = true;
             var el = document.getElementById('admPeriode');
             if (el) el.value = res.periodeAktifResmi;
             tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">' + escapeHTML(res.pesan || 'Periode belum dibuka.') + ' Mengalihkan ke periode aktif...</td></tr>';
-            setTimeout(function () {
-              adminPeriodeAutoKoreksi_ = false;
-              muatDashboardAdminKinerja();
-            }, 150);
+            selesaikanRequestDashboardAdminV2A2_();
+            setTimeout(function () { adminPeriodeAutoKoreksi_ = false; muatDashboardAdminKinerja(true); }, 150);
             return;
           }
-
           tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">' + escapeHTML((res && res.pesan) || 'Gagal memuat data.') + '</td></tr>';
+          selesaikanRequestDashboardAdminV2A2_();
           return;
         }
-
-        adminPeriodeAutoKoreksi_ = false;
-        adminKinerjaPayloadAktif = res;
-        terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi || (res.periodeMeta && res.periodeMeta.periodeAktifResmi) || '');
-        renderRingkasanAdminKinerja(res.summary || {});
-        renderInfoPeriodeAdminKinerja(res.periodeMeta || {});
-        renderTabelAdminKinerja(res.rows || []);
+        adminDashboardStateV2A2_.cache[key] = { at: Date.now(), data: res };
+        renderHasilDashboardAdminV2A2_(res);
+        selesaikanRequestDashboardAdminV2A2_();
       }).withFailureHandler(function (err) {
         if (requestId !== adminDashboardRequestId_) return;
         adminKinerjaPayloadAktif = null;
         renderRingkasanAdminKinerja({});
         renderInfoPeriodeAdminKinerja(null);
         tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">Gagal memuat data: ' + escapeHTML((err && err.message) ? err.message : err) + '</td></tr>';
+        selesaikanRequestDashboardAdminV2A2_();
       }).ambilDashboardAdminKinerja(periode, kelompok, keyword, sToken);
     }
 
-    function bukaDetailPegawaiAdmin(idUser) {
+    function bukaDetailPegawaiAdmin(idUser, force) {
       if (!idUser) return;
+      var periode = admPeriodeAktif();
+      var key = periode + '|' + idUser;
       var panel = document.getElementById('panelDetailAdminKinerja');
+      var cached = adminDetailStateV2A2_.cache[key];
+      if (!force && cached && Date.now() - cached.at < adminDetailStateV2A2_.cacheTtlMs) {
+        renderDetailPegawaiAdmin(cached.data);
+        return;
+      }
+      if (adminDetailStateV2A2_.loadingKey === key) return;
+      adminDetailStateV2A2_.loadingKey = key;
+      var requestId = ++adminDetailStateV2A2_.requestId;
       if (panel) panel.innerHTML = 'Memuat detail pegawai...';
       google.script.run.withSuccessHandler(function (res) {
+        if (requestId !== adminDetailStateV2A2_.requestId) return;
+        adminDetailStateV2A2_.loadingKey = '';
         if (res && res.periodeAktifResmi) terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi);
+        if (res && res.sukses) adminDetailStateV2A2_.cache[key] = { at: Date.now(), data: res };
         renderDetailPegawaiAdmin(res);
       }).withFailureHandler(function (err) {
+        if (requestId !== adminDetailStateV2A2_.requestId) return;
+        adminDetailStateV2A2_.loadingKey = '';
         renderDetailPegawaiAdmin({ sukses: false, pesan: (err && err.message) || err || 'Gagal memuat detail.' });
-      }).ambilDetailPegawaiAdminKinerja(idUser, admPeriodeAktif(), sToken);
+      }).ambilDetailPegawaiAdminKinerja(idUser, periode, sToken);
     }
-
 
     var timelineItemsCache = [];
     var timelineState = {
@@ -14631,6 +14711,7 @@
         }
         tutupModalSetujuAdmin();
         alert(r.pesan);
+        invalidasiAdminDashboardClientCacheV2A2_();
         updateAdminReviewSetelahAksi_(id, "Disetujui", poin, catatan);
       }).withFailureHandler(function (err) {
         if (btn) {
@@ -14654,6 +14735,7 @@
       simpanStateAdminReview(info.groupId || '', id);
       google.script.run.withSuccessHandler(function (r) {
         alert(r.pesan);
+        invalidasiAdminDashboardClientCacheV2A2_();
         updateAdminReviewSetelahAksi_(id, "Ditolak", 0, alasan);
       }).withFailureHandler(function (err) {
         alert('Gagal: ' + ((err && err.message) ? err.message : err));
@@ -14706,6 +14788,7 @@
         if (btn) btn.innerText = "Simpan Perubahan";
         tutupModalRevisi();
         alert(r.pesan);
+        invalidasiAdminDashboardClientCacheV2A2_();
         updateAdminReviewSetelahAksi_(idRevisi, s, parseInt(p, 10) || 0, c);
       }).withFailureHandler(function (er) {
         if (btn) btn.innerText = "Simpan Perubahan";
@@ -17282,7 +17365,9 @@
         .withSuccessHandler(function (res) {
           if (btn) btn.disabled = false;
           renderStatusTutupPeriodeLaporan_(res);
+          invalidasiAdminDashboardClientCacheV2A2_();
           alert((res && res.pesan) || 'Status periode berhasil disimpan.');
+          if (_halamanAktif === 'halAdminKinerja') muatDashboardAdminKinerja(true);
         })
         .withFailureHandler(function (err) {
           if (btn) btn.disabled = false;
@@ -17326,7 +17411,9 @@
         .withSuccessHandler(function (res) {
           if (btn) btn.disabled = false;
           renderStatusTutupPeriodeLaporan_(res);
+          invalidasiAdminDashboardClientCacheV2A2_();
           alert((res && res.pesan) || 'Periode berhasil dibuka kembali.');
+          if (_halamanAktif === 'halAdminKinerja') muatDashboardAdminKinerja(true);
         })
         .withFailureHandler(function (err) {
           if (btn) btn.disabled = false;
