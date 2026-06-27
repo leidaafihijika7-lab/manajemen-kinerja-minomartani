@@ -13890,12 +13890,32 @@
 
     var adminKinerjaPayloadAktif = null;
 
+    var adminPeriodeAktifResmi_ = '';
+    var adminPeriodeAutoKoreksi_ = false;
+
+    function terapkanPeriodeAktifResmiAdmin_(periodeAktif) {
+      var p = String(periodeAktif || '').trim();
+      if (!/^\d{4}-\d{2}$/.test(p)) return;
+      adminPeriodeAktifResmi_ = p;
+      var el = document.getElementById('admPeriode');
+      if (!el) return;
+      el.max = p;
+      if (!el.value || el.value > p) el.value = p;
+    }
+
     function admPeriodeAktif() {
       var el = document.getElementById('admPeriode');
-      if (!el) return '';
+      if (!el) return adminPeriodeAktifResmi_ || '';
       if (!el.value) {
-        var d = new Date();
-        el.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        if (adminPeriodeAktifResmi_) {
+          el.value = adminPeriodeAktifResmi_;
+        } else {
+          var d = new Date();
+          el.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        }
+      }
+      if (adminPeriodeAktifResmi_ && el.value > adminPeriodeAktifResmi_) {
+        el.value = adminPeriodeAktifResmi_;
       }
       return el.value;
     }
@@ -13911,31 +13931,28 @@
 
 
     function renderInfoPeriodeAdminKinerja(meta) {
-      meta = meta || {};
-      var tableContainer = document.querySelector('#halAdminKinerja .table-container');
-      var toolbar = tableContainer ? tableContainer.querySelector('.toolbar-aksi') : null;
-      if (!toolbar || !toolbar.parentNode) return;
-
-      var info = document.getElementById('admPeriodeInfo');
-      if (!info) {
-        info = document.createElement('div');
-        info.id = 'admPeriodeInfo';
-        info.style.cssText = 'padding:10px 14px; border-bottom:1px solid var(--border); background:#f8fafc; color:var(--text-muted); font-size:12px; line-height:1.6;';
-        toolbar.parentNode.insertBefore(info, toolbar.nextSibling);
-      }
+      var info = document.getElementById('admInfoPeriodeCutoff');
+      if (!info) return;
 
       if (!meta || !meta.periode) {
-        info.innerHTML = '<span class="badge bg-gray">Periode cut-off tunjangan</span> Rentang periode akan tampil setelah data dimuat.';
+        info.innerHTML = '<span class="badge bg-gray">Periode pelaporan resmi</span> Status periode akan tampil setelah data dimuat.';
         return;
       }
 
-      var mulai = meta.tanggalMulaiPeriodeJam ? formatTanggalJamIndonesiaShort(meta.tanggalMulaiPeriodeJam) : formatTanggalIndonesiaShort(meta.tanggalMulaiPeriode || '');
-      var cutoff = meta.tanggalCutoff ? formatTanggalJamIndonesiaShort(meta.tanggalCutoff) : (formatTanggalIndonesiaShort(meta.tanggalAkhirPeriode || '') + ' ' + (meta.jamCutoff || '18:00'));
-      var label = meta.labelPembayaran || meta.periode;
+      terapkanPeriodeAktifResmiAdmin_(meta.periodeAktifResmi || '');
+      var status = String(meta.statusPeriode || 'AKTIF');
+      var badgeClass = status === 'BELUM_DIBUKA' ? 'bg-red' :
+        (status === 'DITUTUP' ? 'bg-gray' : (status === 'DIJADWALKAN_TUTUP' ? 'bg-yellow' : 'bg-green'));
+      var statusLabel = status === 'BELUM_DIBUKA' ? 'Belum dibuka' :
+        (status === 'DITUTUP' ? 'Ditutup Admin' : (status === 'DIJADWALKAN_TUTUP' ? 'Dijadwalkan tutup' : 'Periode aktif'));
+
       info.innerHTML = '' +
-        '<span class="badge bg-green">Mengikuti cut-off tunjangan</span> ' +
-        '<b>' + escapeHTML(label) + '</b> dihitung dari <b>' + escapeHTML(mulai || '-') + '</b> sampai cut-off <b>' + escapeHTML(cutoff || '-') + '</b>.' +
-        (meta.cutoffSebelumnya ? '<br><span style="color:var(--text-muted);">Cut-off periode sebelumnya: ' + escapeHTML(formatTanggalJamIndonesiaShort(meta.cutoffSebelumnya)) + '.</span>' : '');
+        '<span class="badge ' + badgeClass + '">' + escapeHTML(statusLabel) + '</span> ' +
+        '<b>' + escapeHTML(meta.labelPeriode || meta.labelPembayaran || meta.periode) + '</b>. ' +
+        escapeHTML(meta.pesan || 'Mengikuti periode pelaporan resmi Admin Kinerja.') +
+        (meta.periodeAktifResmi && meta.periodeAktifResmi !== meta.periode
+          ? '<br><span style="color:var(--text-muted);">Periode aktif resmi saat ini: ' + escapeHTML(meta.labelPeriodeAktifResmi || meta.periodeAktifResmi) + '.</span>'
+          : '');
     }
 
     function renderRingkasanAdminKinerja(summary) {
@@ -13998,7 +14015,7 @@
       if (pm && pm.periode) {
         var pMulai = pm.tanggalMulaiPeriodeJam ? formatTanggalJamIndonesiaShort(pm.tanggalMulaiPeriodeJam) : formatTanggalIndonesiaShort(pm.tanggalMulaiPeriode || '');
         var pCutoff = pm.tanggalCutoff ? formatTanggalJamIndonesiaShort(pm.tanggalCutoff) : (formatTanggalIndonesiaShort(pm.tanggalAkhirPeriode || '') + ' ' + (pm.jamCutoff || '18:00'));
-        periodInfo = '<div style="margin-bottom:12px; padding:10px 12px; border:1px dashed #bfdbfe; border-radius:12px; background:#eff6ff; color:#1d4ed8; font-size:12px; line-height:1.6;"><b>Periode cut-off tunjangan:</b> ' + escapeHTML(pm.labelPembayaran || pm.periode) + ' • ' + escapeHTML(pMulai || '-') + ' s.d. ' + escapeHTML(pCutoff || '-') + '</div>';
+        periodInfo = '<div style="margin-bottom:12px; padding:10px 12px; border:1px dashed #bfdbfe; border-radius:12px; background:#eff6ff; color:#1d4ed8; font-size:12px; line-height:1.6;"><b>Periode pelaporan resmi:</b> ' + escapeHTML(pm.labelPeriode || pm.labelPembayaran || pm.periode) + '. ' + escapeHTML(pm.pesan || '') + '</div>';
       }
       var html = periodInfo +
         '<div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:14px;">' +
@@ -14073,11 +14090,28 @@
         if (!res || res.sukses === false) {
           adminKinerjaPayloadAktif = null;
           renderRingkasanAdminKinerja({});
-          renderInfoPeriodeAdminKinerja(null);
+          if (res && res.periodeAktifResmi) terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi);
+          renderInfoPeriodeAdminKinerja((res && res.periodeMeta) || null);
+
+          if (res && res.kode === 'PERIODE_BELUM_DIBUKA' && res.periodeAktifResmi && !adminPeriodeAutoKoreksi_) {
+            adminPeriodeAutoKoreksi_ = true;
+            var el = document.getElementById('admPeriode');
+            if (el) el.value = res.periodeAktifResmi;
+            tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">' + escapeHTML(res.pesan || 'Periode belum dibuka.') + ' Mengalihkan ke periode aktif...</td></tr>';
+            setTimeout(function () {
+              adminPeriodeAutoKoreksi_ = false;
+              muatDashboardAdminKinerja();
+            }, 150);
+            return;
+          }
+
           tb.innerHTML = '<tr><td colspan="9" style="text-align:center;">' + escapeHTML((res && res.pesan) || 'Gagal memuat data.') + '</td></tr>';
           return;
         }
+
+        adminPeriodeAutoKoreksi_ = false;
         adminKinerjaPayloadAktif = res;
+        terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi || (res.periodeMeta && res.periodeMeta.periodeAktifResmi) || '');
         renderRingkasanAdminKinerja(res.summary || {});
         renderInfoPeriodeAdminKinerja(res.periodeMeta || {});
         renderTabelAdminKinerja(res.rows || []);
@@ -14095,6 +14129,7 @@
       var panel = document.getElementById('panelDetailAdminKinerja');
       if (panel) panel.innerHTML = 'Memuat detail pegawai...';
       google.script.run.withSuccessHandler(function (res) {
+        if (res && res.periodeAktifResmi) terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi);
         renderDetailPegawaiAdmin(res);
       }).withFailureHandler(function (err) {
         renderDetailPegawaiAdmin({ sukses: false, pesan: (err && err.message) || err || 'Gagal memuat detail.' });

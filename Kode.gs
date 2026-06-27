@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.27.04";
+var APP_VERSION = "2026.06.27.05";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -8062,6 +8062,100 @@ function generateNarasiBulananAI(bulanTahun, token, forceRegenerate) {
   }
 }
 
+
+
+// ===== HOTFIX PERIODE RESMI DASHBOARD ADMIN v2026.06.27.04 =====
+// Dashboard Admin Kinerja mengelompokkan laporan berdasarkan penutupan periode
+// resmi Admin Kinerja. Cut-off Tunjangan tidak membuka bulan pelaporan berikutnya.
+function bandingkanPeriodeResmiAdminV37_(a, b) {
+  var pa = normalizePeriode_(a || '');
+  var pb = normalizePeriode_(b || '');
+  if (pa === pb) return 0;
+  return pa < pb ? -1 : 1;
+}
+
+function cariTutupPeriodeResmiAdminV37_(periode) {
+  var p = normalizePeriode_(periode || '');
+  var locks = daftarTutupPeriodeLaporanResmiV36_();
+  for (var i = 0; i < locks.length; i++) {
+    if (locks[i].periode === p) return locks[i];
+  }
+  return null;
+}
+
+function metaPeriodeResmiDashboardAdminV37_(periode, tanggalAcuan) {
+  var now = tanggalAcuan instanceof Date ? new Date(tanggalAcuan) : parseTanggal(tanggalAcuan);
+  if (!(now instanceof Date) || isNaN(now.getTime()) || now.getTime() === 0) now = new Date();
+
+  var aktif = periodeKinerjaAktifUntukLaporanWajibV34_(now);
+  var p;
+  try {
+    p = normalizePeriode_(periode || aktif);
+  } catch (e) {
+    p = aktif;
+  }
+
+  var lock = cariTutupPeriodeResmiAdminV37_(p);
+  var prev = cariTutupPeriodeResmiAdminV37_(periodeKeyOffset_(p, -1));
+  var parts = p.split('-');
+  var start = prev && prev.cutoffDate instanceof Date
+    ? new Date(prev.cutoffDate.getTime() + 1)
+    : new Date(Number(parts[0]), Number(parts[1]) - 1, 1, 0, 0, 0, 0);
+
+  var cmp = bandingkanPeriodeResmiAdminV37_(p, aktif);
+  var status = 'AKTIF';
+  if (cmp > 0) status = 'BELUM_DIBUKA';
+  else if (lock && lock.cutoffDate.getTime() <= now.getTime()) status = 'DITUTUP';
+  else if (lock && lock.cutoffDate.getTime() > now.getTime()) status = 'DIJADWALKAN_TUTUP';
+  else if (cmp < 0) status = 'PERIODE_LAMPAU';
+
+  var pesan;
+  if (status === 'BELUM_DIBUKA') {
+    pesan = 'Periode ' + labelPembayaranPeriode_(p) + ' belum dibuka. Periode pelaporan aktif saat ini masih ' + labelPembayaranPeriode_(aktif) + '.';
+  } else if (status === 'DITUTUP') {
+    pesan = 'Periode pelaporan ' + labelPembayaranPeriode_(p) + ' telah ditutup Admin pada ' + formatTutupPeriodeClient_(lock.cutoffDate) + '.';
+  } else if (status === 'DIJADWALKAN_TUTUP') {
+    pesan = 'Periode pelaporan ' + labelPembayaranPeriode_(p) + ' masih aktif dan dijadwalkan ditutup pada ' + formatTutupPeriodeClient_(lock.cutoffDate) + '.';
+  } else if (status === 'PERIODE_LAMPAU') {
+    pesan = 'Menampilkan arsip periode pelaporan resmi ' + labelPembayaranPeriode_(p) + '.';
+  } else {
+    pesan = 'Periode pelaporan resmi ' + labelPembayaranPeriode_(p) + ' sedang aktif dan belum ditutup Admin.';
+  }
+
+  return {
+    periode: p,
+    labelPeriode: labelPembayaranPeriode_(p),
+    labelPembayaran: labelPembayaranPeriode_(p),
+    periodeAktifResmi: aktif,
+    labelPeriodeAktifResmi: labelPembayaranPeriode_(aktif),
+    statusPeriode: status,
+    bolehDipilih: cmp <= 0,
+    modePeriode: 'periode_pelaporan_resmi_admin',
+    sumberPeriode: 'TUTUP_PERIODE_LAPORAN',
+    tanggalMulaiPeriode: formatTanggalISO_(start),
+    tanggalMulaiPeriodeJam: formatTanggalJamISO_(start),
+    tanggalTutup: lock ? formatTanggalJamISO_(lock.cutoffDate) : '',
+    tanggalCutoff: lock ? formatTanggalJamISO_(lock.cutoffDate) : '',
+    triwulanKey: triwulanPeriodeKeyV36_(p),
+    pesan: pesan
+  };
+}
+
+function validasiPeriodeResmiDashboardAdminV37_(periode, tanggalAcuan) {
+  var meta = metaPeriodeResmiDashboardAdminV37_(periode, tanggalAcuan || new Date());
+  if (!meta.bolehDipilih) {
+    return {
+      sukses: false,
+      kode: 'PERIODE_BELUM_DIBUKA',
+      pesan: meta.pesan,
+      periodeAktifResmi: meta.periodeAktifResmi,
+      periodeMeta: meta
+    };
+  }
+  return { sukses: true, meta: meta };
+}
+// ===== END HOTFIX PERIODE RESMI DASHBOARD ADMIN =====
+
 // ===== DASHBOARD ADMIN KINERJA (STABLE FIX) =====
 function formatWaktuAdmin_(w) {
   try {
@@ -8175,7 +8269,20 @@ function ambilDashboardAdminKinerja(periode, kelompok, keyword, token) {
     if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', summary: {}, rows: [] };
     if (!cekHakAksesAdmin(idUser)) return { sukses: false, pesan: 'Akses ditolak.', summary: {}, rows: [] };
 
-    var meta = parsePeriodeBulan_(periode);
+    var validasiPeriode = validasiPeriodeResmiDashboardAdminV37_(periode, new Date());
+    if (!validasiPeriode.sukses) {
+      return {
+        sukses: false,
+        kode: validasiPeriode.kode,
+        pesan: validasiPeriode.pesan,
+        periodeAktifResmi: validasiPeriode.periodeAktifResmi,
+        periodeMeta: validasiPeriode.periodeMeta,
+        summary: {},
+        rows: []
+      };
+    }
+
+    var meta = validasiPeriode.meta;
     var keyKelompok = (kelompok || 'Semua').toString();
     var q = (keyword || '').toString().trim().toLowerCase();
 
@@ -8218,12 +8325,16 @@ function ambilDashboardAdminKinerja(periode, kelompok, keyword, token) {
       if (!rowId || !rowsById[rowId]) continue;
       var tglLap = parseTanggal(data[r][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
+
+      var periodeLaporanResmi = periodePelaporanResmiDariTanggalV36_(tglLap);
+      if (!periodeLaporanResmi) continue;
+
       var status = (data[r][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || '').toString();
       var kategori = (data[r][SHEET_COLUMNS.REKAP_KINERJA.KATEGORI] || '').toString();
       var poin = Number(data[r][SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL]) || 0;
       var row = rowsById[rowId];
 
-      if (tglLap >= meta.start && tglLap < meta.end) {
+      if (periodeLaporanResmi === meta.periode) {
         row.jumlahLaporan++;
         if (isStatusApproved_(status)) {
           row.jumlahDisetujui++;
@@ -8235,14 +8346,13 @@ function ambilDashboardAdminKinerja(periode, kelompok, keyword, token) {
         }
       }
 
-      if (tglLap >= meta.triStart && tglLap < meta.triEnd && isStatusApproved_(status)) {
+      if (triwulanPeriodeKeyV36_(periodeLaporanResmi) === meta.triwulanKey && isStatusApproved_(status)) {
         row.totalPoin += poin;
       }
     }
 
     var rows = Object.keys(rowsById).map(function (idPeg) {
       var row = rowsById[idPeg];
-      // Poin produktivitas periode berasal dari POIN_FINAL laporan yang sudah disetujui Admin saja.
       var tunjangan = getTunjanganPegawai_(row.idUser, row.jabatan);
       var maxProd = Number(tunjangan.maxProd) || 0;
       var maxTU = Number(tunjangan.maxTU) || 0;
@@ -8290,7 +8400,6 @@ function ambilDashboardAdminKinerja(periode, kelompok, keyword, token) {
       summary.menungguReview += Number(r.jumlahMenunggu || 0);
       summary.estimasiTunjangan += Number(r.estimasiTunjangan || 0);
       if (Number(r.jumlahLaporan || 0) === 0) summary.belumUnggah++;
-
       if (r.predikat === 'Sangat Baik') summary.distribusiPredikat.sangatBaik++;
       else if (r.predikat === 'Baik') summary.distribusiPredikat.baik++;
       else if (r.predikat === 'Cukup') summary.distribusiPredikat.cukup++;
@@ -8302,9 +8411,16 @@ function ambilDashboardAdminKinerja(periode, kelompok, keyword, token) {
     summary.bottomPerformer = performer.bottom ? (performer.bottom.nama + ' (' + Number(performer.bottom.totalPoin || 0) + ' poin)') : 'Belum ada kandidat';
     summary.distribusiPredikat = formatDistribusiPredikatAdmin_(summary.distribusiPredikat);
 
-    return { sukses: true, summary: summary, rows: rows, periode: meta.periode, periodeMeta: dashboardAdminKinerjaPeriodeMeta_(meta) };
+    return {
+      sukses: true,
+      summary: summary,
+      rows: rows,
+      periode: meta.periode,
+      periodeAktifResmi: meta.periodeAktifResmi,
+      periodeMeta: meta
+    };
   } catch (e) {
-    return handleError("muatDashboardAdminKinerja", e, { sukses: false, pesan: "", summary: {}, rows: [] });
+    return handleError('muatDashboardAdminKinerja', e, { sukses: false, pesan: '', summary: {}, rows: [] });
   }
 }
 
@@ -8317,7 +8433,18 @@ function ambilDetailPegawaiAdminKinerja(idPegawai, periode, token) {
     var targetId = normalizeId_(idPegawai);
     if (!targetId) return { sukses: false, pesan: 'ID pegawai tidak valid.' };
 
-    var meta = parsePeriodeBulan_(periode);
+    var validasiPeriode = validasiPeriodeResmiDashboardAdminV37_(periode, new Date());
+    if (!validasiPeriode.sukses) {
+      return {
+        sukses: false,
+        kode: validasiPeriode.kode,
+        pesan: validasiPeriode.pesan,
+        periodeAktifResmi: validasiPeriode.periodeAktifResmi,
+        periodeMeta: validasiPeriode.periodeMeta
+      };
+    }
+
+    var meta = validasiPeriode.meta;
     var pegawai = getPegawaiById_(targetId);
     var namaPegawai = pegawai && pegawai.nama ? pegawai.nama : '';
     var jabatanPegawai = pegawai && pegawai.jabatan ? pegawai.jabatan : '';
@@ -8346,12 +8473,14 @@ function ambilDetailPegawaiAdminKinerja(idPegawai, periode, token) {
 
       var tglLap = parseTanggal(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
+      var periodeLaporanResmi = periodePelaporanResmiDariTanggalV36_(tglLap);
+      if (!periodeLaporanResmi) continue;
 
       var status = (data[i][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || '').toString();
       var kategori = (data[i][SHEET_COLUMNS.REKAP_KINERJA.KATEGORI] || '').toString();
       var poin = Number(data[i][SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL]) || 0;
 
-      if (tglLap >= meta.start && tglLap < meta.end) {
+      if (periodeLaporanResmi === meta.periode) {
         detail.jumlahLaporan++;
         if (isStatusApproved_(status)) {
           detail.jumlahDisetujui++;
@@ -8373,13 +8502,11 @@ function ambilDetailPegawaiAdminKinerja(idPegawai, periode, token) {
         });
       }
 
-      if (tglLap >= meta.triStart && tglLap < meta.triEnd && isStatusApproved_(status)) {
+      if (triwulanPeriodeKeyV36_(periodeLaporanResmi) === meta.triwulanKey && isStatusApproved_(status)) {
         detail.totalPoin += poin;
       }
     }
 
-    // Detail capaian pegawai juga mengikuti prinsip yang sama: poin hanya dari
-    // laporan yang sudah disetujui Admin.
     var tunjangan = getTunjanganPegawai_(targetId, jabatanPegawai);
     var maxProd = Number(tunjangan.maxProd) || 0;
     var maxTU = Number(tunjangan.maxTU) || 0;
@@ -8403,10 +8530,11 @@ function ambilDetailPegawaiAdminKinerja(idPegawai, periode, token) {
       },
       capaian: detail,
       laporanTerakhir: laporan,
-      periodeMeta: dashboardAdminKinerjaPeriodeMeta_(meta)
+      periodeAktifResmi: meta.periodeAktifResmi,
+      periodeMeta: meta
     };
   } catch (e) {
-    return handleError("ambilDetailPegawaiAdminKinerja", e, { sukses: false, pesan: "" });
+    return handleError('ambilDetailPegawaiAdminKinerja', e, { sukses: false, pesan: '' });
   }
 }
 // ===== END DASHBOARD ADMIN KINERJA =====
