@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.27.07";
+var APP_VERSION = "2026.06.27.09";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -16896,7 +16896,7 @@ function batalkanDisposisiSurat(payload, token) {
 
 // ============================================================================
 // PATCH PERFORMA 2B-0 — AUDIT DAN PEMBANGUNAN INDEX_LAPORAN (SHADOW INDEX)
-// Versi: 2026.06.27.06
+// Versi dasar: 2026.06.27.06 | Hotfix 2B-0.2: 2026.06.27.08
 //
 // Prinsip keselamatan:
 // 1) Rekap_Kinerja tetap menjadi satu-satunya sumber kebenaran produksi.
@@ -16911,7 +16911,7 @@ var INDEX_LAPORAN_2B0_CONFIG = {
   AUDIT_SHEET_NAME: 'Audit_Index_Laporan',
   TEMP_PREFIX: '__BUILD_Index_Laporan_2B0_',
   BACKUP_PREFIX: 'Index_Laporan_Backup_',
-  VERSION: '2B0-2026.06.27.06',
+  VERSION: '2B0.2-2026.06.27.08',
   METADATA_PROPERTY: 'INDEX_LAPORAN_2B0_METADATA',
   MAX_ISSUE_SAMPLE: 200,
   HEADERS: [
@@ -16931,6 +16931,30 @@ var INDEX_LAPORAN_FEATURE_FLAGS_2B0 = {
   READ_BY_ID: false,
   READ_BY_DISPOSISI: false
 };
+
+// HOTFIX 2B-0.1: posisi kolom shadow index diturunkan langsung dari HEADERS.
+// Maintenance index tidak lagi gagal jika project masih memuat SheetSchema.gs lama.
+// Ini tidak mendefinisikan ulang SHEET_COLUMNS dan tidak mengubah schema produksi.
+var INDEX_LAPORAN_2B0_COLUMN_MAP_CACHE_ = null;
+
+function getIndexLaporanColumnMap2B0_() {
+  if (INDEX_LAPORAN_2B0_COLUMN_MAP_CACHE_) return INDEX_LAPORAN_2B0_COLUMN_MAP_CACHE_;
+
+  var map = {};
+  for (var i = 0; i < INDEX_LAPORAN_2B0_CONFIG.HEADERS.length; i++) {
+    map[INDEX_LAPORAN_2B0_CONFIG.HEADERS[i]] = i;
+  }
+
+  var wajib = ['ID_LAPORAN', 'ROW_REKAP', 'TANGGAL_LAPORAN', 'POIN_FINAL', 'TERAKHIR_DIUBAH'];
+  for (var j = 0; j < wajib.length; j++) {
+    if (typeof map[wajib[j]] !== 'number') {
+      throw new Error('Konfigurasi kolom Index_Laporan tidak lengkap: ' + wajib[j]);
+    }
+  }
+
+  INDEX_LAPORAN_2B0_COLUMN_MAP_CACHE_ = map;
+  return map;
+}
 
 function tanggalValidIndexLaporan2B0_(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -16996,13 +17020,35 @@ function normalisasiNilaiChecksumIndexLaporan2B0_(value) {
   return String(value).replace(/\r\n/g, '\n').trim();
 }
 
+function normalisasiPeriodeIndexLaporan2B0_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, 'GMT+7', 'yyyy-MM');
+  }
+
+  var s = value === null || value === undefined ? '' : String(value).trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+
+  var d = tanggalValidIndexLaporan2B0_(value);
+  if (d) return Utilities.formatDate(d, 'GMT+7', 'yyyy-MM');
+  return s;
+}
+
+function normalisasiPoinIndexLaporan2B0_(value) {
+  if (value === null || value === undefined || value === '') return '';
+  var n = Number(value);
+  if (isFinite(n)) return String(Math.round(n * 1000000000) / 1000000000);
+  return String(value).trim();
+}
+
 function checksumRowsIndexLaporan2B0_(rows) {
   var pieces = [];
   rows = Array.isArray(rows) ? rows : [];
   for (var i = 0; i < rows.length; i++) {
-    var row = rows[i] || [];
-    var normalized = [];
-    for (var c = 0; c < row.length; c++) normalized.push(normalisasiNilaiChecksumIndexLaporan2B0_(row[c]));
+    // HOTFIX 2B-0.2: checksum dihitung dari representasi semantik yang sama
+    // dengan comparator. Ini menetralkan perbedaan tipe Date/string serta
+    // coercion Google Sheets pada nilai yyyy-MM.
+    var normalized = normalisasiBarisBandingIndexLaporan2B0_(rows[i] || []);
     pieces.push(normalized.join('\u001f'));
   }
   var bytes = Utilities.computeDigest(
@@ -17147,10 +17193,10 @@ function normalisasiBarisBandingIndexLaporan2B0_(row) {
     Number(row[1] || 0),
     normalizeId_(row[2]),
     normalisasiNilaiChecksumIndexLaporan2B0_(tanggalValidIndexLaporan2B0_(row[3]) || row[3]),
-    String(row[4] || '').trim(),
+    normalisasiPeriodeIndexLaporan2B0_(row[4]),
     String(row[5] || '').trim(),
     String(row[6] || '').trim(),
-    normalisasiNilaiChecksumIndexLaporan2B0_(row[7]),
+    normalisasiPoinIndexLaporan2B0_(row[7]),
     normalizeId_(row[8]),
     String(row[9] || '').trim(),
     normalisasiNilaiChecksumIndexLaporan2B0_(tanggalValidIndexLaporan2B0_(row[10]) || row[10]),
@@ -17158,13 +17204,24 @@ function normalisasiBarisBandingIndexLaporan2B0_(row) {
   ];
 }
 
-function barisIndexSama2B0_(expected, actual) {
+function bedaBarisIndexLaporan2B0_(expected, actual) {
+  var headers = INDEX_LAPORAN_2B0_CONFIG.HEADERS;
   var a = normalisasiBarisBandingIndexLaporan2B0_(expected);
   var b = normalisasiBarisBandingIndexLaporan2B0_(actual);
+  var beda = [];
   for (var i = 0; i < a.length; i++) {
-    if (String(a[i]) !== String(b[i])) return false;
+    if (String(a[i]) === String(b[i])) continue;
+    beda.push({
+      kolom: headers[i] || ('COL_' + (i + 1)),
+      expected: String(a[i]),
+      actual: String(b[i])
+    });
   }
-  return true;
+  return beda;
+}
+
+function barisIndexSama2B0_(expected, actual) {
+  return bedaBarisIndexLaporan2B0_(expected, actual).length === 0;
 }
 
 function validasiIndexLaporan_(options) {
@@ -17210,11 +17267,12 @@ function validasiIndexLaporan_(options) {
   result.indexRows = rows.length;
   result.checksumIndex = checksumRowsIndexLaporan2B0_(rows);
 
+  var colIndex = getIndexLaporanColumnMap2B0_();
   var byRow = {};
   var byId = {};
   for (var i = 0; i < rows.length; i++) {
-    var rowRekap = Number(rows[i][SHEET_COLUMNS.INDEX_LAPORAN.ROW_REKAP] || 0);
-    var idLaporan = normalizeId_(rows[i][SHEET_COLUMNS.INDEX_LAPORAN.ID_LAPORAN]);
+    var rowRekap = Number(rows[i][colIndex.ROW_REKAP] || 0);
+    var idLaporan = normalizeId_(rows[i][colIndex.ID_LAPORAN]);
     if (Object.prototype.hasOwnProperty.call(byRow, rowRekap)) {
       result.duplicateRowRekapCount++;
       if (result.issues.length < INDEX_LAPORAN_2B0_CONFIG.MAX_ISSUE_SAMPLE) {
@@ -17235,7 +17293,7 @@ function validasiIndexLaporan_(options) {
   var expectedRows = snapshot.expectedRows || [];
   for (var e = 0; e < expectedRows.length; e++) {
     var expected = expectedRows[e];
-    var expectedRowNumber = Number(expected[SHEET_COLUMNS.INDEX_LAPORAN.ROW_REKAP]);
+    var expectedRowNumber = Number(expected[colIndex.ROW_REKAP]);
     var actual = byRow[expectedRowNumber];
     if (!actual || !barisIndexSama2B0_(expected, actual)) {
       result.mismatchCount++;
@@ -17243,7 +17301,8 @@ function validasiIndexLaporan_(options) {
         result.issues.push({
           code: actual ? 'NILAI_INDEX_TIDAK_COCOK' : 'ROW_REKAP_TIDAK_ADA_DI_INDEX',
           rowRekap: expectedRowNumber,
-          idLaporan: expected[SHEET_COLUMNS.INDEX_LAPORAN.ID_LAPORAN]
+          idLaporan: expected[colIndex.ID_LAPORAN],
+          perbedaan: actual ? bedaBarisIndexLaporan2B0_(expected, actual) : []
         });
       }
     }
@@ -17262,16 +17321,37 @@ function validasiIndexLaporan_(options) {
   return result;
 }
 
+function siapkanFormatSebelumTulisIndexLaporan2B0_(sh, rowCount) {
+  if (!sh || rowCount <= 0) return;
+  var colIndex = getIndexLaporanColumnMap2B0_();
+
+  // Google Sheets dapat menafsirkan string yyyy-MM sebagai tanggal. Semua
+  // kolom identitas/teks harus diformat Plain text SEBELUM setValues().
+  var textColumns = [
+    'ID_LAPORAN', 'ID_USER', 'PERIODE_RESMI', 'KATEGORI',
+    'STATUS_REVIEW', 'ID_DISPOSISI', 'NONCE', 'INDEX_VERSION'
+  ];
+  for (var i = 0; i < textColumns.length; i++) {
+    sh.getRange(2, colIndex[textColumns[i]] + 1, rowCount, 1).setNumberFormat('@');
+  }
+
+  sh.getRange(2, colIndex.ROW_REKAP + 1, rowCount, 1).setNumberFormat('0');
+  sh.getRange(2, colIndex.TANGGAL_LAPORAN + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+  sh.getRange(2, colIndex.POIN_FINAL + 1, rowCount, 1).setNumberFormat('0.#########');
+  sh.getRange(2, colIndex.TERAKHIR_DIUBAH + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+}
+
 function formatSheetIndexLaporan2B0_(sh, rowCount) {
+  var colIndex = getIndexLaporanColumnMap2B0_();
   sh.setFrozenRows(1);
   sh.getRange(1, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length)
     .setFontWeight('bold')
     .setWrap(true);
   if (rowCount > 0) {
-    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.ROW_REKAP + 1, rowCount, 1).setNumberFormat('0');
-    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.TANGGAL_LAPORAN + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
-    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.POIN_FINAL + 1, rowCount, 1).setNumberFormat('0.00');
-    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.TERAKHIR_DIUBAH + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+    sh.getRange(2, colIndex.ROW_REKAP + 1, rowCount, 1).setNumberFormat('0');
+    sh.getRange(2, colIndex.TANGGAL_LAPORAN + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+    sh.getRange(2, colIndex.POIN_FINAL + 1, rowCount, 1).setNumberFormat('0.00');
+    sh.getRange(2, colIndex.TERAKHIR_DIUBAH + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
   }
   sh.autoResizeColumns(1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length);
 }
@@ -17316,6 +17396,9 @@ function bangunUlangIndexLaporan_() {
     tempSheet.getRange(1, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length)
       .setValues([INDEX_LAPORAN_2B0_CONFIG.HEADERS]);
 
+    // HOTFIX 2B-0.2: format Plain text diterapkan sebelum setValues agar
+    // PERIODE_RESMI seperti 2026-06 tidak diubah Google Sheets menjadi Date.
+    siapkanFormatSebelumTulisIndexLaporan2B0_(tempSheet, snapshot.expectedRows.length);
     if (snapshot.expectedRows.length) {
       tempSheet.getRange(2, 1, snapshot.expectedRows.length, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length)
         .setValues(snapshot.expectedRows);
