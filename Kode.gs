@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.27.06";
+var APP_VERSION = "2026.06.27.07";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -16893,4 +16893,636 @@ function batalkanDisposisiSurat(payload, token) {
     return handleError("batalkanDisposisiSurat", e, { sukses: false, pesan: "Gagal membatalkan disposisi." });
   }
 }
+
+// ============================================================================
+// PATCH PERFORMA 2B-0 — AUDIT DAN PEMBANGUNAN INDEX_LAPORAN (SHADOW INDEX)
+// Versi: 2026.06.27.06
+//
+// Prinsip keselamatan:
+// 1) Rekap_Kinerja tetap menjadi satu-satunya sumber kebenaran produksi.
+// 2) Tidak ada endpoint produksi yang membaca Index_Laporan pada tahap 2B-0.
+// 3) Tidak ada dual-write pada submit/review/revisi pada tahap ini.
+// 4) Rebuild hanya dijalankan manual oleh pemilik project dari Apps Script Editor.
+// 5) Rebuild diblokir jika audit menemukan anomali kritis pada sumber.
+// ============================================================================
+
+var INDEX_LAPORAN_2B0_CONFIG = {
+  SHEET_NAME: 'Index_Laporan',
+  AUDIT_SHEET_NAME: 'Audit_Index_Laporan',
+  TEMP_PREFIX: '__BUILD_Index_Laporan_2B0_',
+  BACKUP_PREFIX: 'Index_Laporan_Backup_',
+  VERSION: '2B0-2026.06.27.06',
+  METADATA_PROPERTY: 'INDEX_LAPORAN_2B0_METADATA',
+  MAX_ISSUE_SAMPLE: 200,
+  HEADERS: [
+    'ID_LAPORAN', 'ROW_REKAP', 'ID_USER', 'TANGGAL_LAPORAN',
+    'PERIODE_RESMI', 'KATEGORI', 'STATUS_REVIEW', 'POIN_FINAL',
+    'ID_DISPOSISI', 'NONCE', 'TERAKHIR_DIUBAH', 'INDEX_VERSION'
+  ]
+};
+
+// Seluruh flag tetap false pada 2B-0. Objek ini hanya mendokumentasikan bahwa
+// index belum dipakai oleh pembacaan maupun penulisan produksi.
+var INDEX_LAPORAN_FEATURE_FLAGS_2B0 = {
+  WRITE_INDEX: false,
+  READ_RIWAYAT: false,
+  READ_ADMIN_REVIEW: false,
+  READ_TIMELINE: false,
+  READ_BY_ID: false,
+  READ_BY_DISPOSISI: false
+};
+
+function tanggalValidIndexLaporan2B0_(value) {
+  if (value === null || value === undefined || value === '') return null;
+  var d = value instanceof Date ? new Date(value.getTime()) : parseTanggal(value);
+  if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) return null;
+  return d;
+}
+
+function tanggalTerakhirDiubahIndexLaporan2B0_(row) {
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var candidates = [
+    tanggalValidIndexLaporan2B0_(row[C.TERAKHIR_DIREVISI_PADA]),
+    tanggalValidIndexLaporan2B0_(row[C.WAKTU_REVIEW_ADMIN]),
+    tanggalValidIndexLaporan2B0_(row[C.TANGGAL_LAPORAN])
+  ];
+  var latest = null;
+  for (var i = 0; i < candidates.length; i++) {
+    if (!candidates[i]) continue;
+    if (!latest || candidates[i].getTime() > latest.getTime()) latest = candidates[i];
+  }
+  return latest || '';
+}
+
+function statusReviewDikenalIndexLaporan2B0_() {
+  var set = {};
+  for (var key in REVIEW_STATUS) {
+    if (!Object.prototype.hasOwnProperty.call(REVIEW_STATUS, key)) continue;
+    set[String(REVIEW_STATUS[key] || '').trim()] = true;
+  }
+  return set;
+}
+
+function idPegawaiDikenalIndexLaporan2B0_() {
+  var set = {};
+  var data = getPegawaiDataCached_() || [];
+  for (var i = 1; i < data.length; i++) {
+    var id = normalizeId_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.ID]);
+    if (id) set[id] = true;
+  }
+  return set;
+}
+
+function tambahMasalahIndexLaporan2B0_(report, severity, code, rowNumber, message, detail) {
+  severity = String(severity || 'WARNING').toUpperCase();
+  report.counts[code] = Number(report.counts[code] || 0) + 1;
+  if (severity === 'CRITICAL') report.criticalCount++;
+  else report.warningCount++;
+
+  if (report.issues.length < INDEX_LAPORAN_2B0_CONFIG.MAX_ISSUE_SAMPLE) {
+    report.issues.push({
+      severity: severity,
+      code: code,
+      rowRekap: Number(rowNumber || 0),
+      message: String(message || ''),
+      detail: detail || null
+    });
+  }
+}
+
+function normalisasiNilaiChecksumIndexLaporan2B0_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) return String(Math.floor(value.getTime() / 1000) * 1000);
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/\r\n/g, '\n').trim();
+}
+
+function checksumRowsIndexLaporan2B0_(rows) {
+  var pieces = [];
+  rows = Array.isArray(rows) ? rows : [];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i] || [];
+    var normalized = [];
+    for (var c = 0; c < row.length; c++) normalized.push(normalisasiNilaiChecksumIndexLaporan2B0_(row[c]));
+    pieces.push(normalized.join('\u001f'));
+  }
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    pieces.join('\u001e'),
+    Utilities.Charset.UTF_8
+  );
+  return bytes.map(function (b) {
+    var n = b < 0 ? b + 256 : b;
+    return ('0' + n.toString(16)).slice(-2);
+  }).join('');
+}
+
+function buatBarisIndexLaporan2B0_(row, rowNumber) {
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var tanggal = tanggalValidIndexLaporan2B0_(row[C.TANGGAL_LAPORAN]);
+  var periode = tanggal ? periodePelaporanResmiDariTanggalV36_(tanggal) : '';
+  var poinRaw = row[C.POIN_FINAL];
+  var poin = poinRaw === '' || poinRaw === null || poinRaw === undefined ? '' : Number(poinRaw);
+  if (poin !== '' && !isFinite(poin)) poin = String(poinRaw || '');
+
+  return [
+    normalizeId_(row[C.ID_LAPORAN]),
+    Number(rowNumber),
+    normalizeId_(row[C.ID_USER]),
+    tanggal || '',
+    periode || '',
+    String(row[C.KATEGORI] || '').trim(),
+    String(row[C.STATUS_REVIEW] || '').trim(),
+    poin,
+    normalizeId_(row[C.ID_DISPOSISI]),
+    String(row[C.NONCE] || '').trim(),
+    tanggalTerakhirDiubahIndexLaporan2B0_(row),
+    INDEX_LAPORAN_2B0_CONFIG.VERSION
+  ];
+}
+
+function bacaSumberIndexLaporan2B0_() {
+  var sh = getSheet_('Rekap_Kinerja');
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return { sheet: sh, values: [], lastRow: lastRow };
+
+  // Kolom paling kanan yang diperlukan adalah ID_DISPOSISI (indeks 26 / AA).
+  // Detail formulir setelah AA tidak dibaca oleh audit/rebuild index.
+  var width = SHEET_COLUMNS.REKAP_KINERJA.ID_DISPOSISI + 1;
+  return {
+    sheet: sh,
+    values: sh.getRange(2, 1, lastRow - 1, width).getValues(),
+    lastRow: lastRow
+  };
+}
+
+function auditRekapKinerjaUntukIndex_() {
+  var startedAt = new Date();
+  var source = bacaSumberIndexLaporan2B0_();
+  var knownUsers = idPegawaiDikenalIndexLaporan2B0_();
+  var knownStatuses = statusReviewDikenalIndexLaporan2B0_();
+  var seenId = {};
+  var seenNonce = {};
+  var expectedRows = [];
+
+  var report = {
+    sukses: true,
+    mode: 'AUDIT_ONLY',
+    indexVersion: INDEX_LAPORAN_2B0_CONFIG.VERSION,
+    startedAt: startedAt.toISOString(),
+    sourceSheet: 'Rekap_Kinerja',
+    sourceRows: source.values.length,
+    criticalCount: 0,
+    warningCount: 0,
+    counts: {},
+    issues: [],
+    expectedRows: expectedRows,
+    layakDibangun: false,
+    checksumSumber: ''
+  };
+
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  for (var i = 0; i < source.values.length; i++) {
+    var row = source.values[i];
+    var rowNumber = i + 2;
+    var idLaporan = normalizeId_(row[C.ID_LAPORAN]);
+    var idUser = normalizeId_(row[C.ID_USER]);
+    var nonce = String(row[C.NONCE] || '').trim();
+    var status = String(row[C.STATUS_REVIEW] || '').trim();
+    var tanggal = tanggalValidIndexLaporan2B0_(row[C.TANGGAL_LAPORAN]);
+
+    if (!idLaporan) {
+      tambahMasalahIndexLaporan2B0_(report, 'CRITICAL', 'ID_LAPORAN_KOSONG', rowNumber,
+        'ID_LAPORAN kosong.', null);
+    } else if (Object.prototype.hasOwnProperty.call(seenId, idLaporan)) {
+      tambahMasalahIndexLaporan2B0_(report, 'CRITICAL', 'ID_LAPORAN_DUPLIKAT', rowNumber,
+        'ID_LAPORAN duplikat.', { idLaporan: idLaporan, rowPertama: seenId[idLaporan] });
+    } else {
+      seenId[idLaporan] = rowNumber;
+    }
+
+    if (!idUser) {
+      tambahMasalahIndexLaporan2B0_(report, 'CRITICAL', 'ID_USER_KOSONG', rowNumber,
+        'ID_USER kosong.', { idLaporan: idLaporan });
+    } else if (!knownUsers[idUser]) {
+      tambahMasalahIndexLaporan2B0_(report, 'WARNING', 'ID_USER_TIDAK_DITEMUKAN', rowNumber,
+        'ID_USER tidak ditemukan di Data_Pegawai. Mungkin pegawai lama/nonaktif atau data perlu dikoreksi.',
+        { idUser: idUser, idLaporan: idLaporan });
+    }
+
+    if (!tanggal) {
+      tambahMasalahIndexLaporan2B0_(report, 'CRITICAL', 'TANGGAL_LAPORAN_TIDAK_VALID', rowNumber,
+        'TANGGAL_LAPORAN kosong atau tidak valid.', { value: row[C.TANGGAL_LAPORAN], idLaporan: idLaporan });
+    }
+
+    if (!status || !knownStatuses[status]) {
+      tambahMasalahIndexLaporan2B0_(report, 'WARNING', 'STATUS_REVIEW_TIDAK_DIKENAL', rowNumber,
+        'STATUS_REVIEW tidak dikenali oleh konstanta aplikasi.', { status: status, idLaporan: idLaporan });
+    }
+
+    if (nonce && idUser) {
+      var nonceKey = idUser + '\u001f' + nonce;
+      if (Object.prototype.hasOwnProperty.call(seenNonce, nonceKey)) {
+        tambahMasalahIndexLaporan2B0_(report, 'CRITICAL', 'NONCE_DUPLIKAT_PER_USER', rowNumber,
+          'Kombinasi ID_USER + NONCE duplikat.',
+          { idUser: idUser, nonce: nonce, rowPertama: seenNonce[nonceKey], idLaporan: idLaporan });
+      } else {
+        seenNonce[nonceKey] = rowNumber;
+      }
+    }
+
+    expectedRows.push(buatBarisIndexLaporan2B0_(row, rowNumber));
+  }
+
+  report.checksumSumber = checksumRowsIndexLaporan2B0_(expectedRows);
+  report.layakDibangun = report.criticalCount === 0;
+  report.finishedAt = new Date().toISOString();
+  report.durationMs = new Date().getTime() - startedAt.getTime();
+  return report;
+}
+
+function normalisasiBarisBandingIndexLaporan2B0_(row) {
+  row = row || [];
+  return [
+    normalizeId_(row[0]),
+    Number(row[1] || 0),
+    normalizeId_(row[2]),
+    normalisasiNilaiChecksumIndexLaporan2B0_(tanggalValidIndexLaporan2B0_(row[3]) || row[3]),
+    String(row[4] || '').trim(),
+    String(row[5] || '').trim(),
+    String(row[6] || '').trim(),
+    normalisasiNilaiChecksumIndexLaporan2B0_(row[7]),
+    normalizeId_(row[8]),
+    String(row[9] || '').trim(),
+    normalisasiNilaiChecksumIndexLaporan2B0_(tanggalValidIndexLaporan2B0_(row[10]) || row[10]),
+    String(row[11] || '').trim()
+  ];
+}
+
+function barisIndexSama2B0_(expected, actual) {
+  var a = normalisasiBarisBandingIndexLaporan2B0_(expected);
+  var b = normalisasiBarisBandingIndexLaporan2B0_(actual);
+  for (var i = 0; i < a.length; i++) {
+    if (String(a[i]) !== String(b[i])) return false;
+  }
+  return true;
+}
+
+function validasiIndexLaporan_(options) {
+  options = options || {};
+  var snapshot = options.snapshot || auditRekapKinerjaUntukIndex_();
+  var sh = options.sheet || getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+  var result = {
+    sukses: true,
+    valid: false,
+    indexVersion: INDEX_LAPORAN_2B0_CONFIG.VERSION,
+    sourceRows: snapshot.sourceRows,
+    indexRows: 0,
+    headerValid: false,
+    checksumSumber: snapshot.checksumSumber,
+    checksumIndex: '',
+    mismatchCount: 0,
+    duplicateRowRekapCount: 0,
+    duplicateIdLaporanCount: 0,
+    issues: []
+  };
+
+  if (!sh) {
+    result.sukses = options.allowMissing === true;
+    result.missing = true;
+    result.pesan = 'Sheet Index_Laporan belum tersedia.';
+    return result;
+  }
+
+  var lastRow = sh.getLastRow();
+  var lastCol = Math.max(sh.getLastColumn(), INDEX_LAPORAN_2B0_CONFIG.HEADERS.length);
+  var header = sh.getRange(1, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues()[0];
+  result.headerValid = true;
+  for (var h = 0; h < INDEX_LAPORAN_2B0_CONFIG.HEADERS.length; h++) {
+    if (String(header[h] || '').trim() !== INDEX_LAPORAN_2B0_CONFIG.HEADERS[h]) {
+      result.headerValid = false;
+      result.issues.push({ code: 'HEADER_TIDAK_COCOK', column: h + 1, expected: INDEX_LAPORAN_2B0_CONFIG.HEADERS[h], actual: header[h] });
+    }
+  }
+
+  var rows = lastRow >= 2
+    ? sh.getRange(2, 1, lastRow - 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues()
+    : [];
+  result.indexRows = rows.length;
+  result.checksumIndex = checksumRowsIndexLaporan2B0_(rows);
+
+  var byRow = {};
+  var byId = {};
+  for (var i = 0; i < rows.length; i++) {
+    var rowRekap = Number(rows[i][SHEET_COLUMNS.INDEX_LAPORAN.ROW_REKAP] || 0);
+    var idLaporan = normalizeId_(rows[i][SHEET_COLUMNS.INDEX_LAPORAN.ID_LAPORAN]);
+    if (Object.prototype.hasOwnProperty.call(byRow, rowRekap)) {
+      result.duplicateRowRekapCount++;
+      if (result.issues.length < INDEX_LAPORAN_2B0_CONFIG.MAX_ISSUE_SAMPLE) {
+        result.issues.push({ code: 'ROW_REKAP_DUPLIKAT', rowIndex: i + 2, rowRekap: rowRekap });
+      }
+    }
+    byRow[rowRekap] = rows[i];
+
+    if (idLaporan && Object.prototype.hasOwnProperty.call(byId, idLaporan)) {
+      result.duplicateIdLaporanCount++;
+      if (result.issues.length < INDEX_LAPORAN_2B0_CONFIG.MAX_ISSUE_SAMPLE) {
+        result.issues.push({ code: 'ID_LAPORAN_DUPLIKAT_DI_INDEX', rowIndex: i + 2, idLaporan: idLaporan });
+      }
+    }
+    if (idLaporan) byId[idLaporan] = i + 2;
+  }
+
+  var expectedRows = snapshot.expectedRows || [];
+  for (var e = 0; e < expectedRows.length; e++) {
+    var expected = expectedRows[e];
+    var expectedRowNumber = Number(expected[SHEET_COLUMNS.INDEX_LAPORAN.ROW_REKAP]);
+    var actual = byRow[expectedRowNumber];
+    if (!actual || !barisIndexSama2B0_(expected, actual)) {
+      result.mismatchCount++;
+      if (result.issues.length < INDEX_LAPORAN_2B0_CONFIG.MAX_ISSUE_SAMPLE) {
+        result.issues.push({
+          code: actual ? 'NILAI_INDEX_TIDAK_COCOK' : 'ROW_REKAP_TIDAK_ADA_DI_INDEX',
+          rowRekap: expectedRowNumber,
+          idLaporan: expected[SHEET_COLUMNS.INDEX_LAPORAN.ID_LAPORAN]
+        });
+      }
+    }
+  }
+
+  result.valid = result.headerValid &&
+    snapshot.criticalCount === 0 &&
+    result.indexRows === snapshot.sourceRows &&
+    result.mismatchCount === 0 &&
+    result.duplicateRowRekapCount === 0 &&
+    result.duplicateIdLaporanCount === 0 &&
+    result.checksumIndex === result.checksumSumber;
+  result.pesan = result.valid
+    ? 'Index_Laporan cocok 100% dengan Rekap_Kinerja.'
+    : 'Index_Laporan belum cocok 100% dengan Rekap_Kinerja.';
+  return result;
+}
+
+function formatSheetIndexLaporan2B0_(sh, rowCount) {
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length)
+    .setFontWeight('bold')
+    .setWrap(true);
+  if (rowCount > 0) {
+    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.ROW_REKAP + 1, rowCount, 1).setNumberFormat('0');
+    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.TANGGAL_LAPORAN + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.POIN_FINAL + 1, rowCount, 1).setNumberFormat('0.00');
+    sh.getRange(2, SHEET_COLUMNS.INDEX_LAPORAN.TERAKHIR_DIUBAH + 1, rowCount, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+  }
+  sh.autoResizeColumns(1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length);
+}
+
+function namaSheetUnikIndexLaporan2B0_(prefix) {
+  var ss = getSS_();
+  var base = String(prefix || '').slice(0, 85);
+  var name = base;
+  var n = 1;
+  while (ss.getSheetByName(name)) {
+    name = (base + '_' + n).slice(0, 99);
+    n++;
+  }
+  return name;
+}
+
+function bangunUlangIndexLaporan_() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    return { sukses: false, kode: 'INDEX_BUILD_LOCKED', pesan: 'Pembangunan Index_Laporan sedang dijalankan oleh proses lain.' };
+  }
+
+  var tempSheet = null;
+  var oldSheet = null;
+  var oldName = '';
+  try {
+    var snapshot = auditRekapKinerjaUntukIndex_();
+    if (!snapshot.layakDibangun) {
+      return {
+        sukses: false,
+        kode: 'AUDIT_CRITICAL_FAILED',
+        pesan: 'Rebuild dibatalkan. Audit menemukan anomali kritis pada Rekap_Kinerja.',
+        audit: ringkasAuditIndexLaporan2B0_(snapshot),
+        issues: snapshot.issues
+      };
+    }
+
+    var ss = getSS_();
+    var stamp = Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMdd_HHmmss');
+    var tempName = namaSheetUnikIndexLaporan2B0_(INDEX_LAPORAN_2B0_CONFIG.TEMP_PREFIX + stamp);
+    tempSheet = ss.insertSheet(tempName);
+    tempSheet.getRange(1, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length)
+      .setValues([INDEX_LAPORAN_2B0_CONFIG.HEADERS]);
+
+    if (snapshot.expectedRows.length) {
+      tempSheet.getRange(2, 1, snapshot.expectedRows.length, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length)
+        .setValues(snapshot.expectedRows);
+    }
+    formatSheetIndexLaporan2B0_(tempSheet, snapshot.expectedRows.length);
+    SpreadsheetApp.flush();
+
+    var tempValidation = validasiIndexLaporan_({ snapshot: snapshot, sheet: tempSheet });
+    if (!tempValidation.valid) {
+      ss.deleteSheet(tempSheet);
+      tempSheet = null;
+      return {
+        sukses: false,
+        kode: 'TEMP_INDEX_VALIDATION_FAILED',
+        pesan: 'Rebuild dibatalkan karena hasil sheet sementara tidak cocok 100%.',
+        validation: tempValidation
+      };
+    }
+
+    oldSheet = ss.getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+    if (oldSheet) {
+      oldName = namaSheetUnikIndexLaporan2B0_(INDEX_LAPORAN_2B0_CONFIG.BACKUP_PREFIX + stamp);
+      oldSheet.setName(oldName);
+    }
+
+    tempSheet.setName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+    PORTAL_RUNTIME_CACHE_.sheets[INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME] = tempSheet;
+    SpreadsheetApp.flush();
+
+    var metadata = {
+      version: INDEX_LAPORAN_2B0_CONFIG.VERSION,
+      builtAt: new Date().toISOString(),
+      sourceRows: snapshot.sourceRows,
+      indexRows: snapshot.expectedRows.length,
+      checksum: snapshot.checksumSumber,
+      oldIndexBackup: oldName || '',
+      productionReadEnabled: false,
+      productionWriteEnabled: false
+    };
+    portalScriptProperties_().setProperty(INDEX_LAPORAN_2B0_CONFIG.METADATA_PROPERTY, JSON.stringify(metadata));
+    PORTAL_RUNTIME_CACHE_.scriptPropertiesSnapshot = null;
+
+    var finalValidation = validasiIndexLaporan_({ snapshot: snapshot, sheet: tempSheet });
+    return {
+      sukses: finalValidation.valid,
+      pesan: finalValidation.valid
+        ? 'Index_Laporan berhasil dibangun dan tervalidasi 100%. Belum digunakan oleh endpoint produksi.'
+        : 'Index_Laporan berhasil diganti, tetapi validasi akhir perlu diperiksa.',
+      metadata: metadata,
+      validation: finalValidation
+    };
+  } catch (e) {
+    try {
+      if (tempSheet && tempSheet.getName() !== INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME) getSS_().deleteSheet(tempSheet);
+    } catch (cleanupErr) { }
+    try {
+      if (oldSheet && oldName && !getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME)) oldSheet.setName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+    } catch (restoreErr) { }
+    return handleError('bangunUlangIndexLaporan_', e, { sukses: false, pesan: 'Gagal membangun Index_Laporan.' });
+  } finally {
+    try { lock.releaseLock(); } catch (eRelease) { }
+  }
+}
+
+function ringkasAuditIndexLaporan2B0_(audit) {
+  audit = audit || {};
+  return {
+    sourceRows: Number(audit.sourceRows || 0),
+    criticalCount: Number(audit.criticalCount || 0),
+    warningCount: Number(audit.warningCount || 0),
+    layakDibangun: audit.layakDibangun === true,
+    checksumSumber: audit.checksumSumber || '',
+    counts: audit.counts || {},
+    durationMs: Number(audit.durationMs || 0)
+  };
+}
+
+function tulisLaporanAuditIndexLaporan2B0_(audit, validation) {
+  var ss = getSS_();
+  var sh = ss.getSheetByName(INDEX_LAPORAN_2B0_CONFIG.AUDIT_SHEET_NAME);
+  if (!sh) sh = ss.insertSheet(INDEX_LAPORAN_2B0_CONFIG.AUDIT_SHEET_NAME);
+  sh.clear();
+
+  var summary = [
+    ['PATCH', 'Performa 2B-0 — Audit Index_Laporan'],
+    ['WAKTU_AUDIT', new Date()],
+    ['INDEX_VERSION', INDEX_LAPORAN_2B0_CONFIG.VERSION],
+    ['JUMLAH_REKAP', audit.sourceRows],
+    ['ANOMALI_KRITIS', audit.criticalCount],
+    ['PERINGATAN', audit.warningCount],
+    ['LAYAK_DIBANGUN', audit.layakDibangun ? 'YA' : 'TIDAK'],
+    ['CHECKSUM_SUMBER', audit.checksumSumber],
+    ['INDEX_TERSEDIA', validation && !validation.missing ? 'YA' : 'TIDAK'],
+    ['INDEX_VALID_100_PERSEN', validation && validation.valid ? 'YA' : 'TIDAK'],
+    ['CATATAN', 'Sheet audit ini hanya laporan. Rekap_Kinerja tidak diubah.']
+  ];
+  sh.getRange(1, 1, summary.length, 2).setValues(summary);
+  sh.getRange(1, 1, summary.length, 1).setFontWeight('bold');
+
+  var start = summary.length + 3;
+  sh.getRange(start, 1, 1, 6).setValues([['SEVERITY', 'CODE', 'ROW_REKAP', 'MESSAGE', 'DETAIL', 'STATUS']]).setFontWeight('bold');
+  var rows = [];
+  for (var i = 0; i < audit.issues.length; i++) {
+    var issue = audit.issues[i];
+    rows.push([
+      issue.severity || '', issue.code || '', issue.rowRekap || '', issue.message || '',
+      issue.detail ? JSON.stringify(issue.detail) : '', 'SUMBER'
+    ]);
+  }
+  if (validation && Array.isArray(validation.issues)) {
+    for (var v = 0; v < validation.issues.length; v++) {
+      rows.push(['WARNING', validation.issues[v].code || 'INDEX_MISMATCH', validation.issues[v].rowRekap || '',
+        'Ketidaksesuaian pada Index_Laporan.', JSON.stringify(validation.issues[v]), 'INDEX']);
+    }
+  }
+  if (rows.length) sh.getRange(start + 1, 1, rows.length, 6).setValues(rows);
+  sh.setFrozenRows(start);
+  sh.autoResizeColumns(1, 6);
+  return { sheetName: sh.getName(), rowsWritten: rows.length };
+}
+
+// ===== FUNGSI PUBLIK UNTUK DIJALANKAN MANUAL DARI APPS SCRIPT EDITOR =====
+
+// Pengaman fungsi maintenance publik. google.script.run hanya boleh mencapai
+// wrapper ini jika akun aktif adalah pemilik file Spreadsheet database.
+// Eksekusi manual dari Apps Script Editor oleh pemilik database tetap diizinkan.
+function pastikanPemilikDatabaseIndexLaporan2B0_() {
+  var activeEmail = '';
+  var ownerEmail = String(portalScriptProperties_().getProperty('INDEX_LAPORAN_MAINTAINER_EMAIL') || '').trim().toLowerCase();
+  try { activeEmail = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase(); } catch (eActive) { }
+  if (!ownerEmail) {
+    try {
+      var spreadsheetId = String(portalScriptProperties_().getProperty('SPREADSHEET_ID') || '').trim();
+      if (spreadsheetId) {
+        var owner = DriveApp.getFileById(spreadsheetId).getOwner();
+        ownerEmail = owner ? String(owner.getEmail() || '').trim().toLowerCase() : '';
+      }
+    } catch (eOwner) { }
+  }
+
+  if (!activeEmail || !ownerEmail || activeEmail !== ownerEmail) {
+    throw new Error('Akses maintenance Index_Laporan ditolak. Jalankan fungsi ini dari Apps Script Editor menggunakan akun pemilik Spreadsheet database.');
+  }
+  return true;
+}
+
+function auditIndexLaporan2B0() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var audit = auditRekapKinerjaUntukIndex_();
+  var validation = validasiIndexLaporan_({ snapshot: audit, allowMissing: true });
+  var result = {
+    sukses: true,
+    audit: ringkasAuditIndexLaporan2B0_(audit),
+    validation: validation,
+    issues: audit.issues
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+function buatLaporanAuditIndexLaporan2B0() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var audit = auditRekapKinerjaUntukIndex_();
+  var validation = validasiIndexLaporan_({ snapshot: audit, allowMissing: true });
+  var written = tulisLaporanAuditIndexLaporan2B0_(audit, validation);
+  var result = {
+    sukses: true,
+    pesan: 'Laporan audit ditulis ke sheet ' + written.sheetName + '.',
+    audit: ringkasAuditIndexLaporan2B0_(audit),
+    validation: validation,
+    sheet: written
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+function bangunUlangIndexLaporan2B0() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var result = bangunUlangIndexLaporan_();
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+function validasiIndexLaporan2B0() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var result = validasiIndexLaporan_({ allowMissing: false });
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+function statusIndexLaporan2B0() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var raw = portalScriptProperties_().getProperty(INDEX_LAPORAN_2B0_CONFIG.METADATA_PROPERTY) || '';
+  var metadata = null;
+  try { metadata = raw ? JSON.parse(raw) : null; } catch (e) { metadata = null; }
+  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+  var result = {
+    sukses: true,
+    sheetTersedia: !!sh,
+    jumlahBarisIndex: sh ? Math.max(0, sh.getLastRow() - 1) : 0,
+    metadata: metadata,
+    featureFlags: INDEX_LAPORAN_FEATURE_FLAGS_2B0,
+    pesan: 'Tahap 2B-0: Index_Laporan belum digunakan oleh endpoint produksi.'
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+// ===== END PATCH PERFORMA 2B-0 =====
 
