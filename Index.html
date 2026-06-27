@@ -9451,8 +9451,11 @@
         .getStatusAksesDisposisiModul(sToken);
     }
 
-    // ===== HOTFIX 2A-1C.1: BOOTSTRAP DISPOSISI TIGA TAHAP + TIMEOUT =====
+    // ===== HOTFIX 2A-1C.3: REQUEST GUARD + COOLDOWN =====
     var DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_ = 20000;
+    var DISPOSISI_STAGE_STALE_MS_V2A1C3_ = 60000;
+    var DISPOSISI_RELOAD_COOLDOWN_MS_V2A1C3_ = 15000;
+    var DISPOSISI_PAGE_CACHE_MS_V2A1C3_ = 180000;
     var disposisiLoadStateV2A1C1_ = {
       pageSeq: 0,
       shellSeq: 0,
@@ -9460,15 +9463,102 @@
       managementSeq: 0,
       shellTimer: null,
       inboxTimer: null,
-      managementTimer: null
+      managementTimer: null,
+      shellStaleTimer: null,
+      inboxStaleTimer: null,
+      managementStaleTimer: null,
+      shellActive: false,
+      inboxActive: false,
+      managementActive: false,
+      shellStartedAt: 0,
+      inboxStartedAt: 0,
+      managementStartedAt: 0,
+      shellCompletedAt: 0,
+      inboxCompletedAt: 0,
+      managementCompletedAt: 0,
+      lastPageLoadAt: 0,
+      pendingForceRefresh: false,
+      pendingRefreshTimer: null
     };
 
-    function clearDisposisiStageTimerV2A1C1_(name) {
-      var key = name + 'Timer';
-      if (disposisiLoadStateV2A1C1_[key]) {
-        clearTimeout(disposisiLoadStateV2A1C1_[key]);
-        disposisiLoadStateV2A1C1_[key] = null;
+    function disposisiStagePropV2A1C3_(name, suffix) {
+      return name + suffix;
+    }
+
+    function disposisiStageActiveV2A1C3_(name) {
+      return !!disposisiLoadStateV2A1C1_[disposisiStagePropV2A1C3_(name, 'Active')];
+    }
+
+    function disposisiAnyStageActiveV2A1C3_() {
+      return disposisiStageActiveV2A1C3_('shell') || disposisiStageActiveV2A1C3_('inbox') || disposisiStageActiveV2A1C3_('management');
+    }
+
+    function updateDisposisiRefreshButtonV2A1C3_() {
+      var btn = document.getElementById('btnRefreshDisposisi');
+      if (!btn) return;
+      var aktif = disposisiAnyStageActiveV2A1C3_();
+      btn.disabled = aktif;
+      btn.setAttribute('aria-busy', aktif ? 'true' : 'false');
+      btn.title = aktif ? 'Pemuatan masih berlangsung. Tunggu sampai selesai.' : 'Muat ulang data Disposisi';
+      btn.innerHTML = aktif
+        ? '<span class="spinner" style="width:16px;height:16px;"></span> Memuat...'
+        : '<span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat Ulang';
+    }
+
+    function setDisposisiStageActiveV2A1C3_(name, aktif) {
+      disposisiLoadStateV2A1C1_[disposisiStagePropV2A1C3_(name, 'Active')] = !!aktif;
+      if (aktif) {
+        disposisiLoadStateV2A1C1_[disposisiStagePropV2A1C3_(name, 'StartedAt')] = Date.now();
+      } else {
+        disposisiLoadStateV2A1C1_[disposisiStagePropV2A1C3_(name, 'CompletedAt')] = Date.now();
       }
+      updateDisposisiRefreshButtonV2A1C3_();
+    }
+
+    function clearDisposisiStageTimerV2A1C1_(name) {
+      var timerKeys = [name + 'Timer', name + 'StaleTimer'];
+      timerKeys.forEach(function (key) {
+        if (disposisiLoadStateV2A1C1_[key]) {
+          clearTimeout(disposisiLoadStateV2A1C1_[key]);
+          disposisiLoadStateV2A1C1_[key] = null;
+        }
+      });
+    }
+
+    function disposisiBolehTampilkanRetryStageV2A1C3_(name) {
+      return !disposisiStageActiveV2A1C3_(name);
+    }
+
+    function jadwalkanPendingRefreshDisposisiV2A1C3_() {
+      if (!disposisiLoadStateV2A1C1_.pendingForceRefresh || disposisiAnyStageActiveV2A1C3_()) return;
+      if (disposisiLoadStateV2A1C1_.pendingRefreshTimer) return;
+      var tunggu = Math.max(0, DISPOSISI_RELOAD_COOLDOWN_MS_V2A1C3_ - (Date.now() - disposisiLoadStateV2A1C1_.lastPageLoadAt));
+      disposisiLoadStateV2A1C1_.pendingRefreshTimer = setTimeout(function () {
+        disposisiLoadStateV2A1C1_.pendingRefreshTimer = null;
+        if (disposisiAnyStageActiveV2A1C3_()) return;
+        disposisiLoadStateV2A1C1_.pendingForceRefresh = false;
+        muatDisposisiHalaman(true);
+      }, tunggu + 50);
+    }
+
+    function selesaiDisposisiStageV2A1C3_(name) {
+      setDisposisiStageActiveV2A1C3_(name, false);
+      jadwalkanPendingRefreshDisposisiV2A1C3_();
+    }
+
+    function stageMasihDalamCooldownV2A1C3_(name) {
+      var completedAt = Number(disposisiLoadStateV2A1C1_[disposisiStagePropV2A1C3_(name, 'CompletedAt')] || 0);
+      return completedAt > 0 && Date.now() - completedAt < DISPOSISI_RELOAD_COOLDOWN_MS_V2A1C3_;
+    }
+
+    function bolehMulaiDisposisiStageV2A1C3_(name, force) {
+      if (disposisiStageActiveV2A1C3_(name)) {
+        var startedAt = Number(disposisiLoadStateV2A1C1_[disposisiStagePropV2A1C3_(name, 'StartedAt')] || 0);
+        if (!startedAt || Date.now() - startedAt < DISPOSISI_STAGE_STALE_MS_V2A1C3_) return false;
+        setDisposisiStageActiveV2A1C3_(name, false);
+      }
+      if (force && stageMasihDalamCooldownV2A1C3_(name)) return false;
+      return true;
     }
 
     function localDisposisiShellV2A1C1_() {
@@ -9495,7 +9585,7 @@
         pegawaiList: [],
         daftarLurah: [],
         disposisiSaya: [],
-        tahap: '2A-1C.2-local-shell'
+        tahap: '2A-1C.3-local-shell'
       };
     }
 
@@ -9505,29 +9595,48 @@
       return disposisiBootstrap;
     }
 
-    function muatDisposisiShellV2A1C1_(pageSeq) {
+    function jadwalkanDisposisiStageTimeoutV2A1C3_(name, pageSeq, requestId, timeoutHandler, staleHandler) {
+      clearDisposisiStageTimerV2A1C1_(name);
+      disposisiLoadStateV2A1C1_[name + 'Timer'] = setTimeout(function () {
+        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_[name + 'Seq']) return;
+        timeoutHandler();
+      }, DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_);
+      disposisiLoadStateV2A1C1_[name + 'StaleTimer'] = setTimeout(function () {
+        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_[name + 'Seq']) return;
+        if (!disposisiStageActiveV2A1C3_(name)) return;
+        setDisposisiStageActiveV2A1C3_(name, false);
+        staleHandler();
+        renderDisposisiHalaman_(disposisiBootstrap);
+        jadwalkanPendingRefreshDisposisiV2A1C3_();
+      }, DISPOSISI_STAGE_STALE_MS_V2A1C3_);
+    }
+
+    function muatDisposisiShellV2A1C1_(pageSeq, force) {
+      if (!bolehMulaiDisposisiStageV2A1C3_('shell', !!force)) return;
       var requestId = ++disposisiLoadStateV2A1C1_.shellSeq;
-      clearDisposisiStageTimerV2A1C1_('shell');
-      disposisiLoadStateV2A1C1_.shellTimer = setTimeout(function () {
-        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.shellSeq) return;
+      setDisposisiStageActiveV2A1C3_('shell', true);
+      jadwalkanDisposisiStageTimeoutV2A1C3_('shell', pageSeq, requestId, function () {
         mergeDisposisiBootstrapV2A1C1_({
-          shellError: 'Verifikasi akses server memerlukan waktu lebih lama. Inbox dan panel tetap dicoba secara terpisah.',
+          shellError: 'Verifikasi akses masih diproses server. Permintaan baru ditahan agar tidak terjadi eksekusi ganda.',
           shellLoaded: false
         });
         renderDisposisiHalaman_(disposisiBootstrap);
         muatDisposisiInboxDataV2A1C1_(pageSeq, false);
-        if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) {
-          muatDisposisiManagementDataV2A1C1_(pageSeq, false);
-        }
-      }, DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_);
+        if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) muatDisposisiManagementDataV2A1C1_(pageSeq, false);
+      }, function () {
+        mergeDisposisiBootstrapV2A1C1_({
+          shellError: 'Verifikasi akses belum selesai setelah 60 detik. Tombol coba lagi sekarang tersedia.',
+          shellLoaded: false
+        });
+      });
 
       google.script.run
         .withSuccessHandler(function (res) {
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.shellSeq) return;
           clearDisposisiStageTimerV2A1C1_('shell');
+          selesaiDisposisiStageV2A1C3_('shell');
           if (!res || res.sukses === false) {
             mergeDisposisiBootstrapV2A1C1_({ shellError: (res && res.pesan) || 'Verifikasi akses gagal.', shellLoaded: false });
-            renderDisposisiHalaman_(disposisiBootstrap);
           } else {
             var preserve = {
               disposisiSaya: (disposisiBootstrap && disposisiBootstrap.disposisiSaya) || [],
@@ -9544,60 +9653,58 @@
               daftarLurah: (disposisiBootstrap && Array.isArray(disposisiBootstrap.daftarLurah)) ? disposisiBootstrap.daftarLurah : []
             };
             disposisiBootstrap = Object.assign({}, disposisiBootstrap || {}, res, preserve, { shellError: '', shellLoaded: true });
-            renderDisposisiHalaman_(disposisiBootstrap);
           }
+          renderDisposisiHalaman_(disposisiBootstrap);
           muatDisposisiInboxDataV2A1C1_(pageSeq, false);
-          if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) {
-            muatDisposisiManagementDataV2A1C1_(pageSeq, false);
-          }
+          if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) muatDisposisiManagementDataV2A1C1_(pageSeq, false);
         })
         .withFailureHandler(function (err) {
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.shellSeq) return;
           clearDisposisiStageTimerV2A1C1_('shell');
-          mergeDisposisiBootstrapV2A1C1_({
-            shellError: (err && err.message) || err || 'Verifikasi akses gagal.',
-            shellLoaded: false
-          });
+          selesaiDisposisiStageV2A1C3_('shell');
+          mergeDisposisiBootstrapV2A1C1_({ shellError: (err && err.message) || err || 'Verifikasi akses gagal.', shellLoaded: false });
           renderDisposisiHalaman_(disposisiBootstrap);
           muatDisposisiInboxDataV2A1C1_(pageSeq, false);
-          if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) {
-            muatDisposisiManagementDataV2A1C1_(pageSeq, false);
-          }
+          if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) muatDisposisiManagementDataV2A1C1_(pageSeq, false);
         })
         .getDisposisiShellBootstrap(sToken);
     }
 
     function muatDisposisiInboxDataV2A1C1_(pageSeq, force) {
       if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq) return;
-      if (!force && disposisiBootstrap && disposisiBootstrap.inboxRequestStartedV2A1C1) return;
+      if (!bolehMulaiDisposisiStageV2A1C3_('inbox', !!force)) return;
+      if (!force && disposisiBootstrap && disposisiBootstrap.inboxLoaded) return;
       var requestId = ++disposisiLoadStateV2A1C1_.inboxSeq;
-      mergeDisposisiBootstrapV2A1C1_({
-        inboxRequestStartedV2A1C1: true,
-        inboxLoaded: false,
-        inboxLoading: true,
-        inboxError: ''
-      });
+      setDisposisiStageActiveV2A1C3_('inbox', true);
+      mergeDisposisiBootstrapV2A1C1_({ inboxRequestStartedV2A1C1: true, inboxLoaded: false, inboxLoading: true, inboxError: '' });
       renderDisposisiHalaman_(disposisiBootstrap);
-      clearDisposisiStageTimerV2A1C1_('inbox');
-      disposisiLoadStateV2A1C1_.inboxTimer = setTimeout(function () {
-        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
+      jadwalkanDisposisiStageTimeoutV2A1C3_('inbox', pageSeq, requestId, function () {
         mergeDisposisiBootstrapV2A1C1_({
-          inboxLoading: false,
+          inboxLoading: true,
           inboxLoaded: false,
-          inboxError: 'Inbox belum selesai setelah 20 detik. Anda dapat mencoba lagi tanpa memuat ulang seluruh halaman.'
+          inboxError: 'Inbox masih diproses server. Permintaan baru ditahan agar tidak membangun data yang sama dua kali.'
         });
         renderDisposisiHalaman_(disposisiBootstrap);
-      }, DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_);
+      }, function () {
+        mergeDisposisiBootstrapV2A1C1_({
+          inboxRequestStartedV2A1C1: false,
+          inboxLoading: false,
+          inboxLoaded: false,
+          inboxError: 'Inbox belum selesai setelah 60 detik. Tombol coba lagi sekarang tersedia.'
+        });
+      });
 
       google.script.run
         .withSuccessHandler(function (res) {
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
           clearDisposisiStageTimerV2A1C1_('inbox');
+          selesaiDisposisiStageV2A1C3_('inbox');
           if (!res || res.sukses === false) {
-            mergeDisposisiBootstrapV2A1C1_({ inboxLoading: false, inboxLoaded: false, inboxError: (res && res.pesan) || 'Inbox gagal dimuat.' });
+            mergeDisposisiBootstrapV2A1C1_({ inboxRequestStartedV2A1C1: false, inboxLoading: false, inboxLoaded: false, inboxError: (res && res.pesan) || 'Inbox gagal dimuat.' });
           } else {
             mergeDisposisiBootstrapV2A1C1_({
               disposisiSaya: Array.isArray(res.disposisiSaya) ? res.disposisiSaya : [],
+              inboxRequestStartedV2A1C1: false,
               inboxLoading: false,
               inboxLoaded: true,
               inboxError: ''
@@ -9613,7 +9720,8 @@
         .withFailureHandler(function (err) {
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
           clearDisposisiStageTimerV2A1C1_('inbox');
-          mergeDisposisiBootstrapV2A1C1_({ inboxLoading: false, inboxLoaded: false, inboxError: (err && err.message) || err || 'Inbox gagal dimuat.' });
+          selesaiDisposisiStageV2A1C3_('inbox');
+          mergeDisposisiBootstrapV2A1C1_({ inboxRequestStartedV2A1C1: false, inboxLoading: false, inboxLoaded: false, inboxError: (err && err.message) || err || 'Inbox gagal dimuat.' });
           renderDisposisiHalaman_(disposisiBootstrap);
         })
         .getDisposisiInboxData(sToken);
@@ -9622,36 +9730,40 @@
     function muatDisposisiManagementDataV2A1C1_(pageSeq, force) {
       if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq) return;
       if (!(disposisiBootstrap && (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi))) return;
-      if (!force && disposisiBootstrap.managementRequestStartedV2A1C1) return;
+      if (!bolehMulaiDisposisiStageV2A1C3_('management', !!force)) return;
+      if (!force && disposisiBootstrap.managementLoaded) return;
       var requestId = ++disposisiLoadStateV2A1C1_.managementSeq;
-      mergeDisposisiBootstrapV2A1C1_({
-        managementRequestStartedV2A1C1: true,
-        managementLoaded: false,
-        managementLoading: true,
-        managementError: ''
-      });
+      setDisposisiStageActiveV2A1C3_('management', true);
+      mergeDisposisiBootstrapV2A1C1_({ managementRequestStartedV2A1C1: true, managementLoaded: false, managementLoading: true, managementError: '' });
       renderDisposisiHalaman_(disposisiBootstrap);
-      clearDisposisiStageTimerV2A1C1_('management');
-      disposisiLoadStateV2A1C1_.managementTimer = setTimeout(function () {
-        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.managementSeq) return;
+      jadwalkanDisposisiStageTimeoutV2A1C3_('management', pageSeq, requestId, function () {
         mergeDisposisiBootstrapV2A1C1_({
-          managementLoading: false,
+          managementLoading: true,
           managementLoaded: false,
-          managementError: 'Panel pengelolaan belum selesai setelah 20 detik. Inbox tetap dapat digunakan.'
+          managementError: 'Panel masih diproses server. Permintaan baru ditahan agar tidak terjadi eksekusi ganda.'
         });
         renderDisposisiHalaman_(disposisiBootstrap);
-      }, DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_);
+      }, function () {
+        mergeDisposisiBootstrapV2A1C1_({
+          managementRequestStartedV2A1C1: false,
+          managementLoading: false,
+          managementLoaded: false,
+          managementError: 'Panel belum selesai setelah 60 detik. Tombol coba lagi sekarang tersedia.'
+        });
+      });
 
       google.script.run
         .withSuccessHandler(function (management) {
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.managementSeq) return;
           clearDisposisiStageTimerV2A1C1_('management');
+          selesaiDisposisiStageV2A1C3_('management');
           if (!management || management.sukses === false) {
-            mergeDisposisiBootstrapV2A1C1_({ managementLoading: false, managementLoaded: false, managementError: (management && management.pesan) || 'Panel pengelolaan gagal dimuat.' });
+            mergeDisposisiBootstrapV2A1C1_({ managementRequestStartedV2A1C1: false, managementLoading: false, managementLoaded: false, managementError: (management && management.pesan) || 'Panel pengelolaan gagal dimuat.' });
           } else {
             mergeDisposisiBootstrapV2A1C1_(Object.assign({}, management, {
               disposisiSaya: (disposisiBootstrap && disposisiBootstrap.disposisiSaya) || [],
               currentUser: (disposisiBootstrap && disposisiBootstrap.currentUser) || {},
+              managementRequestStartedV2A1C1: false,
               managementLoading: false,
               managementLoaded: true,
               managementError: ''
@@ -9662,24 +9774,28 @@
         .withFailureHandler(function (err) {
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.managementSeq) return;
           clearDisposisiStageTimerV2A1C1_('management');
-          mergeDisposisiBootstrapV2A1C1_({ managementLoading: false, managementLoaded: false, managementError: (err && err.message) || err || 'Panel pengelolaan gagal dimuat.' });
+          selesaiDisposisiStageV2A1C3_('management');
+          mergeDisposisiBootstrapV2A1C1_({ managementRequestStartedV2A1C1: false, managementLoading: false, managementLoaded: false, managementError: (err && err.message) || err || 'Panel pengelolaan gagal dimuat.' });
           renderDisposisiHalaman_(disposisiBootstrap);
         })
         .getDisposisiManagementBootstrap(sToken);
     }
 
     function cobaLagiDisposisiShellV2A1C1_() {
+      if (disposisiStageActiveV2A1C3_('shell')) return;
       muatDisposisiHalaman(true);
     }
 
     function cobaLagiDisposisiInboxV2A1C1_() {
       if (!disposisiBootstrap) return muatDisposisiHalaman(true);
+      if (disposisiStageActiveV2A1C3_('inbox')) return;
       disposisiBootstrap.inboxRequestStartedV2A1C1 = false;
       muatDisposisiInboxDataV2A1C1_(disposisiLoadStateV2A1C1_.pageSeq, true);
     }
 
     function cobaLagiDisposisiManagementV2A1C1_() {
       if (!disposisiBootstrap) return muatDisposisiHalaman(true);
+      if (disposisiStageActiveV2A1C3_('management')) return;
       disposisiBootstrap.managementRequestStartedV2A1C1 = false;
       muatDisposisiManagementDataV2A1C1_(disposisiLoadStateV2A1C1_.pageSeq, true);
     }
@@ -9691,19 +9807,38 @@
         return;
       }
 
-      clearDisposisiStageTimerV2A1C1_('shell');
-      clearDisposisiStageTimerV2A1C1_('inbox');
-      clearDisposisiStageTimerV2A1C1_('management');
+      if (disposisiAnyStageActiveV2A1C3_()) {
+        if (force) disposisiLoadStateV2A1C1_.pendingForceRefresh = true;
+        updateDisposisiRefreshButtonV2A1C3_();
+        return;
+      }
+
+      var sekarang = Date.now();
+      if (!force && disposisiBootstrap && sekarang - disposisiLoadStateV2A1C1_.lastPageLoadAt < DISPOSISI_PAGE_CACHE_MS_V2A1C3_) {
+        renderDisposisiHalaman_(disposisiBootstrap);
+        updateDisposisiRefreshButtonV2A1C3_();
+        return;
+      }
+      if (force && sekarang - disposisiLoadStateV2A1C1_.lastPageLoadAt < DISPOSISI_RELOAD_COOLDOWN_MS_V2A1C3_) {
+        disposisiLoadStateV2A1C1_.pendingForceRefresh = true;
+        jadwalkanPendingRefreshDisposisiV2A1C3_();
+        return;
+      }
+
+      ['shell', 'inbox', 'management'].forEach(clearDisposisiStageTimerV2A1C1_);
       var pageSeq = ++disposisiLoadStateV2A1C1_.pageSeq;
       disposisiLoadStateV2A1C1_.shellSeq++;
       disposisiLoadStateV2A1C1_.inboxSeq++;
       disposisiLoadStateV2A1C1_.managementSeq++;
+      disposisiLoadStateV2A1C1_.lastPageLoadAt = sekarang;
+      disposisiLoadStateV2A1C1_.pendingForceRefresh = false;
 
       disposisiBootstrap = localDisposisiShellV2A1C1_();
       renderDisposisiHalaman_(disposisiBootstrap);
-      muatDisposisiShellV2A1C1_(pageSeq);
+      updateDisposisiRefreshButtonV2A1C3_();
+      muatDisposisiShellV2A1C1_(pageSeq, !!force);
     }
-    // ===== END HOTFIX 2A-1C.1 =====
+    // ===== END HOTFIX 2A-1C.3 =====
 
     function renderDisposisiManagementErrorV2A1C_(message) {
       var el = document.getElementById('disposisiManagementLoadingV2A1C');
@@ -18803,13 +18938,18 @@
       if (res.shellError) {
         sum.innerHTML += '<div class="disposisi-muted-box" style="margin-top:10px;border-left:4px solid #d97706;background:#fff7ed;">' +
           '<b>Verifikasi akses belum tuntas.</b> ' + escapeHTML(res.shellError) +
-          ' <button type="button" class="btn-unduh" style="margin-left:8px;padding:6px 10px;" onclick="cobaLagiDisposisiShellV2A1C1_()">Coba Lagi</button></div>';
+          (disposisiBolehTampilkanRetryStageV2A1C3_('shell')
+            ? ' <button type="button" class="btn-unduh" style="margin-left:8px;padding:6px 10px;" onclick="cobaLagiDisposisiShellV2A1C1_()">Coba Lagi</button>'
+            : ' <small style="margin-left:8px;">Permintaan server masih aktif.</small>') + '</div>';
       }
 
       function renderDisposisiSayaCard_(spanStyle, asAccordion) {
         if (!inboxLoaded) {
           var statusInboxHtml = inboxError
-            ? '<div class="disposisi-empty" style="text-align:left;border-left:5px solid #dc2626;"><b>Inbox belum dapat dimuat.</b><br><small>' + escapeHTML(inboxError) + '</small><br><button type="button" class="btn-unduh" style="margin-top:10px;" onclick="cobaLagiDisposisiInboxV2A1C1_()">Coba Lagi Inbox</button></div>'
+            ? '<div class="disposisi-empty" style="text-align:left;border-left:5px solid #dc2626;"><b>Inbox belum dapat dimuat.</b><br><small>' + escapeHTML(inboxError) + '</small><br>' +
+              (disposisiBolehTampilkanRetryStageV2A1C3_('inbox')
+                ? '<button type="button" class="btn-unduh" style="margin-top:10px;" onclick="cobaLagiDisposisiInboxV2A1C1_()">Coba Lagi Inbox</button>'
+                : '<small>Permintaan server masih aktif; tombol coba lagi sementara dinonaktifkan.</small>') + '</div>'
             : '<div class="disposisi-empty" style="text-align:left;"><span class="spinner"></span> Memuat disposisi yang ditugaskan kepada akun Anda secara terpisah...</div>';
           return '<div id="disposisiInboxStageV2A1C1" class="disposisi-card disposisi-card-full" style="' + (spanStyle || '') + ';border-left:5px solid #2563eb;"><h3>Disposisi Saya</h3>' + statusInboxHtml + '</div>';
         }
@@ -18852,7 +18992,10 @@
       if (canManage || canOperate) {
         if (res.managementLoaded === false) {
           var managementStageHtml = managementError
-            ? '<div class="disposisi-empty" style="text-align:left;border-left:5px solid #dc2626;"><b>Panel pengelolaan belum dapat dimuat.</b><br><small>' + escapeHTML(managementError) + '</small><br><button type="button" class="btn-unduh" style="margin-top:10px;" onclick="cobaLagiDisposisiManagementV2A1C1_()">Coba Lagi Panel</button></div>'
+            ? '<div class="disposisi-empty" style="text-align:left;border-left:5px solid #dc2626;"><b>Panel pengelolaan belum dapat dimuat.</b><br><small>' + escapeHTML(managementError) + '</small><br>' +
+              (disposisiBolehTampilkanRetryStageV2A1C3_('management')
+                ? '<button type="button" class="btn-unduh" style="margin-top:10px;" onclick="cobaLagiDisposisiManagementV2A1C1_()">Coba Lagi Panel</button>'
+                : '<small>Permintaan server masih aktif; tombol coba lagi sementara dinonaktifkan.</small>') + '</div>'
             : '<div class="disposisi-empty" style="text-align:left;"><span class="spinner"></span> Daftar pegawai dan riwayat penerbitan sedang dimuat terpisah. Inbox tidak perlu menunggu proses ini.</div>';
           html += '<div id="disposisiManagementLoadingV2A1C" class="disposisi-card disposisi-card-full" style="border-left:5px solid #2563eb;">' +
             '<h3>Panel Pengelolaan Disposisi</h3>' + managementStageHtml + '</div>';

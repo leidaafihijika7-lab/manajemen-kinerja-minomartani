@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.27.03";
+var APP_VERSION = "2026.06.27.04";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -297,7 +297,9 @@ var PORTAL_RUNTIME_CACHE_ = {
   // PATCH 2A-1B: proyeksi ringan Rekap_Kinerja khusus relasi Disposisi.
   rekapDisposisiProjectionV2A1B: null,
   // HOTFIX 2A-1C.2: paket Inbox + ringkasan yang dipakai bersama dalam satu eksekusi.
-  disposisiSharedByUserV2A1C2: {}
+  disposisiSharedByUserV2A1C2: {},
+  // HOTFIX 2A-1C.3: paket management Lurah/operator dalam satu eksekusi.
+  disposisiManagementByUserV2A1C3: {}
 };
 
 function portalScriptProperties_() {
@@ -447,6 +449,7 @@ function invalidasiCacheRekapKinerjaReadOnly_() {
   PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser = {};
   PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C = {};
   PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 = {};
+  PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3 = {};
 
   try {
     var cache = CacheService.getScriptCache();
@@ -10156,7 +10159,7 @@ var DISPOSISI_SAYA_CACHE_MAX_JSON_V2A1C = 90000;
 var DISPOSISI_SHARED_CACHE_TTL_V2A1C2 = 180;
 var DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2 = 80000;
 var DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2 = 8;
-var DISPOSISI_SHARED_BUILD_MARKER_TTL_V2A1C2 = 30;
+var DISPOSISI_SHARED_BUILD_MARKER_TTL_V2A1C2 = 90;
 var DISPOSISI_SHARED_WAIT_MS_V2A1C2 = 12000;
 var DISPOSISI_SHARED_POLL_MS_V2A1C2 = 250;
 
@@ -10354,8 +10357,8 @@ function buildDisposisiShellV2A1C1_(idUser, pegawai) {
     pegawaiList: [],
     daftarLurah: [],
     disposisiSaya: [],
-    tahap: '2A-1C.2-shell',
-    optimasiDisposisi: 'v2026.06.27.02'
+    tahap: '2A-1C.3-shell',
+    optimasiDisposisi: 'v2026.06.27.03'
   };
 }
 
@@ -10381,8 +10384,8 @@ function getDisposisiInboxData(token) {
       inboxLoaded: true,
       disposisiSaya: (paket && paket.disposisiSaya) || [],
       ringkasanDisposisi: (paket && paket.ringkasan) || ringkasanDisposisiKosongV2A1C2_(''),
-      tahap: '2A-1C.2-inbox',
-      optimasiDisposisi: 'v2026.06.27.02'
+      tahap: '2A-1C.3-inbox',
+      optimasiDisposisi: 'v2026.06.27.03'
     };
   } catch (e) {
     return handleError('getDisposisiInboxData', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
@@ -10402,10 +10405,176 @@ function getDisposisiInboxBootstrap(token) {
     out.disposisiSaya = (paket && paket.disposisiSaya) || [];
     out.ringkasanDisposisi = (paket && paket.ringkasan) || ringkasanDisposisiKosongV2A1C2_('');
     out.inboxLoaded = true;
-    out.tahap = '2A-1C.2-inbox-kompatibilitas';
+    out.tahap = '2A-1C.3-inbox-kompatibilitas';
     return out;
   } catch (e) {
     return handleError('getDisposisiInboxBootstrap', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
+  }
+}
+
+// ===== HOTFIX PERFORMA 2A-1C.3: MANAGEMENT CACHE + SINGLE-FLIGHT =====
+var DISPOSISI_MANAGEMENT_CACHE_TTL_V2A1C3 = 180;
+var DISPOSISI_MANAGEMENT_CACHE_CHUNK_SIZE_V2A1C3 = 80000;
+var DISPOSISI_MANAGEMENT_CACHE_MAX_CHUNKS_V2A1C3 = 8;
+var DISPOSISI_MANAGEMENT_BUILD_MARKER_TTL_V2A1C3 = 90;
+var DISPOSISI_MANAGEMENT_WAIT_MS_V2A1C3 = 12000;
+var DISPOSISI_MANAGEMENT_POLL_MS_V2A1C3 = 250;
+
+function disposisiManagementBaseKeyV2A1C3_(idUser) {
+  var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 80);
+  return 'DISP_MGMT_C3_' + disposisiCacheGenerationV2A1_() + '_' + userKey;
+}
+
+function bacaPaketManagementCacheV2A1C3_(idUser) {
+  var cache = CacheService.getScriptCache();
+  var base = disposisiManagementBaseKeyV2A1C3_(idUser);
+  try {
+    var metaRaw = cache.get(base + '_M');
+    if (!metaRaw) return null;
+    var meta = JSON.parse(metaRaw);
+    var chunks = Number(meta.chunks || 0);
+    if (!chunks || chunks > DISPOSISI_MANAGEMENT_CACHE_MAX_CHUNKS_V2A1C3) return null;
+
+    var keys = [];
+    for (var i = 0; i < chunks; i++) keys.push(base + '_C' + i);
+    var parts = cache.getAll(keys);
+    var joined = '';
+    for (var k = 0; k < keys.length; k++) {
+      if (parts[keys[k]] === null || parts[keys[k]] === undefined) return null;
+      joined += parts[keys[k]];
+    }
+    var paket = JSON.parse(joined);
+    if (!paket || !Array.isArray(paket.pegawaiList) || !Array.isArray(paket.daftarLurah)) return null;
+    return paket;
+  } catch (e) {
+    return null;
+  }
+}
+
+function simpanPaketManagementCacheV2A1C3_(idUser, paket) {
+  try {
+    var json = JSON.stringify(paket || {});
+    if (!json) return false;
+    var chunks = [];
+    for (var i = 0; i < json.length; i += DISPOSISI_MANAGEMENT_CACHE_CHUNK_SIZE_V2A1C3) {
+      chunks.push(json.substring(i, i + DISPOSISI_MANAGEMENT_CACHE_CHUNK_SIZE_V2A1C3));
+      if (chunks.length > DISPOSISI_MANAGEMENT_CACHE_MAX_CHUNKS_V2A1C3) return false;
+    }
+
+    var base = disposisiManagementBaseKeyV2A1C3_(idUser);
+    var entries = {};
+    for (var c = 0; c < chunks.length; c++) entries[base + '_C' + c] = chunks[c];
+    entries[base + '_M'] = JSON.stringify({
+      chunks: chunks.length,
+      createdAt: Date.now(),
+      pegawai: (paket.pegawaiList || []).length,
+      disposisi: (paket.daftarLurah || []).length
+    });
+    CacheService.getScriptCache().putAll(entries, DISPOSISI_MANAGEMENT_CACHE_TTL_V2A1C3);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function klaimPembangunManagementV2A1C3_(idUser) {
+  var cache = CacheService.getScriptCache();
+  var markerKey = disposisiManagementBaseKeyV2A1C3_(idUser) + '_B';
+  var lock = LockService.getScriptLock();
+  var terkunci = false;
+  try {
+    terkunci = lock.tryLock(1500);
+    if (!terkunci) return false;
+    if (bacaPaketManagementCacheV2A1C3_(idUser)) return false;
+
+    var markerRaw = cache.get(markerKey);
+    if (markerRaw) {
+      try {
+        var marker = JSON.parse(markerRaw);
+        if (marker && Date.now() - Number(marker.startedAt || 0) < DISPOSISI_MANAGEMENT_BUILD_MARKER_TTL_V2A1C3 * 1000) return false;
+      } catch (eMarker) {
+        return false;
+      }
+    }
+
+    cache.put(markerKey, JSON.stringify({ startedAt: Date.now() }), DISPOSISI_MANAGEMENT_BUILD_MARKER_TTL_V2A1C3);
+    return true;
+  } finally {
+    if (terkunci) lock.releaseLock();
+  }
+}
+
+function hapusMarkerPembangunManagementV2A1C3_(idUser) {
+  try { CacheService.getScriptCache().remove(disposisiManagementBaseKeyV2A1C3_(idUser) + '_B'); } catch (e) { }
+}
+
+function tungguPaketManagementV2A1C3_(idUser, maxWaitMs) {
+  var mulai = Date.now();
+  var cache = CacheService.getScriptCache();
+  var markerKey = disposisiManagementBaseKeyV2A1C3_(idUser) + '_B';
+  while (Date.now() - mulai < maxWaitMs) {
+    Utilities.sleep(DISPOSISI_MANAGEMENT_POLL_MS_V2A1C3);
+    var paket = bacaPaketManagementCacheV2A1C3_(idUser);
+    if (paket) return paket;
+    try { if (!cache.get(markerKey)) break; } catch (e) { break; }
+  }
+  return null;
+}
+
+function bangunPaketManagementV2A1C3_(idUser, canManage, canOperate, petugasAktif) {
+  var suratRows = ambilSemuaSuratDisposisiCachedV38_();
+  var penerimaRows = ambilSemuaPenerimaDisposisiCachedV38_();
+  var pemberiId = canManage ? idUser : (petugasAktif && petugasAktif.ditetapkanOlehId ? petugasAktif.ditetapkanOlehId : idUser);
+  return {
+    sukses: true,
+    canManage: !!canManage,
+    canOperateDisposisi: !!canOperate,
+    canPublishDisposisi: true,
+    managementLoaded: true,
+    petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
+    pegawaiAktif: jumlahPegawaiAktifUntukDisposisiV38_(),
+    pegawaiList: getDaftarPegawaiAktifUntukDisposisiInternal_(),
+    daftarLurah: ambilDaftarDisposisiLurahOptimizedV38_(pemberiId, suratRows, penerimaRows),
+    dibuatPada: Date.now(),
+    tahap: '2A-1C.3-management',
+    optimasiDisposisi: 'v2026.06.27.03'
+  };
+}
+
+function ambilPaketManagementV2A1C3_(idUser, canManage, canOperate, petugasAktif) {
+  var userKey = normalizeId_(idUser);
+  if (!PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3) PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3 = {};
+  if (PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3[userKey]) {
+    return PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3[userKey];
+  }
+
+  var cached = bacaPaketManagementCacheV2A1C3_(userKey);
+  if (cached) {
+    PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3[userKey] = cached;
+    return cached;
+  }
+
+  var pemilik = klaimPembangunManagementV2A1C3_(userKey);
+  if (!pemilik) {
+    var hasilTunggu = tungguPaketManagementV2A1C3_(userKey, DISPOSISI_MANAGEMENT_WAIT_MS_V2A1C3);
+    if (hasilTunggu) {
+      PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3[userKey] = hasilTunggu;
+      return hasilTunggu;
+    }
+    pemilik = klaimPembangunManagementV2A1C3_(userKey);
+  }
+
+  if (!pemilik) {
+    throw new Error('Panel pengelolaan sedang disiapkan oleh proses lain. Silakan tunggu beberapa saat.');
+  }
+
+  try {
+    var paket = bangunPaketManagementV2A1C3_(userKey, canManage, canOperate, petugasAktif);
+    simpanPaketManagementCacheV2A1C3_(userKey, paket);
+    PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3[userKey] = paket;
+    return paket;
+  } finally {
+    hapusMarkerPembangunManagementV2A1C3_(userKey);
   }
 }
 
@@ -10421,27 +10590,12 @@ function getDisposisiManagementBootstrap(token) {
     var canOperate = !canManage && !!(petugasAktif && idsEqual_(petugasAktif.pegawaiId, idUser));
     if (!canManage && !canOperate) return { sukses: false, pesan: 'Akses penerbitan disposisi tidak tersedia.' };
 
-    var suratRows = ambilSemuaSuratDisposisiCachedV38_();
-    var penerimaRows = ambilSemuaPenerimaDisposisiCachedV38_();
-    var pemberiId = canManage ? idUser : (petugasAktif && petugasAktif.ditetapkanOlehId ? petugasAktif.ditetapkanOlehId : idUser);
-
-    return {
-      sukses: true,
-      canManage: !!canManage,
-      canOperateDisposisi: !!canOperate,
-      canPublishDisposisi: true,
-      managementLoaded: true,
-      petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
-      pegawaiAktif: jumlahPegawaiAktifUntukDisposisiV38_(),
-      pegawaiList: getDaftarPegawaiAktifUntukDisposisiInternal_(),
-      daftarLurah: ambilDaftarDisposisiLurahOptimizedV38_(pemberiId, suratRows, penerimaRows),
-      tahap: '2A-1C.2-management',
-      optimasiDisposisi: 'v2026.06.27.02'
-    };
+    return ambilPaketManagementV2A1C3_(idUser, canManage, canOperate, petugasAktif);
   } catch (e) {
     return handleError('getDisposisiManagementBootstrap', e, { sukses: false, pesan: 'Gagal memuat panel pengelolaan disposisi.' });
   }
 }
+// ===== END HOTFIX PERFORMA 2A-1C.3: MANAGEMENT CACHE + SINGLE-FLIGHT =====
 // ===== END HOTFIX PERFORMA 2A-1C.1: BOOTSTRAP DISPOSISI TIGA TAHAP =====
 
 function getDisposisiBootstrap(token) {
