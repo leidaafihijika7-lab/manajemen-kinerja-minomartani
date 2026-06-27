@@ -1,6 +1,9 @@
 function doGet() {
-  return HtmlService
-    .createHtmlOutputFromFile('Index.html')
+  var template = HtmlService.createTemplateFromFile('Index');
+  template.appVersion = APP_VERSION;
+
+  return template
+    .evaluate()
     .setTitle('Portal Kinerja Minomartani')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no') // KUNCI PWA DI GOOGLE APPS SCRIPT
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
@@ -12,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.26.02";
+var APP_VERSION = "2026.06.27.03";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -282,7 +285,19 @@ var PORTAL_RUNTIME_CACHE_ = {
   rekapReadOnlyValues: null,
   pegawaiData: null,
   cutoffRawMetaByPeriode: {},
-  sessionByToken: {}
+  tutupPeriodeResmiV36: null,
+  sessionByToken: {},
+  // PATCH 2A-1: memoization data Disposisi selama satu eksekusi.
+  disposisiSheetValues: {},
+  disposisiSuratRows: null,
+  disposisiPenerimaRows: null,
+  disposisiPetugasAktifLoaded: false,
+  disposisiPetugasAktif: null,
+  laporanDisposisiIndexByUser: {},
+  // PATCH 2A-1B: proyeksi ringan Rekap_Kinerja khusus relasi Disposisi.
+  rekapDisposisiProjectionV2A1B: null,
+  // HOTFIX 2A-1C.2: paket Inbox + ringkasan yang dipakai bersama dalam satu eksekusi.
+  disposisiSharedByUserV2A1C2: {}
 };
 
 function portalScriptProperties_() {
@@ -428,8 +443,23 @@ function simpanCacheRekapKinerjaReadOnly_(data) {
 
 function invalidasiCacheRekapKinerjaReadOnly_() {
   PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues = null;
+  PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B = null;
+  PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser = {};
+  PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C = {};
+  PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 = {};
+
   try {
-    CacheService.getScriptCache().remove(REKAP_KINERJA_READ_CACHE_META_KEY);
+    var cache = CacheService.getScriptCache();
+    cache.remove(REKAP_KINERJA_READ_CACHE_META_KEY);
+
+    // PATCH 2A-1B: index laporan terkait Disposisi memakai generation key.
+    // Setiap submit, revisi, review, atau koreksi Rekap_Kinerja otomatis
+    // membuat index lintas-eksekusi lama tidak dipakai lagi.
+    cache.put('REKAP_DISPOSISI_GENERATION_V2A1B', String(Date.now()), 21600);
+
+    // Ringkasan Disposisi juga bergantung pada status/poin laporan terkait.
+    // Naikkan generation ringkasan tanpa memindai atau menghapus key per pengguna.
+    cache.put('DISPOSISI_GENERATION_V2A1', String(Date.now()), 21600);
   } catch (e) { }
 }
 
@@ -3319,18 +3349,34 @@ function cekLogin(username, pin, clientId) {
 
           var token = buatToken();
           CacheService.getScriptCache().put(token, idUserLogin, CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+
+          // PATCH 2A-1: sertakan hak Disposisi pada respons login agar frontend
+          // tidak perlu memanggil getStatusAksesDisposisiModul() sesudah login.
+          var jabatanLogin = data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN];
+          var isLurahDisposisiLogin = isLurah_(jabatanLogin);
+          var petugasDisposisiAktifLogin = null;
+          try { petugasDisposisiAktifLogin = getPetugasDisposisiAktifCachedV38_(); } catch (ePetugasLogin) { }
+          var isOperatorDisposisiLogin = !!(
+            petugasDisposisiAktifLogin &&
+            idsEqual_(petugasDisposisiAktifLogin.pegawaiId, idUserLogin)
+          );
+
           logAudit(idUserLogin, "LOGIN", "Sukses login" + (verifikasi.legacy ? " | PIN hash dimigrasikan ke v2" : ""));
           return {
             sukses: true,
             token: token,
             nama: data[i][SHEET_COLUMNS.DATA_PEGAWAI.NAMA],
-            jabatan: data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN],
+            jabatan: jabatanLogin,
             akses: data[i][SHEET_COLUMNS.DATA_PEGAWAI.AKSES],
             isAdminUtama: isCarik_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]) || isLurah_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]),
             isCarikTunjangan: isCarik_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]),
             isLurahTunjangan: isLurah_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]),
-            isBendaharaDanarta: isBendaharaDanarta_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]),
-            canAccessTunjangan: isCarik_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]) || isLurah_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]) || isBendaharaDanarta_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN])
+            isBendaharaDanarta: isBendaharaDanarta_(jabatanLogin),
+            canAccessTunjangan: isCarik_(jabatanLogin) || isLurah_(jabatanLogin) || isBendaharaDanarta_(jabatanLogin),
+            isLurahDisposisi: isLurahDisposisiLogin,
+            isOperatorDisposisiAktif: isOperatorDisposisiLogin,
+            canAccessDisposisi: true,
+            canPublishDisposisi: !!(isLurahDisposisiLogin || isOperatorDisposisiLogin)
           };
         } else {
           statusPinSalah = true;
@@ -5285,11 +5331,9 @@ function getDashboardStats(token) {
     var data = getRekapKinerjaValuesReadOnly_();
 
     var tglSekarang = new Date();
-    // Estimasi tunjangan Dashboard harus mengikuti periode efektif/cut-off,
-    // bukan bulan kalender tanggal laporan. Contoh: laporan 28 April setelah
-    // cut-off April masuk periode pembayaran Mei.
-    var periodeAktifDashboard = periodeDariTanggalLaporan_(tglSekarang) || Utilities.formatDate(tglSekarang, "GMT+7", "yyyy-MM");
-    var metaPeriodeAktifDashboard = parsePeriodeBulan_(periodeAktifDashboard);
+    // Satu sumber kebenaran: periode hanya maju setelah ditutup resmi oleh Admin Kinerja.
+    var periodeAktifDashboard = periodeKinerjaAktifUntukLaporanWajibV34_(tglSekarang);
+    var triwulanAktifDashboard = triwulanPeriodeKeyV36_(periodeAktifDashboard);
 
     var poinTriwulanIni = 0;
     var menungguReview = 0;
@@ -5313,13 +5357,13 @@ function getDashboardStats(token) {
       var tglLap = parseTanggal(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
 
-      var periodeEfektifLap = periodeDariTanggalLaporan_(tglLap);
+      var periodeEfektifLap = periodePelaporanResmiDariTanggalV36_(tglLap);
 
       if (status === "Menunggu Review" || status === "Banding" || status === "Menunggu Persetujuan Lurah") {
         menungguReview++;
       }
 
-      if (tglLap >= metaPeriodeAktifDashboard.triStart && tglLap < metaPeriodeAktifDashboard.triEnd && isStatusApproved_(status)) {
+      if (triwulanPeriodeKeyV36_(periodeEfektifLap) === triwulanAktifDashboard && isStatusApproved_(status)) {
         poinTriwulanIni += Number(data[i][SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL]) || 0;
       }
 
@@ -5345,7 +5389,9 @@ function getDashboardStats(token) {
         rpTU: 0,
         poinProd: 0,
         poinTU: 0,
-        isPHL: true
+        isPHL: true,
+        periodeAktif: periodeAktifDashboard,
+        triwulanAktif: triwulanAktifDashboard
       };
     }
 
@@ -5385,7 +5431,9 @@ function getDashboardStats(token) {
       rpTU: rpTU,
       poinProd: persenProdFinal,
       poinTU: persenTUFinal,
-      isPHL: false
+      isPHL: false,
+      periodeAktif: periodeAktifDashboard,
+      triwulanAktif: triwulanAktifDashboard
     };
   } catch (e) {
     var errorId = buatErrorIdAman_();
@@ -6179,19 +6227,17 @@ function ambilDataRekap() {
     }
 
     var tglSekarang = new Date();
-    // Klasemen/estimasi periode memakai periode efektif/cut-off tunjangan,
-    // bukan bulan kalender. Ini mencegah laporan setelah cut-off bulan lalu
-    // hilang dari estimasi periode berjalan.
-    var periodeAktifRekap = periodeDariTanggalLaporan_(tglSekarang) || Utilities.formatDate(tglSekarang, "GMT+7", "yyyy-MM");
-    var metaPeriodeAktifRekap = parsePeriodeBulan_(periodeAktifRekap);
+    // Periode Klasemen mengikuti penutupan resmi Admin Kinerja.
+    var periodeAktifRekap = periodeKinerjaAktifUntukLaporanWajibV34_(tglSekarang);
+    var triwulanAktifRekap = triwulanPeriodeKeyV36_(periodeAktifRekap);
 
     for (var i = 1; i < data.length; i++) {
       var tglLap = parseTanggal(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
 
-      var periodeEfektifLap = periodeDariTanggalLaporan_(tglLap);
+      var periodeEfektifLap = periodePelaporanResmiDariTanggalV36_(tglLap);
 
-      if (!(tglLap >= metaPeriodeAktifRekap.triStart && tglLap < metaPeriodeAktifRekap.triEnd)) continue;
+      if (triwulanPeriodeKeyV36_(periodeEfektifLap) !== triwulanAktifRekap) continue;
       if (!isStatusApproved_(data[i][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW])) continue;
 
       var idUser = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
@@ -6341,7 +6387,7 @@ function cloneSimpleObject_(obj) {
   return out;
 }
 
-function buildDriveLampiranMeta_(url, label, cache) {
+function buildDriveLampiranMeta_(url, label, cache, skipDriveFetch) {
   var rawUrl = (url || "").toString().trim();
 
   // Lampiran valid hanya boleh berupa URL Google Drive/Docs yang memiliki fileId.
@@ -6350,9 +6396,10 @@ function buildDriveLampiranMeta_(url, label, cache) {
   var fileId = extractDriveFileId_(rawUrl);
   if (!fileId) return null;
 
-  // Cache berdasarkan fileId, bukan rawUrl, supaya variasi URL untuk file yang sama
-  // tidak memaksa lookup Drive berulang.
-  var cacheKey = "DRIVE_FILE_" + fileId;
+  // PATCH 2A-1C: daftar Admin Review tidak melakukan DriveApp lookup.
+  // Metadata nama/MIME hanya diminta ketika admin benar-benar membuka lampiran.
+  var lazy = skipDriveFetch === 'admin-lazy';
+  var cacheKey = "DRIVE_FILE_" + fileId + (lazy ? "_LAZY" : "_FULL");
   var base = null;
 
   if (cache && cache[cacheKey]) {
@@ -6370,34 +6417,37 @@ function buildDriveLampiranMeta_(url, label, cache) {
       fileId: fileId,
       fileName: "",
       mimeType: "",
-      kind: "drive",
+      kind: lazy ? "drive-lazy" : "drive",
       isImage: false,
       isPdf: false,
       canPreviewInline: false,
       previewUrl: previewUrl,
-      fullUrl: fullUrl
+      fullUrl: fullUrl,
+      lazyMetadata: lazy
     };
 
-    try {
-      var file = DriveApp.getFileById(fileId);
-      base.fileName = file.getName() || "";
-      base.mimeType = file.getMimeType() || "";
-    } catch (e) {
-      // Jika fileId tidak bisa diakses oleh script, jangan tampilkan link mentah.
-      return null;
-    }
+    if (!lazy) {
+      try {
+        var file = DriveApp.getFileById(fileId);
+        base.fileName = file.getName() || "";
+        base.mimeType = file.getMimeType() || "";
+      } catch (e) {
+        // Jika fileId tidak bisa diakses oleh script, jangan tampilkan link mentah.
+        return null;
+      }
 
-    var nameLower = (base.fileName || "").toLowerCase();
-    base.isImage = base.mimeType.indexOf("image/") === 0 || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(nameLower);
-    base.isPdf = base.mimeType === MimeType.PDF || base.mimeType.indexOf("pdf") !== -1 || /\.pdf$/i.test(nameLower);
+      var nameLower = (base.fileName || "").toLowerCase();
+      base.isImage = base.mimeType.indexOf("image/") === 0 || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(nameLower);
+      base.isPdf = base.mimeType === MimeType.PDF || base.mimeType.indexOf("pdf") !== -1 || /\.pdf$/i.test(nameLower);
 
-    if (base.isImage) {
-      base.kind = "image";
-      base.canPreviewInline = true;
-      base.stageUrl = "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w2000";
-    } else if (base.isPdf) {
-      base.kind = "pdf";
-      base.canPreviewInline = false;
+      if (base.isImage) {
+        base.kind = "image";
+        base.canPreviewInline = true;
+        base.stageUrl = "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w2000";
+      } else if (base.isPdf) {
+        base.kind = "pdf";
+        base.canPreviewInline = false;
+      }
     }
 
     if (cache) cache[cacheKey] = cloneSimpleObject_(base);
@@ -6407,6 +6457,28 @@ function buildDriveLampiranMeta_(url, label, cache) {
   if (label) base.label = label;
   return base;
 }
+
+// ===== PATCH PERFORMA 2A-1C: LAZY METADATA DRIVE REVIEW ADMIN =====
+function ambilMetadataLampiranAdminLazy(fileId, label, token) {
+  try {
+    var idAdmin = validasiSession(token);
+    if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+    if (!cekHakAksesAdmin(idAdmin)) return { sukses: false, pesan: 'Akses ditolak.' };
+
+    var id = String(fileId || '').trim();
+    if (!/^[a-zA-Z0-9_-]{10,}$/.test(id)) {
+      return { sukses: false, pesan: 'ID lampiran tidak valid.' };
+    }
+
+    var url = 'https://drive.google.com/file/d/' + encodeURIComponent(id) + '/view';
+    var meta = buildDriveLampiranMeta_(url, label || 'Lampiran', {}, false);
+    if (!meta) return { sukses: false, pesan: 'Lampiran tidak ditemukan atau tidak dapat diakses.' };
+    return { sukses: true, meta: meta };
+  } catch (e) {
+    return handleError('ambilMetadataLampiranAdminLazy', e, { sukses: false, pesan: 'Gagal membaca metadata lampiran.' });
+  }
+}
+// ===== END PATCH PERFORMA 2A-1C: LAZY METADATA DRIVE =====
 
 function adminDetailText_(value) {
   if (value == null) return "";
@@ -7023,7 +7095,7 @@ function buildAdminReviewItemFromRow_(row, lampiranCache) {
   var waktuTeks = formatWaktuAdmin_(w);
 
   var urlDasar = row[SHEET_COLUMNS.REKAP_KINERJA.DASAR_URL] ? row[SHEET_COLUMNS.REKAP_KINERJA.DASAR_URL].toString() : "";
-  var dokumenDasarMeta = buildDriveLampiranMeta_(urlDasar, "Dokumen Dasar", lampiranCache);
+  var dokumenDasarMeta = buildDriveLampiranMeta_(urlDasar, "Dokumen Dasar", lampiranCache, 'admin-lazy');
   var susunanLink = "";
 
   if (dokumenDasarMeta && dokumenDasarMeta.safeUrl) {
@@ -7037,7 +7109,7 @@ function buildAdminReviewItemFromRow_(row, lampiranCache) {
     if (!link) continue;
 
     var label = urlVisuals.length > 1 ? "Bukti Visual " + (u + 1) : "Bukti Visual";
-    var meta = buildDriveLampiranMeta_(link, label, lampiranCache);
+    var meta = buildDriveLampiranMeta_(link, label, lampiranCache, 'admin-lazy');
     if (!meta || !meta.safeUrl) continue;
 
     buktiVisualMeta.push(meta);
@@ -7426,48 +7498,70 @@ function ambilDaftarPegawaiReviewAdmin(token) {
   }
 }
 
+// ===== PATCH PERFORMA 2A-1C: ADMIN REVIEW DUA TAHAP =====
+function bacaBarisLengkapAdminReviewV2A1C_(sheet, rowNumbers, lastColumn) {
+  rowNumbers = (rowNumbers || []).slice().sort(function (a, b) { return a - b; });
+  var result = {};
+  if (!rowNumbers.length) return result;
+
+  // Gabungkan nomor baris berdekatan agar jumlah Spreadsheet service call tetap kecil,
+  // tetapi jangan membaca blok yang terlalu lebar.
+  var groups = [];
+  var current = { start: rowNumbers[0], end: rowNumbers[0], wanted: [rowNumbers[0]] };
+  for (var i = 1; i < rowNumbers.length; i++) {
+    var rowNum = rowNumbers[i];
+    var gap = rowNum - current.end;
+    var proposedSpan = rowNum - current.start + 1;
+    if (gap <= 20 && proposedSpan <= 120) {
+      current.end = rowNum;
+      current.wanted.push(rowNum);
+    } else {
+      groups.push(current);
+      current = { start: rowNum, end: rowNum, wanted: [rowNum] };
+    }
+  }
+  groups.push(current);
+
+  groups.forEach(function (group) {
+    var values = sheet.getRange(group.start, 1, group.end - group.start + 1, lastColumn).getValues();
+    group.wanted.forEach(function (sheetRow) {
+      result[sheetRow] = values[sheetRow - group.start] || [];
+    });
+  });
+  return result;
+}
+// ===== END PATCH PERFORMA 2A-1C: ADMIN REVIEW DUA TAHAP =====
+
 function ambilLaporanAdminPerPegawai(idPegawai, filterStatus, tanggalMulai, tanggalAkhir, offset, limit, token) {
-  // Kompatibilitas versi lama:
-  // ambilLaporanAdminPerPegawai(idPegawai, filterStatus, tanggalMulai, tanggalAkhir, token)
-  // ambilLaporanAdminPerPegawai(idPegawai, filterStatus, token)
+  // Kompatibilitas versi lama.
   if (typeof token === 'undefined') {
     if (typeof limit === 'undefined' && typeof offset !== 'undefined') {
-      token = offset;
-      offset = 0;
-      limit = 10;
+      token = offset; offset = 0; limit = 10;
     } else if (typeof offset === 'undefined' && typeof tanggalMulai !== 'undefined' && typeof tanggalAkhir === 'undefined') {
-      token = tanggalMulai;
-      tanggalMulai = '';
-      tanggalAkhir = '';
-      offset = 0;
-      limit = 10;
+      token = tanggalMulai; tanggalMulai = ''; tanggalAkhir = ''; offset = 0; limit = 10;
     }
   }
 
   var startOffset = parseInt(offset, 10);
   if (isNaN(startOffset) || startOffset < 0) startOffset = 0;
-
   var pageSize = parseInt(limit, 10);
   if (isNaN(pageSize) || pageSize < 1) pageSize = 10;
   if (pageSize > 30) pageSize = 30;
+
   try {
     var idUser = validasiSession(token);
-    if (!idUser) return { sukses: false, pesan: "Sesi habis. Silakan login ulang.", pegawai: null, summary: {}, items: [] };
-    if (!cekHakAksesAdmin(idUser)) return { sukses: false, pesan: "Akses ditolak.", pegawai: null, summary: {}, items: [] };
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', pegawai: null, summary: {}, items: [] };
+    if (!cekHakAksesAdmin(idUser)) return { sukses: false, pesan: 'Akses ditolak.', pegawai: null, summary: {}, items: [] };
 
     var targetId = normalizeId_(idPegawai);
-    if (!targetId) return { sukses: false, pesan: "Pegawai belum dipilih.", pegawai: null, summary: {}, items: [] };
+    if (!targetId) return { sukses: false, pesan: 'Pegawai belum dipilih.', pegawai: null, summary: {}, items: [] };
 
     var pegawai = getPegawaiById_(targetId);
     var pegawaiInfo = pegawai ? {
-      id: normalizeId_(pegawai.id || targetId),
-      username: pegawai.username || '',
-      nama: pegawai.nama || '',
-      jabatan: pegawai.jabatan || ''
+      id: normalizeId_(pegawai.id || targetId), username: pegawai.username || '', nama: pegawai.nama || '', jabatan: pegawai.jabatan || ''
     } : { id: targetId, username: '', nama: '', jabatan: '' };
 
     var normalizedFilter = (filterStatus || 'semua').toString().toLowerCase();
-
     var startDate = parseDateOnly_(tanggalMulai);
     var endDate = parseDateOnly_(tanggalAkhir);
     if (!startDate || !endDate) {
@@ -7477,61 +7571,65 @@ function ambilLaporanAdminPerPegawai(idPegawai, filterStatus, tanggalMulai, tang
       var endMonth = now.getMonth();
       if (now.getDate() > cutoffDay) {
         var nextMonth = new Date(endYear, endMonth + 1, 1);
-        endYear = nextMonth.getFullYear();
-        endMonth = nextMonth.getMonth();
+        endYear = nextMonth.getFullYear(); endMonth = nextMonth.getMonth();
       }
       endDate = new Date(endYear, endMonth, cutoffDay);
       startDate = new Date(endYear, endMonth - 1, cutoffDay + 1);
     }
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-    if (startDate.getTime() > endDate.getTime()) {
-      throw new Error('Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
+    if (startDate.getTime() > endDate.getTime()) throw new Error('Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
+
+    var sheet = getSheet_('Rekap_Kinerja');
+    var lastRow = sheet.getLastRow();
+    var lastColumn = sheet.getLastColumn();
+    var summary = { totalLaporan: 0, totalMenunggu: 0, totalSelesai: 0 };
+    var totalFiltered = 0;
+    var selectedSheetRows = [];
+
+    if (lastRow >= 2) {
+      // Tahap 1: satu read A:T (20 kolom), bukan seluruh 71 kolom.
+      // Kolom ini cukup untuk ID user, tanggal, status, nama/jabatan, dan ID laporan.
+      var indexRows = sheet.getRange(2, 1, lastRow - 1, SHEET_COLUMNS.REKAP_KINERJA.ID_USER + 1).getValues();
+      for (var i = 0; i < indexRows.length; i++) {
+        var indexRow = indexRows[i] || [];
+        var rowId = normalizeId_(indexRow[SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
+        if (!idsEqual_(rowId, targetId)) continue;
+
+        var jabatanRow = (indexRow[SHEET_COLUMNS.REKAP_KINERJA.JABATAN] || '').toString();
+        if (isLurah_(jabatanRow)) continue;
+        if (!pegawaiInfo.nama) pegawaiInfo.nama = (indexRow[SHEET_COLUMNS.REKAP_KINERJA.NAMA] || '').toString();
+        if (!pegawaiInfo.jabatan) pegawaiInfo.jabatan = jabatanRow;
+
+        var tglRow = parseTanggal(indexRow[SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
+        if (!(tglRow instanceof Date) || isNaN(tglRow.getTime())) continue;
+        if (tglRow < startDate || tglRow > endDate) continue;
+
+        var status = (indexRow[SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || '').toString();
+        summary.totalLaporan++;
+        if (isPendingReviewStatus_(status)) summary.totalMenunggu++;
+        else summary.totalSelesai++;
+
+        if (normalizedFilter === 'menunggu' && !isPendingReviewStatus_(status)) continue;
+        totalFiltered++;
+        if (totalFiltered > startOffset && selectedSheetRows.length < pageSize) {
+          selectedSheetRows.push(i + 2);
+        }
+      }
     }
 
-    var data = getRekapKinerjaValuesReadOnly_();
+    // Tahap 2: baca lengkap hanya baris halaman yang benar-benar akan dikirim.
+    var fullRowsByNumber = bacaBarisLengkapAdminReviewV2A1C_(sheet, selectedSheetRows, lastColumn);
     var hasil = [];
     var lampiranCache = {};
-    var summary = {
-      totalLaporan: 0,
-      totalMenunggu: 0,
-      totalSelesai: 0
-    };
-
-    var totalFiltered = 0;
-
-    // Urutkan lama ke baru sejak backend agar pagination tidak terus mengambil laporan terbaru.
-    for (var i = 1; i < data.length; i++) {
-      var rowId = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
-      if (!idsEqual_(rowId, targetId)) continue;
-
-      var jabatanRow = (data[i][SHEET_COLUMNS.REKAP_KINERJA.JABATAN] || '').toString();
-      if (isLurah_(jabatanRow)) continue;
-
-      if (!pegawaiInfo.nama) pegawaiInfo.nama = data[i][SHEET_COLUMNS.REKAP_KINERJA.NAMA] ? data[i][SHEET_COLUMNS.REKAP_KINERJA.NAMA].toString() : '';
-      if (!pegawaiInfo.jabatan) pegawaiInfo.jabatan = jabatanRow;
-
-      var tglRow = parseTanggal(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
-      if (!(tglRow instanceof Date) || isNaN(tglRow.getTime())) continue;
-      if (tglRow < startDate || tglRow > endDate) continue;
-
-      var status = (data[i][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || '').toString();
-      summary.totalLaporan++;
-      if (isPendingReviewStatus_(status)) summary.totalMenunggu++;
-      else summary.totalSelesai++;
-
-      if (normalizedFilter === 'menunggu' && !isPendingReviewStatus_(status)) continue;
-
-      totalFiltered++;
-      if (totalFiltered <= startOffset) continue;
-      if (hasil.length >= pageSize) continue;
-
-      var reviewItem = buildAdminReviewItemFromRow_(data[i], lampiranCache);
-      hasil.push(injectKolomKQKeItemReview_(reviewItem, data[i]));
-    }
+    selectedSheetRows.forEach(function (sheetRow) {
+      var fullRow = fullRowsByNumber[sheetRow];
+      if (!fullRow) return;
+      var reviewItem = buildAdminReviewItemFromRow_(fullRow, lampiranCache);
+      hasil.push(injectKolomKQKeItemReview_(reviewItem, fullRow));
+    });
 
     var nextOffset = startOffset + hasil.length;
-
     return {
       sukses: true,
       pegawai: pegawaiInfo,
@@ -7543,10 +7641,11 @@ function ambilLaporanAdminPerPegawai(idPegawai, filterStatus, tanggalMulai, tang
       hasMore: nextOffset < totalFiltered,
       totalFiltered: totalFiltered,
       tanggalMulai: Utilities.formatDate(startDate, 'GMT+7', 'yyyy-MM-dd'),
-      tanggalAkhir: Utilities.formatDate(endDate, 'GMT+7', 'yyyy-MM-dd')
+      tanggalAkhir: Utilities.formatDate(endDate, 'GMT+7', 'yyyy-MM-dd'),
+      optimasi: 'admin-review-two-stage-v2a1c'
     };
   } catch (e) {
-    return handleError("ambilLaporanAdminPerPegawai", e, { sukses: false, pesan: "", pegawai: null, summary: {}, items: [] });
+    return handleError('ambilLaporanAdminPerPegawai', e, { sukses: false, pesan: '', pegawai: null, summary: {}, items: [] });
   }
 }
 
@@ -8659,7 +8758,7 @@ function getPetugasDisposisiAktif_() {
 }
 
 function isOperatorDisposisiAktif_(idUser) {
-  var aktif = getPetugasDisposisiAktif_();
+  var aktif = getPetugasDisposisiAktifCachedV38_();
   return !!(aktif && idsEqual_(aktif.pegawaiId, idUser));
 }
 
@@ -9450,77 +9549,98 @@ function pesanCutoffPelaporanDisposisi_(surat) {
 
 
 // DEBUG REMOVED FROM PRODUCTION: debugCutoffPelaporanDisposisi
+function ringkasanDisposisiKosongV2A1C2_(pesan) {
+  return {
+    sukses: !pesan,
+    pesan: pesan || '',
+    totalBaru: 0,
+    totalMasuk: 0,
+    totalBelumLapor: 0,
+    totalTerlambatBelumLapor: 0,
+    totalTerkunciCutoff: 0,
+    daftarBaru: [],
+    daftarTerlambat: [],
+    daftarTerkunciCutoff: [],
+    optimasi: '2A-1C.2-single-flight'
+  };
+}
+
+function bangunRingkasanDisposisiDariListV2A1C2_(list) {
+  list = Array.isArray(list) ? list : [];
+
+  function masihBisaDilaporkan(item) {
+    item = item || {};
+    var aksi = String(item.aksiLaporan || '').toUpperCase();
+    var statusTindak = String(item.statusTindakLanjut || '').toUpperCase();
+    var statusLapor = String(item.statusLaporCode || '').toUpperCase();
+    var sudah = statusTindak === DISPOSISI_TINDAK.SUDAH ||
+      !!normalizeId_(item.idLaporanTerkait) ||
+      aksi === 'LIHAT' ||
+      aksi === 'PERBAIKI' ||
+      statusLapor === 'SUDAH_TEPAT_WAKTU' ||
+      statusLapor === 'SUDAH_TERLAMBAT';
+
+    return String(item.statusDisposisi || '').toUpperCase() === DISPOSISI_STATUS.TERBIT &&
+      !sudah &&
+      aksi === 'BUAT' &&
+      item.periodePelaporanDitutup !== true;
+  }
+
+  function ringkasItem(item) {
+    return {
+      idDisposisi: item.idDisposisi || '',
+      nomor: item.nomor || '',
+      perihal: item.perihal || '',
+      pemberiNama: item.pemberiNama || '',
+      tanggalMulai: item.tanggalMulai || '',
+      tanggalSelesai: item.tanggalSelesai || '',
+      batasLapor: item.batasLapor || '',
+      statusLaporLabel: item.statusLaporLabel || '',
+      periodePelaporanLabel: item.periodePelaporanLabel || '',
+      periodePelaporanDitutup: !!item.periodePelaporanDitutup,
+      cutoffPelaporanLabel: item.cutoffPelaporanLabel || '',
+      pesanPeriodeDitutup: item.pesanPeriodeDitutup || ''
+    };
+  }
+
+  var actionable = list.filter(masihBisaDilaporkan);
+  var actionableMap = {};
+  actionable.forEach(function (item) { actionableMap[normalizeId_(item.idDisposisi)] = true; });
+  var baru = list.filter(function (item) {
+    return (item.statusBaca || '').toString().toUpperCase() === DISPOSISI_BACA.BARU &&
+      !!actionableMap[normalizeId_(item.idDisposisi)];
+  });
+  var terlambat = actionable.filter(function (item) {
+    return String(item.statusLaporCode || '').toUpperCase() === 'TERLAMBAT_LAPOR';
+  });
+
+  return {
+    sukses: true,
+    totalBaru: baru.length,
+    totalMasuk: list.length,
+    totalBelumLapor: actionable.length,
+    totalTerlambatBelumLapor: terlambat.length,
+    totalTerkunciCutoff: 0,
+    daftarBaru: baru.slice(0, 3).map(ringkasItem),
+    daftarTerlambat: terlambat.slice(0, 3).map(ringkasItem),
+    daftarTerkunciCutoff: [],
+    optimasi: '2A-1C.2-single-flight'
+  };
+}
+
+// DEBUG REMOVED FROM PRODUCTION: debugBatasLaporDisposisi
 function ambilRingkasanDisposisiBaru(token) {
   try {
     var idUser = validasiSession(token);
-    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', totalBaru: 0, totalMasuk: 0, totalBelumLapor: 0, totalTerlambatBelumLapor: 0, totalTerkunciCutoff: 0, daftarBaru: [], daftarTerlambat: [], daftarTerkunciCutoff: [] };
+    if (!idUser) return ringkasanDisposisiKosongV2A1C2_('Sesi habis. Silakan login ulang.');
 
-    var list = ambilDisposisiSayaInternal_(idUser) || [];
-
-    // Banner dashboard hanya untuk disposisi yang masih actionable:
-    // belum ada laporan, status TERBIT, dan periode pelaporannya masih terbuka.
-    // Disposisi yang sudah cut-off tetap tampil di Disposisi Saya sebagai riwayat/status,
-    // tetapi tidak lagi mengganggu dashboard karena pegawai sudah tidak bisa membuat laporan baru.
-    function masihBisaDilaporkan(item) {
-      item = item || {};
-      var aksi = String(item.aksiLaporan || '').toUpperCase();
-      var statusTindak = String(item.statusTindakLanjut || '').toUpperCase();
-      var statusLapor = String(item.statusLaporCode || '').toUpperCase();
-      var sudah = statusTindak === DISPOSISI_TINDAK.SUDAH ||
-        !!normalizeId_(item.idLaporanTerkait) ||
-        aksi === 'LIHAT' ||
-        aksi === 'PERBAIKI' ||
-        statusLapor === 'SUDAH_TEPAT_WAKTU' ||
-        statusLapor === 'SUDAH_TERLAMBAT';
-
-      return String(item.statusDisposisi || '').toUpperCase() === DISPOSISI_STATUS.TERBIT &&
-        !sudah &&
-        aksi === 'BUAT' &&
-        item.periodePelaporanDitutup !== true;
-    }
-
-    var actionable = list.filter(masihBisaDilaporkan);
-    var actionableMap = {};
-    actionable.forEach(function (item) { actionableMap[normalizeId_(item.idDisposisi)] = true; });
-    var baru = list.filter(function (item) {
-      return (item.statusBaca || '').toString().toUpperCase() === DISPOSISI_BACA.BARU &&
-        !!actionableMap[normalizeId_(item.idDisposisi)];
-    });
-    var terlambat = actionable.filter(function (item) {
-      return String(item.statusLaporCode || '').toUpperCase() === 'TERLAMBAT_LAPOR';
-    });
-
-    function ringkasItem(item) {
-      return {
-        idDisposisi: item.idDisposisi || '',
-        nomor: item.nomor || '',
-        perihal: item.perihal || '',
-        pemberiNama: item.pemberiNama || '',
-        tanggalMulai: item.tanggalMulai || '',
-        tanggalSelesai: item.tanggalSelesai || '',
-        batasLapor: item.batasLapor || '',
-        statusLaporLabel: item.statusLaporLabel || '',
-        periodePelaporanLabel: item.periodePelaporanLabel || '',
-        periodePelaporanDitutup: !!item.periodePelaporanDitutup,
-        cutoffPelaporanLabel: item.cutoffPelaporanLabel || '',
-        pesanPeriodeDitutup: item.pesanPeriodeDitutup || ''
-      };
-    }
-
-    return {
-      sukses: true,
-      totalBaru: baru.length,
-      totalMasuk: list.length,
-      totalBelumLapor: actionable.length,
-      totalTerlambatBelumLapor: terlambat.length,
-      // Dipertahankan untuk kompatibilitas payload lama, tetapi tidak dipakai untuk banner dashboard.
-      totalTerkunciCutoff: 0,
-      daftarBaru: baru.slice(0, 3).map(ringkasItem),
-      daftarTerlambat: terlambat.slice(0, 3).map(ringkasItem),
-      daftarTerkunciCutoff: []
-    };
+    // Ringkasan dan Inbox menggunakan paket cache serta single-flight yang sama.
+    // Jika Inbox sedang membangun data, fungsi ini menunggu hasil yang sama dan
+    // tidak memindai Spreadsheet/Disposisi secara paralel.
+    var paket = ambilPaketDisposisiUserV2A1C2_(idUser);
+    return (paket && paket.ringkasan) || bangunRingkasanDisposisiDariListV2A1C2_((paket && paket.disposisiSaya) || []);
   } catch (e) {
-    return handleError('ambilRingkasanDisposisiBaru', e, { sukses: false, pesan: 'Gagal memuat ringkasan disposisi baru.', totalBaru: 0, totalMasuk: 0, totalBelumLapor: 0, totalTerlambatBelumLapor: 0, totalTerkunciCutoff: 0, daftarBaru: [], daftarTerlambat: [], daftarTerkunciCutoff: [] });
+    return handleError('ambilRingkasanDisposisiBaru', e, ringkasanDisposisiKosongV2A1C2_('Gagal memuat ringkasan disposisi baru.'));
   }
 }
 
@@ -9881,6 +10001,7 @@ function tandaiDisposisiSudahDilaporkanInternal_(idDisposisi, idUser, idLaporan)
   }
   sh.getRange(penerima.rowIndex, C.CATATAN_TINDAK_LANJUT + 1).setValue(catatan);
   sh.getRange(penerima.rowIndex, C.DIUBAH_PADA + 1).setValue(now);
+  try { invalidasiCacheDisposisiV38_(); } catch (eInvalidate) { }
   return true;
 }
 
@@ -10023,6 +10144,305 @@ function tandaiDisposisiSudahDibuka(idDisposisi, token) {
     return handleError("tandaiDisposisiSudahDibuka", e, { sukses: false, pesan: "" });
   }
 }
+
+// ===== HOTFIX PERFORMA 2A-1C.1: BOOTSTRAP DISPOSISI TIGA TAHAP =====
+// Tahap 1: shell ringan (sesi, identitas, dan hak akses).
+// Tahap 2: inbox pengguna, berjalan terpisah.
+// Tahap 3: panel management Lurah/operator, berjalan terpisah.
+var DISPOSISI_SAYA_CACHE_TTL_V2A1C = 180;
+var DISPOSISI_SAYA_CACHE_MAX_JSON_V2A1C = 90000;
+
+// ===== HOTFIX PERFORMA 2A-1C.2: SHARED CACHE + SINGLE-FLIGHT =====
+var DISPOSISI_SHARED_CACHE_TTL_V2A1C2 = 180;
+var DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2 = 80000;
+var DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2 = 8;
+var DISPOSISI_SHARED_BUILD_MARKER_TTL_V2A1C2 = 30;
+var DISPOSISI_SHARED_WAIT_MS_V2A1C2 = 12000;
+var DISPOSISI_SHARED_POLL_MS_V2A1C2 = 250;
+
+function disposisiSayaCacheKeyV2A1C_(idUser) {
+  var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_');
+  return 'DISPOSISI_SAYA_V2A1C_' + disposisiCacheGenerationV2A1_() + '_' + rekapDisposisiGenerationV2A1B_() + '_' + userKey;
+}
+
+function disposisiSharedBaseKeyV2A1C2_(idUser) {
+  var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 80);
+  return 'DISP_SHARED_C2_' + disposisiCacheGenerationV2A1_() + '_' + rekapDisposisiGenerationV2A1B_() + '_' + userKey;
+}
+
+function bacaPaketDisposisiCacheV2A1C2_(idUser) {
+  var cache = CacheService.getScriptCache();
+  var base = disposisiSharedBaseKeyV2A1C2_(idUser);
+  try {
+    var metaRaw = cache.get(base + '_M');
+    if (!metaRaw) return null;
+    var meta = JSON.parse(metaRaw);
+    var chunks = Number(meta.chunks || 0);
+    if (!chunks || chunks > DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2) return null;
+
+    var keys = [];
+    for (var i = 0; i < chunks; i++) keys.push(base + '_C' + i);
+    var parts = cache.getAll(keys);
+    var joined = '';
+    for (var k = 0; k < keys.length; k++) {
+      if (parts[keys[k]] === null || parts[keys[k]] === undefined) return null;
+      joined += parts[keys[k]];
+    }
+    var paket = JSON.parse(joined);
+    if (!paket || !Array.isArray(paket.disposisiSaya) || !paket.ringkasan) return null;
+    return paket;
+  } catch (e) {
+    return null;
+  }
+}
+
+function simpanPaketDisposisiCacheV2A1C2_(idUser, paket) {
+  try {
+    var json = JSON.stringify(paket || {});
+    if (!json) return false;
+    var chunks = [];
+    for (var i = 0; i < json.length; i += DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2) {
+      chunks.push(json.substring(i, i + DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2));
+      if (chunks.length > DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2) return false;
+    }
+
+    var base = disposisiSharedBaseKeyV2A1C2_(idUser);
+    var entries = {};
+    for (var c = 0; c < chunks.length; c++) entries[base + '_C' + c] = chunks[c];
+    entries[base + '_M'] = JSON.stringify({ chunks: chunks.length, createdAt: Date.now(), rows: (paket.disposisiSaya || []).length });
+    CacheService.getScriptCache().putAll(entries, DISPOSISI_SHARED_CACHE_TTL_V2A1C2);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function klaimPembangunDisposisiV2A1C2_(idUser) {
+  var cache = CacheService.getScriptCache();
+  var markerKey = disposisiSharedBaseKeyV2A1C2_(idUser) + '_B';
+  var lock = LockService.getScriptLock();
+  var terkunci = false;
+  try {
+    terkunci = lock.tryLock(1500);
+    if (!terkunci) return false;
+
+    // Cache mungkin selesai ketika menunggu lock.
+    if (bacaPaketDisposisiCacheV2A1C2_(idUser)) return false;
+
+    var markerRaw = cache.get(markerKey);
+    if (markerRaw) {
+      try {
+        var marker = JSON.parse(markerRaw);
+        if (marker && Date.now() - Number(marker.startedAt || 0) < DISPOSISI_SHARED_BUILD_MARKER_TTL_V2A1C2 * 1000) return false;
+      } catch (eMarker) {
+        return false;
+      }
+    }
+
+    cache.put(markerKey, JSON.stringify({ startedAt: Date.now() }), DISPOSISI_SHARED_BUILD_MARKER_TTL_V2A1C2);
+    return true;
+  } finally {
+    if (terkunci) lock.releaseLock();
+  }
+}
+
+function hapusMarkerPembangunDisposisiV2A1C2_(idUser) {
+  try { CacheService.getScriptCache().remove(disposisiSharedBaseKeyV2A1C2_(idUser) + '_B'); } catch (e) { }
+}
+
+function bangunPaketDisposisiUserV2A1C2_(idUser) {
+  var userKey = normalizeId_(idUser);
+  var suratRows = ambilSemuaSuratDisposisiCachedV38_();
+  var penerimaRows = ambilSemuaPenerimaDisposisiCachedV38_();
+  var laporanIndex = buatIndexLaporanDisposisiUserV38_(userKey);
+  var list = ambilDisposisiSayaOptimizedV38_(userKey, suratRows, penerimaRows, laporanIndex) || [];
+  return {
+    disposisiSaya: list,
+    ringkasan: bangunRingkasanDisposisiDariListV2A1C2_(list),
+    dibuatPada: Date.now(),
+    optimasi: '2A-1C.2-single-flight'
+  };
+}
+
+function tungguPaketDisposisiV2A1C2_(idUser, maxWaitMs) {
+  var mulai = Date.now();
+  var cache = CacheService.getScriptCache();
+  var markerKey = disposisiSharedBaseKeyV2A1C2_(idUser) + '_B';
+  while (Date.now() - mulai < maxWaitMs) {
+    Utilities.sleep(DISPOSISI_SHARED_POLL_MS_V2A1C2);
+    var paket = bacaPaketDisposisiCacheV2A1C2_(idUser);
+    if (paket) return paket;
+    // Jika marker sudah hilang, builder selesai/gagal. Berhenti agar pemanggil
+    // dapat mencoba klaim ulang tanpa menunggu penuh.
+    try { if (!cache.get(markerKey)) break; } catch (e) { break; }
+  }
+  return null;
+}
+
+function ambilPaketDisposisiUserV2A1C2_(idUser) {
+  var userKey = normalizeId_(idUser);
+  if (!userKey) return { disposisiSaya: [], ringkasan: ringkasanDisposisiKosongV2A1C2_(''), optimasi: '2A-1C.2-empty' };
+
+  if (!PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2) PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 = {};
+  if (PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey]) return PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey];
+
+  var cached = bacaPaketDisposisiCacheV2A1C2_(userKey);
+  if (cached) {
+    PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey] = cached;
+    PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C[userKey] = cached.disposisiSaya;
+    return cached;
+  }
+
+  var pemilik = klaimPembangunDisposisiV2A1C2_(userKey);
+  if (!pemilik) {
+    var hasilTunggu = tungguPaketDisposisiV2A1C2_(userKey, DISPOSISI_SHARED_WAIT_MS_V2A1C2);
+    if (hasilTunggu) {
+      PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey] = hasilTunggu;
+      PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C[userKey] = hasilTunggu.disposisiSaya;
+      return hasilTunggu;
+    }
+    // Builder sebelumnya selesai tanpa cache atau markernya kedaluwarsa.
+    pemilik = klaimPembangunDisposisiV2A1C2_(userKey);
+  }
+
+  if (!pemilik) {
+    // Jangan memulai full scan kedua. UI Inbox sudah memiliki tombol retry dan
+    // ringkasan Dashboard akan mencoba kembali pada siklus berikutnya.
+    throw new Error('Data Disposisi sedang disiapkan oleh proses lain. Silakan coba lagi beberapa saat.');
+  }
+
+  try {
+    var paket = bangunPaketDisposisiUserV2A1C2_(userKey);
+    simpanPaketDisposisiCacheV2A1C2_(userKey, paket);
+    PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey] = paket;
+    PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C[userKey] = paket.disposisiSaya;
+    return paket;
+  } finally {
+    hapusMarkerPembangunDisposisiV2A1C2_(userKey);
+  }
+}
+
+// Nama lama dipertahankan agar seluruh modul Disposisi memakai sumber paket
+// tunggal tanpa mengubah alur bisnis pemanggil lama.
+function ambilDisposisiSayaCachedV2A1C_(idUser) {
+  var paket = ambilPaketDisposisiUserV2A1C2_(idUser);
+  return (paket && paket.disposisiSaya) || [];
+}
+// ===== END HOTFIX PERFORMA 2A-1C.2 =====
+
+function buildDisposisiShellV2A1C1_(idUser, pegawai) {
+  var canManage = cekHakAksesLurahDisposisi_(idUser);
+  var petugasAktif = getPetugasDisposisiAktifCachedV38_();
+  var canOperate = !canManage && !!(petugasAktif && idsEqual_(petugasAktif.pegawaiId, idUser));
+  return {
+    sukses: true,
+    canManage: !!canManage,
+    canOperateDisposisi: !!canOperate,
+    canPublishDisposisi: !!(canManage || canOperate),
+    canInboxDisposisi: true,
+    shellLoaded: true,
+    inboxLoaded: false,
+    managementLoaded: !(canManage || canOperate),
+    petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
+    currentUser: {
+      id: normalizeId_(pegawai.id || idUser),
+      nama: pegawai.nama || '',
+      jabatan: pegawai.jabatan || '',
+      username: pegawai.username || ''
+    },
+    pegawaiAktif: 0,
+    pegawaiList: [],
+    daftarLurah: [],
+    disposisiSaya: [],
+    tahap: '2A-1C.2-shell',
+    optimasiDisposisi: 'v2026.06.27.02'
+  };
+}
+
+function getDisposisiShellBootstrap(token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai) return { sukses: false, pesan: 'Data pegawai tidak ditemukan.' };
+    return buildDisposisiShellV2A1C1_(idUser, pegawai);
+  } catch (e) {
+    return handleError('getDisposisiShellBootstrap', e, { sukses: false, pesan: 'Gagal menyiapkan akses modul disposisi.' });
+  }
+}
+
+function getDisposisiInboxData(token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+    var paket = ambilPaketDisposisiUserV2A1C2_(idUser);
+    return {
+      sukses: true,
+      inboxLoaded: true,
+      disposisiSaya: (paket && paket.disposisiSaya) || [],
+      ringkasanDisposisi: (paket && paket.ringkasan) || ringkasanDisposisiKosongV2A1C2_(''),
+      tahap: '2A-1C.2-inbox',
+      optimasiDisposisi: 'v2026.06.27.02'
+    };
+  } catch (e) {
+    return handleError('getDisposisiInboxData', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
+  }
+}
+
+// Endpoint kompatibilitas untuk pemanggil lama. Frontend 2A-1C.1 tidak lagi
+// memakai fungsi ini dalam alur utama.
+function getDisposisiInboxBootstrap(token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai) return { sukses: false, pesan: 'Data pegawai tidak ditemukan.' };
+    var out = buildDisposisiShellV2A1C1_(idUser, pegawai);
+    var paket = ambilPaketDisposisiUserV2A1C2_(idUser);
+    out.disposisiSaya = (paket && paket.disposisiSaya) || [];
+    out.ringkasanDisposisi = (paket && paket.ringkasan) || ringkasanDisposisiKosongV2A1C2_('');
+    out.inboxLoaded = true;
+    out.tahap = '2A-1C.2-inbox-kompatibilitas';
+    return out;
+  } catch (e) {
+    return handleError('getDisposisiInboxBootstrap', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
+  }
+}
+
+function getDisposisiManagementBootstrap(token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai) return { sukses: false, pesan: 'Data pegawai tidak ditemukan.' };
+
+    var canManage = cekHakAksesLurahDisposisi_(idUser);
+    var petugasAktif = getPetugasDisposisiAktifCachedV38_();
+    var canOperate = !canManage && !!(petugasAktif && idsEqual_(petugasAktif.pegawaiId, idUser));
+    if (!canManage && !canOperate) return { sukses: false, pesan: 'Akses penerbitan disposisi tidak tersedia.' };
+
+    var suratRows = ambilSemuaSuratDisposisiCachedV38_();
+    var penerimaRows = ambilSemuaPenerimaDisposisiCachedV38_();
+    var pemberiId = canManage ? idUser : (petugasAktif && petugasAktif.ditetapkanOlehId ? petugasAktif.ditetapkanOlehId : idUser);
+
+    return {
+      sukses: true,
+      canManage: !!canManage,
+      canOperateDisposisi: !!canOperate,
+      canPublishDisposisi: true,
+      managementLoaded: true,
+      petugasDisposisiAktif: petugasDisposisiToClient_(petugasAktif),
+      pegawaiAktif: jumlahPegawaiAktifUntukDisposisiV38_(),
+      pegawaiList: getDaftarPegawaiAktifUntukDisposisiInternal_(),
+      daftarLurah: ambilDaftarDisposisiLurahOptimizedV38_(pemberiId, suratRows, penerimaRows),
+      tahap: '2A-1C.2-management',
+      optimasiDisposisi: 'v2026.06.27.02'
+    };
+  } catch (e) {
+    return handleError('getDisposisiManagementBootstrap', e, { sukses: false, pesan: 'Gagal memuat panel pengelolaan disposisi.' });
+  }
+}
+// ===== END HOTFIX PERFORMA 2A-1C.1: BOOTSTRAP DISPOSISI TIGA TAHAP =====
 
 function getDisposisiBootstrap(token) {
   try {
@@ -11250,24 +11670,21 @@ function tutupPeriodeLaporanPropertyKey_(periode) {
 function parseTanggalJamTutupPeriode_(tanggal, jam) {
   var tgl = String(tanggal || '').trim();
   var jm = String(jam || '18:00').trim();
+  var mt = tgl.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  var mj = jm.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!mt || !mj) return null;
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-    var parts = tgl.split('-');
-    var timeParts = jm.split(':');
-    return new Date(
-      Number(parts[0]),
-      Number(parts[1]) - 1,
-      Number(parts[2]),
-      Number(timeParts[0] || 0),
-      Number(timeParts[1] || 0),
-      Number(timeParts[2] || 0),
-      0
-    );
-  }
+  var year = Number(mt[1]);
+  var month = Number(mt[2]);
+  var day = Number(mt[3]);
+  var hour = Number(mj[1]);
+  var minute = Number(mj[2]);
+  var second = Number(mj[3] || 0);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return null;
 
-  var d = parseTanggal(tgl + (jm ? (' ' + jm) : ''));
-  if (d instanceof Date && !isNaN(d.getTime())) return d;
-  return null;
+  var d = new Date(year, month - 1, day, hour, minute, second, 0);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day || d.getHours() !== hour || d.getMinutes() !== minute || d.getSeconds() !== second) return null;
+  return d;
 }
 
 function formatTutupPeriodeClient_(dateObj) {
@@ -11308,8 +11725,8 @@ function simpanTutupPeriodeLaporan(payload, token) {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
 
-    if (!cekHakAksesAdmin(idUser) && !cekHakAksesCarikTunjangan(idUser)) {
-      return { sukses: false, pesan: 'Akses ditolak. Hanya Admin/Carik yang dapat menutup periode laporan.' };
+    if (!cekHakAksesLurahCarikAdmin_(idUser)) {
+      return { sukses: false, pesan: 'Akses ditolak. Hanya Admin Kinerja (Lurah/Carik) yang dapat menutup periode laporan.' };
     }
 
     payload = payload || {};
@@ -11341,6 +11758,8 @@ function simpanTutupPeriodeLaporan(payload, token) {
       tutupPeriodeLaporanPropertyKey_(periode),
       JSON.stringify(obj)
     );
+    invalidasiRuntimeCutoffTunjangan_();
+    PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36 = null;
 
     logAudit(
       idUser,
@@ -11367,8 +11786,8 @@ function bukaPeriodeLaporan(payload, token) {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
 
-    if (!cekHakAksesAdmin(idUser) && !cekHakAksesCarikTunjangan(idUser)) {
-      return { sukses: false, pesan: 'Akses ditolak. Hanya Admin/Carik yang dapat membuka periode laporan.' };
+    if (!cekHakAksesLurahCarikAdmin_(idUser)) {
+      return { sukses: false, pesan: 'Akses ditolak. Hanya Admin Kinerja (Lurah/Carik) yang dapat membuka periode laporan.' };
     }
 
     payload = payload || {};
@@ -11378,6 +11797,8 @@ function bukaPeriodeLaporan(payload, token) {
     if (!periode) return { sukses: false, pesan: 'Periode laporan tidak valid.' };
 
     PropertiesService.getScriptProperties().deleteProperty(tutupPeriodeLaporanPropertyKey_(periode));
+    invalidasiRuntimeCutoffTunjangan_();
+    PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36 = null;
 
     logAudit(
       idUser,
@@ -12075,10 +12496,10 @@ function kolomMaksRekapKlasemenCepat_() {
 }
 
 function ambilDataRekapKlasemenFastCached_() {
-  var periodeAktif = periodeDariTanggalLaporan_(new Date()) || Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM");
+  var periodeAktif = periodeKinerjaAktifUntukLaporanWajibV34_(new Date());
   var sh = getSheet_("Rekap_Kinerja");
   var lastRow = sh.getLastRow();
-  var cacheKey = "KLASEMEN_FAST_2026060614_" + periodeAktif + "_R" + lastRow;
+  var cacheKey = "KLASEMEN_FAST_V36_ADMIN_PERIOD_" + periodeAktif + "_R" + lastRow;
 
   try {
     var cache = CacheService.getScriptCache();
@@ -12102,7 +12523,7 @@ function ambilDataRekapKlasemenFastCached_() {
 
 function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
   var started = new Date().getTime();
-  var meta = parsePeriodeBulan_(periodeAktif);
+  var triwulanAktif = triwulanPeriodeKeyV36_(periodeAktif);
   var c = SHEET_COLUMNS.REKAP_KINERJA;
   var maxCol = kolomMaksRekapKlasemenCepat_();
 
@@ -12132,7 +12553,8 @@ function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
       var rawTgl = row[c.TANGGAL_LAPORAN];
       var tglLap = rawTgl instanceof Date ? rawTgl : parseTanggal(rawTgl);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
-      if (tglLap < meta.triStart || tglLap >= meta.triEnd) continue;
+      var periodeEfektifLap = periodePelaporanResmiDariTanggalV36_(tglLap);
+      if (triwulanPeriodeKeyV36_(periodeEfektifLap) !== triwulanAktif) continue;
       if (!isStatusApproved_(row[c.STATUS_REVIEW])) continue;
 
       var idUser = normalizeId_(row[c.ID_USER]);
@@ -12168,9 +12590,8 @@ function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
       mapRekap[key].jumlahLaporan++;
       mapRekap[key].totalPoin += poin;
 
-      // Periode aktif untuk komponen tunjangan bulanan tetap memakai bulan kalender berjalan,
-      // sesuai perilaku lama periodeDariTanggalLaporan_(tglLap) === periodeAktif.
-      if (tglLap >= meta.start && tglLap < meta.end) {
+      // Komponen tunjangan bulanan mengikuti periode pelaporan resmi yang ditutup Admin.
+      if (periodeEfektifLap === periodeAktif) {
         if (isKategoriProduktivitas_(kategori)) mapRekap[key].poinProd += poin;
         else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) mapRekap[key].poinTU += poin;
       }
@@ -14688,57 +15109,107 @@ function cariLockTutupPeriodeUntukTanggalPelaksanaanV31_(tanggalPelaksanaan) {
 }
 
 
-// ===== HOTFIX_PASAL33_PERIODE_AKTIF_V2_ADMIN_ONLY =====
-// Sumber kebenaran periode aktif laporan wajib:
-// 1) cut-off Tunjangan yang benar-benar disimpan admin; atau
-// 2) Tutup Periode Laporan yang benar-benar disimpan admin.
-// Tidak menggunakan DEFAULT_CUTOFF_DAY untuk memajukan periode.
-// Dengan demikian, periode berikutnya baru aktif setelah periode sebelumnya
-// benar-benar mencapai cut-off/penutupan resmi.
+// ===== HOTFIX PERIODE PELAPORAN RESMI V36 — ADMIN ONLY =====
+// Satu-satunya tindakan yang mengakhiri periode pelaporan adalah
+// Tutup Periode Laporan yang disimpan oleh Admin Kinerja (Lurah/Carik).
+// Cut-off Tunjangan dan DEFAULT_CUTOFF_DAY tidak memajukan periode pelaporan.
+// Periode berikutnya baru aktif setelah tanggal/jam penutupan resmi tercapai.
+function daftarTutupPeriodeLaporanResmiV36_() {
+  if (Array.isArray(PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36)) {
+    return PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36;
+  }
+
+  var props = portalScriptPropertiesSnapshot_();
+  var locks = [];
+
+  for (var key in props) {
+    if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
+    if (key.indexOf('TUTUP_PERIODE_LAPORAN_') !== 0) continue;
+
+    try {
+      var obj = JSON.parse(props[key] || '{}');
+      if (String(obj.status || 'DITUTUP').toUpperCase() !== 'DITUTUP') continue;
+
+      var periode = normalizePeriode_(obj.periode || key.replace('TUTUP_PERIODE_LAPORAN_', ''));
+      var cutoffDate = parseTanggal(obj.tanggalTutup || obj.cutoffAt || '');
+      if (!periode || !(cutoffDate instanceof Date) || isNaN(cutoffDate.getTime())) continue;
+
+      locks.push({
+        periode: periode,
+        cutoffDate: cutoffDate,
+        tanggalTutup: formatTanggalJamISO_(cutoffDate),
+        alasan: obj.alasan || '',
+        updatedBy: obj.updatedBy || '',
+        updatedAt: obj.updatedAt || ''
+      });
+    } catch (e) {
+      Logger.log('Gagal membaca penutupan periode resmi ' + key + ': ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  locks.sort(function (a, b) {
+    var byPeriode = String(a.periode).localeCompare(String(b.periode));
+    if (byPeriode !== 0) return byPeriode;
+    return a.cutoffDate.getTime() - b.cutoffDate.getTime();
+  });
+
+  PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36 = locks;
+  return locks;
+}
+
+function triwulanPeriodeKeyV36_(periode) {
+  var p = normalizePeriode_(periode || '');
+  var m = p.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return '';
+  var bulan = Number(m[2]);
+  if (bulan < 1 || bulan > 12) return '';
+  return m[1] + '-Q' + (Math.floor((bulan - 1) / 3) + 1);
+}
+
+function periodePelaporanResmiDariTanggalV36_(tanggalLaporan) {
+  var d = tanggalLaporan instanceof Date ? new Date(tanggalLaporan) : parseTanggal(tanggalLaporan);
+  if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) return '';
+
+  var locks = daftarTutupPeriodeLaporanResmiV36_();
+  if (!locks.length) return Utilities.formatDate(d, 'GMT+7', 'yyyy-MM');
+
+  var byPeriode = {};
+  for (var i = 0; i < locks.length; i++) byPeriode[locks[i].periode] = locks[i];
+
+  for (var j = 0; j < locks.length; j++) {
+    var lock = locks[j];
+    var prev = byPeriode[periodeKeyOffset_(lock.periode, -1)] || null;
+    var pParts = lock.periode.split('-');
+    var start = prev && prev.cutoffDate.getTime() < lock.cutoffDate.getTime()
+      ? new Date(prev.cutoffDate.getTime() + 1)
+      : new Date(Number(pParts[0]), Number(pParts[1]) - 1, 1, 0, 0, 0, 0);
+
+    if (d.getTime() >= start.getTime() && d.getTime() <= lock.cutoffDate.getTime()) {
+      return lock.periode;
+    }
+  }
+
+  var latestPast = null;
+  for (var k = 0; k < locks.length; k++) {
+    if (locks[k].cutoffDate.getTime() < d.getTime()) {
+      if (!latestPast || locks[k].periode > latestPast.periode) latestPast = locks[k];
+    }
+  }
+
+  if (latestPast) return periodeKeyOffset_(latestPast.periode, 1);
+  return Utilities.formatDate(d, 'GMT+7', 'yyyy-MM');
+}
+
 function periodeResmiTerakhirDitutupUntukLaporanWajibV35_(tanggalAcuan) {
   var d = tanggalAcuan instanceof Date ? new Date(tanggalAcuan) : parseTanggal(tanggalAcuan);
   if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) d = new Date();
 
-  var props = portalScriptPropertiesSnapshot_();
+  var locks = daftarTutupPeriodeLaporanResmiV36_();
   var terbaru = '';
 
-  function catatJikaLebihBaru_(periode, cutoffDate) {
-    var p = '';
-    try { p = normalizePeriode_(periode || ''); } catch (e) { p = ''; }
-    if (!p) return;
-    if (!(cutoffDate instanceof Date) || isNaN(cutoffDate.getTime())) return;
-    if (cutoffDate.getTime() > d.getTime()) return;
-    if (!terbaru || p > terbaru) terbaru = p;
-  }
-
-  for (var key in props) {
-    if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
-
-    if (key.indexOf('TUTUP_PERIODE_LAPORAN_') === 0) {
-      try {
-        var lockObj = JSON.parse(props[key] || '{}');
-        if (String(lockObj.status || 'DITUTUP').toUpperCase() !== 'DITUTUP') continue;
-        var lockPeriode = lockObj.periode || key.replace('TUTUP_PERIODE_LAPORAN_', '');
-        var lockDate = parseTanggal(lockObj.tanggalTutup || lockObj.cutoffAt || '');
-        catatJikaLebihBaru_(lockPeriode, lockDate);
-      } catch (eLock) { }
-      continue;
-    }
-
-    if (key.indexOf('TUNJANGAN_CUTOFF_META_') === 0) {
-      try {
-        var cutoffObj = JSON.parse(props[key] || '{}');
-        var cutoffPeriode = cutoffObj.periode || key.replace('TUNJANGAN_CUTOFF_META_', '');
-        if (!cutoffObj.tanggalMulaiPeriode || !cutoffObj.tanggalAkhirPeriode) continue;
-        var cutoffMeta = buildDateRangeMeta_(
-          cutoffPeriode,
-          cutoffObj.tanggalMulaiPeriode,
-          cutoffObj.tanggalAkhirPeriode,
-          cutoffObj.jamCutoff || DEFAULT_TUNJANGAN_CUTOFF_TIME
-        );
-        catatJikaLebihBaru_(cutoffPeriode, cutoffMeta.endInclusive);
-      } catch (eCutoff) { }
-    }
+  for (var i = 0; i < locks.length; i++) {
+    if (locks[i].cutoffDate.getTime() > d.getTime()) continue;
+    if (!terbaru || locks[i].periode > terbaru) terbaru = locks[i].periode;
   }
 
   return terbaru;
@@ -14753,8 +15224,7 @@ function periodeKinerjaAktifUntukLaporanWajibV34_(tanggalAcuan) {
     return normalizePeriode_(periodeKeyOffset_(periodeTerakhirDitutup, 1));
   }
 
-  // Fallback aman bila belum ada riwayat penutupan resmi sama sekali:
-  // gunakan bulan kalender, bukan fallback cut-off tanggal 25.
+  // Tanpa penutupan resmi Admin Kinerja, periode tidak maju otomatis.
   return normalizePeriode_(Utilities.formatDate(d, 'GMT+7', 'yyyy-MM'));
 }
 
@@ -15093,8 +15563,8 @@ function getStatusAksesDisposisiModul(token) {
     if (!pegawai) return { sukses: false, boleh: false, bolehInbox: false, bolehTerbit: false, pesan: 'Data pegawai tidak ditemukan.' };
 
     var isLurah = cekHakAksesLurahDisposisi_(idUser);
-    var isOperator = isOperatorDisposisiAktif_(idUser);
-    var petugasAktif = getPetugasDisposisiAktif_();
+    var petugasAktif = getPetugasDisposisiAktifCachedV38_();
+    var isOperator = !!(petugasAktif && idsEqual_(petugasAktif.pegawaiId, idUser));
 
     return {
       sukses: true,
@@ -15354,11 +15824,19 @@ function disposisiCacheTtlV38_() {
 }
 
 function getDisposisiSheetValuesCachedV38_(sheetName, headers) {
+  if (Object.prototype.hasOwnProperty.call(PORTAL_RUNTIME_CACHE_.disposisiSheetValues, sheetName)) {
+    return PORTAL_RUNTIME_CACHE_.disposisiSheetValues[sheetName];
+  }
+
   var cache = CacheService.getScriptCache();
   var key = 'DISPOSISI_VALUES_V38_' + sheetName;
   var cached = cache.get(key);
   if (cached) {
-    try { return JSON.parse(cached); } catch (e) {}
+    try {
+      var parsed = JSON.parse(cached);
+      PORTAL_RUNTIME_CACHE_.disposisiSheetValues[sheetName] = parsed;
+      return parsed;
+    } catch (e) {}
   }
 
   var sh = getSS_().getSheetByName(sheetName);
@@ -15371,8 +15849,37 @@ function getDisposisiSheetValuesCachedV38_(sheetName, headers) {
   }
 
   var values = sh.getDataRange().getValues();
+  PORTAL_RUNTIME_CACHE_.disposisiSheetValues[sheetName] = values;
   try { cache.put(key, JSON.stringify(values), disposisiCacheTtlV38_()); } catch (e2) {}
   return values;
+}
+
+function disposisiCacheGenerationV2A1_() {
+  var cache = CacheService.getScriptCache();
+  var key = 'DISPOSISI_GENERATION_V2A1';
+  var generation = cache.get(key);
+  if (!generation) {
+    generation = String(Date.now());
+    try { cache.put(key, generation, 21600); } catch (e) { }
+  }
+  return generation;
+}
+
+function ringkasanDisposisiCacheKeyV2A1_(idUser) {
+  var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_');
+  return 'DISPOSISI_RINGKAS_V2A1_' + disposisiCacheGenerationV2A1_() + '_' + userKey;
+}
+
+function resetRuntimeDisposisiV2A1_() {
+  PORTAL_RUNTIME_CACHE_.disposisiSheetValues = {};
+  PORTAL_RUNTIME_CACHE_.disposisiSuratRows = null;
+  PORTAL_RUNTIME_CACHE_.disposisiPenerimaRows = null;
+  PORTAL_RUNTIME_CACHE_.disposisiPetugasAktifLoaded = false;
+  PORTAL_RUNTIME_CACHE_.disposisiPetugasAktif = null;
+  PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser = {};
+  PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B = null;
+  PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C = {};
+  PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 = {};
 }
 
 function invalidasiCacheDisposisiV38_() {
@@ -15380,9 +15887,14 @@ function invalidasiCacheDisposisiV38_() {
   ['Disposisi_Surat', 'Disposisi_Penerima', 'Disposisi_Petugas'].forEach(function (name) {
     try { cache.remove('DISPOSISI_VALUES_V38_' + name); } catch (e) {}
   });
+  // Ringkasan memakai generation pada key; generation baru membuat seluruh
+  // ringkasan lama tidak lagi dibaca tanpa harus mengetahui semua ID pengguna.
+  try { cache.put('DISPOSISI_GENERATION_V2A1', String(Date.now()), 21600); } catch (eGen) { }
+  resetRuntimeDisposisiV2A1_();
 }
 
 function ambilSemuaSuratDisposisiCachedV38_() {
+  if (PORTAL_RUNTIME_CACHE_.disposisiSuratRows) return PORTAL_RUNTIME_CACHE_.disposisiSuratRows;
   var data = getDisposisiSheetValuesCachedV38_('Disposisi_Surat', DISPOSISI_SURAT_HEADERS);
   var rows = [];
   var C = SHEET_COLUMNS.DISPOSISI_SURAT;
@@ -15417,10 +15929,12 @@ function ambilSemuaSuratDisposisiCachedV38_() {
       catatan_operator: (row[C.CATATAN_OPERATOR] || '').toString()
     });
   }
+  PORTAL_RUNTIME_CACHE_.disposisiSuratRows = rows;
   return rows;
 }
 
 function ambilSemuaPenerimaDisposisiCachedV38_() {
+  if (PORTAL_RUNTIME_CACHE_.disposisiPenerimaRows) return PORTAL_RUNTIME_CACHE_.disposisiPenerimaRows;
   var data = getDisposisiSheetValuesCachedV38_('Disposisi_Penerima', DISPOSISI_PENERIMA_HEADERS);
   var rows = [];
   var C = SHEET_COLUMNS.DISPOSISI_PENERIMA;
@@ -15443,15 +15957,25 @@ function ambilSemuaPenerimaDisposisiCachedV38_() {
       diubah_pada: row[C.DIUBAH_PADA] || ''
     });
   }
+  PORTAL_RUNTIME_CACHE_.disposisiPenerimaRows = rows;
   return rows;
 }
 
 function getPetugasDisposisiAktifCachedV38_() {
+  if (PORTAL_RUNTIME_CACHE_.disposisiPetugasAktifLoaded) {
+    return PORTAL_RUNTIME_CACHE_.disposisiPetugasAktif;
+  }
+
   var data = getDisposisiSheetValuesCachedV38_('Disposisi_Petugas', DISPOSISI_PETUGAS_HEADERS);
+  PORTAL_RUNTIME_CACHE_.disposisiPetugasAktifLoaded = true;
+  PORTAL_RUNTIME_CACHE_.disposisiPetugasAktif = null;
   if (!data || data.length < 2) return null;
   for (var i = data.length - 1; i >= 1; i--) {
     var item = rowPetugasDisposisiToObject_(data[i], i + 1);
-    if (statusPetugasDisposisiAktif_(item.statusPetugas) && item.pegawaiId) return item;
+    if (statusPetugasDisposisiAktif_(item.statusPetugas) && item.pegawaiId) {
+      PORTAL_RUNTIME_CACHE_.disposisiPetugasAktif = item;
+      return item;
+    }
   }
   return null;
 }
@@ -15470,26 +15994,130 @@ function jumlahPegawaiAktifUntukDisposisiV38_() {
   return n;
 }
 
+// ===== PATCH PERFORMA 2A-1B: INDEX DISPOSISI LINTAS EKSEKUSI =====
+var REKAP_DISPOSISI_INDEX_TTL_V2A1B = 180;
+var REKAP_DISPOSISI_INDEX_MAX_JSON_V2A1B = 80000;
+
+function rekapDisposisiGenerationV2A1B_() {
+  var cache = CacheService.getScriptCache();
+  var key = 'REKAP_DISPOSISI_GENERATION_V2A1B';
+  var generation = cache.get(key);
+  if (!generation) {
+    generation = String(Date.now());
+    try { cache.put(key, generation, 21600); } catch (e) { }
+  }
+  return generation;
+}
+
+function laporanDisposisiIndexCacheKeyV2A1B_(idUser) {
+  var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_');
+  return 'REKAP_DISPOSISI_INDEX_V2A1B_' + rekapDisposisiGenerationV2A1B_() + '_' + userKey;
+}
+
+function getRekapDisposisiProjectionV2A1B_() {
+  if (PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B) {
+    return PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B;
+  }
+
+  var sh = getSheet_('Rekap_Kinerja');
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) {
+    PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B = { baseRows: [], idDisposisiRows: [] };
+    return PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B;
+  }
+
+  var jumlah = lastRow - 1;
+
+  // A:T memuat tanggal, kategori, deskripsi, status, poin, catatan,
+  // ID laporan, dan ID pengguna. Kolom AA dibaca terpisah untuk ID_DISPOSISI.
+  // PAYLOAD_JSON (Z) dan 44 kolom detail setelahnya tidak ikut dibaca.
+  var baseRows = sh.getRange(2, 1, jumlah, SHEET_COLUMNS.REKAP_KINERJA.ID_USER + 1).getValues();
+  var idDisposisiRows = sh.getRange(
+    2,
+    SHEET_COLUMNS.REKAP_KINERJA.ID_DISPOSISI + 1,
+    jumlah,
+    1
+  ).getValues();
+
+  PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B = {
+    baseRows: baseRows,
+    idDisposisiRows: idDisposisiRows
+  };
+  return PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B;
+}
+
+function buildLaporanTerkaitDisposisiProjectedV2A1B_(row) {
+  row = row || [];
+  var status = (row[SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || '').toString();
+  var waktuRaw = row[SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN] || '';
+  return {
+    idLaporan: normalizeId_(row[SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]),
+    status: status,
+    waktuRaw: waktuRaw,
+    waktu: formatTanggalIndonesiaDisposisi_(waktuRaw, true),
+    kategori: (row[SHEET_COLUMNS.REKAP_KINERJA.KATEGORI] || '').toString(),
+    deskripsi: (row[SHEET_COLUMNS.REKAP_KINERJA.DESKRIPSI] || '').toString(),
+    catatan: (row[SHEET_COLUMNS.REKAP_KINERJA.CATATAN_ADMIN] || '').toString(),
+    poinFinal: Number(row[SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL]) || 0,
+    bisaPerbaiki: status === REVIEW_STATUS.DITOLAK || status === REVIEW_STATUS.BANDING,
+    bisaLihat: true
+  };
+}
+// ===== END PATCH PERFORMA 2A-1B =====
+
 function buatIndexLaporanDisposisiUserV38_(idUser) {
   var userKey = normalizeId_(idUser);
+  var emptyIndex = { byIdLaporan: {}, byIdDisposisi: {} };
+  if (!userKey) return emptyIndex;
+
+  if (PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser[userKey]) {
+    return PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser[userKey];
+  }
+
+  var cache = CacheService.getScriptCache();
+  var cacheKey = laporanDisposisiIndexCacheKeyV2A1B_(userKey);
+  try {
+    var cached = cache.get(cacheKey);
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (parsed && parsed.byIdLaporan && parsed.byIdDisposisi) {
+        PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser[userKey] = parsed;
+        return parsed;
+      }
+    }
+  } catch (eCacheRead) { }
+
+  var projection = getRekapDisposisiProjectionV2A1B_();
+  var baseRows = projection.baseRows || [];
+  var idDisposisiRows = projection.idDisposisiRows || [];
   var byIdLaporan = {};
   var byIdDisposisi = {};
-  if (!userKey) return { byIdLaporan: byIdLaporan, byIdDisposisi: byIdDisposisi };
 
-  var data = getRekapKinerjaValuesReadOnly_();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var rowUser = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
+  for (var i = baseRows.length - 1; i >= 0; i--) {
+    var row = baseRows[i] || [];
+    var rowUser = normalizeId_(row[SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
     if (!idsEqual_(rowUser, userKey)) continue;
 
-    var item = buildLaporanTerkaitDisposisiFromRow_(data[i]);
-    var idLap = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
-    var idDisp = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_DISPOSISI]);
+    var idLap = normalizeId_(row[SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
+    var idDisp = normalizeId_(idDisposisiRows[i] && idDisposisiRows[i][0]);
+    if (!idLap && !idDisp) continue;
 
+    var item = buildLaporanTerkaitDisposisiProjectedV2A1B_(row);
     if (idLap && !byIdLaporan[idLap]) byIdLaporan[idLap] = item;
     if (idDisp && !byIdDisposisi[idDisp]) byIdDisposisi[idDisp] = item;
   }
 
-  return { byIdLaporan: byIdLaporan, byIdDisposisi: byIdDisposisi };
+  var index = { byIdLaporan: byIdLaporan, byIdDisposisi: byIdDisposisi };
+  PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser[userKey] = index;
+
+  try {
+    var json = JSON.stringify(index);
+    if (json && json.length <= REKAP_DISPOSISI_INDEX_MAX_JSON_V2A1B) {
+      cache.put(cacheKey, json, REKAP_DISPOSISI_INDEX_TTL_V2A1B);
+    }
+  } catch (eCacheWrite) { }
+
+  return index;
 }
 
 function laporanTerkaitDisposisiFromIndexV38_(penerima, index) {

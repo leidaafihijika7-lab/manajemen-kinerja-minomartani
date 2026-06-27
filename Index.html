@@ -7581,15 +7581,15 @@
           </div>
           <div class="table-container">
             <div class="toolbar-aksi">
-              <select id="adminPegawaiSelect" onchange="simpanStateAdminReview(); muatAdmin(false);"
+              <select id="adminPegawaiSelect" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
                 style="min-width:320px; flex:1; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
                 <option value="">-- Pilih Pegawai --</option>
               </select>
-              <input type="date" id="adminTanggalMulai" onchange="simpanStateAdminReview(); muatAdmin(false);"
+              <input type="date" id="adminTanggalMulai" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
                 style="max-width:180px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-              <input type="date" id="adminTanggalAkhir" onchange="simpanStateAdminReview(); muatAdmin(false);"
+              <input type="date" id="adminTanggalAkhir" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
                 style="max-width:180px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-              <select id="adminFilterStatus" onchange="simpanStateAdminReview(); muatAdmin(false);"
+              <select id="adminFilterStatus" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
                 style="max-width:220px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
                 <option value="semua">Semua Status</option>
                 <option value="menunggu">Hanya Menunggu Review</option>
@@ -7656,6 +7656,7 @@
               <div class="form-group">
                 <label>Tanggal Batas Akhir</label>
                 <input type="date" id="fTanggalTutupPeriodeLaporan">
+                <small>Admin dapat memilih tanggal valid berapa pun. Periode tidak berakhir otomatis pada tanggal 25.</small>
               </div>
               <div class="form-group">
                 <label>Jam Batas Akhir</label>
@@ -8121,11 +8122,13 @@
       KOORD_APB_CARIK: "SUB2_KOORD_APB_CARIK"
     };
     var sToken = ""; var sData = { nama: "", jabatan: "" }; var disposisiAccessStatus = { loaded:false, boleh:false, isLurahDisposisi:false, isOperatorDisposisiAktif:false };
+    var CLIENT_APP_VERSION = <?!= JSON.stringify(appVersion) ?>;
     var APP_VERSION_KEY = "kinerja_app_version";
     var APP_VERSION_INTERVAL_MS = 900000; // PATCH TAHAP 1: cek tiap 15 menit
     var APP_PENDING_VERSION_KEY = "kinerja_pending_version";
     var appVersionMonitorId = null;
     var appVersionBannerId = "bannerVersiBaru";
+    var appVersionLastCheckAt_ = Date.now();
 
     // ===== FETCH APP CONSTANTS FROM SERVER =====
     function fetchAppConstants() {
@@ -8522,10 +8525,13 @@
         'justify-content:space-between;' +
         'box-shadow:var(--shadow-sm);';
 
+      var sedangMengisiForm = adaFormAktif();
       box.innerHTML =
         '<div style="font-size:13px; line-height:1.5;">' +
         '<div style="font-weight:700; margin-bottom:4px;">Versi baru aplikasi tersedia</div>' +
-        '<div>Anda sedang mengisi form. Aplikasi tidak dimuat ulang otomatis agar isian tidak hilang.</div>' +
+        '<div>' + (sedangMengisiForm
+          ? 'Anda sedang mengisi form. Aplikasi tidak dimuat ulang otomatis agar isian tidak hilang.'
+          : 'Klik Reload Sekarang untuk memuat versi terbaru dengan aman.') + '</div>' +
         '</div>' +
         '<div style="display:flex; gap:8px; flex-shrink:0;">' +
         '<button type="button" id="btnReloadVersiSekarang" style="border:none; background:#d97706; color:white; padding:10px 12px; border-radius:8px; font-weight:700; cursor:pointer;">Reload Sekarang</button>' +
@@ -8544,67 +8550,54 @@
     }
 
     function reloadDenganVersiBaru(serverVersion) {
-      simpanVersiAplikasi(serverVersion);
+      if (serverVersion) simpanVersiAplikasi(serverVersion);
       hapusPendingVersion();
       hapusBannerVersi();
 
-      var targetUrl;
+      // HOTFIX layar putih:
+      // Jangan menambahkan query parameter ke URL iframe googleusercontent Apps Script.
+      // URL iframe memakai token/signature sementara; modifikasi URL dapat menghasilkan iframe kosong.
       try {
-        var u = new URL(window.location.href);
-        u.searchParams.set("_appv", serverVersion);
-        u.searchParams.set("_ts", Date.now().toString());
-        targetUrl = u.toString();
+        window.location.reload();
       } catch (e) {
-        var base = window.location.href.split("#")[0];
-        var sep = base.indexOf("?") === -1 ? "?" : "&";
-        targetUrl = base + sep + "_appv=" + encodeURIComponent(serverVersion) + "&_ts=" + Date.now();
+        console.warn('Reload aman gagal. Silakan muat ulang halaman dari browser.', e);
+        if (serverVersion) {
+          simpanPendingVersion(serverVersion);
+          tampilkanBannerVersi(serverVersion);
+        }
       }
-
-      window.location.replace(targetUrl);
     }
 
     function cekPendingReloadSaatAman() {
       var pendingVersion = ambilPendingVersion();
       if (!pendingVersion) return;
-      if (adaFormAktif()) return;
 
-      reloadDenganVersiBaru(pendingVersion);
+      // Jangan reload otomatis. Tampilkan tombol agar pengguna mengendalikan reload.
+      tampilkanBannerVersi(pendingVersion);
     }
 
     function terapkanVersiServer(serverVersion, silent) {
       if (!serverVersion) return;
 
-      var versiLokal = ambilVersiAplikasiTersimpan();
-
-      if (!versiLokal) {
+      // HTML yang sedang tampil sudah merupakan versi server yang sama.
+      // Sinkronkan localStorage tanpa reload, sehingga deployment baru tidak membuat layar putih.
+      if (serverVersion === CLIENT_APP_VERSION) {
         simpanVersiAplikasi(serverVersion);
         hapusPendingVersion();
+        hapusBannerVersi();
         return;
       }
 
-      if (versiLokal !== serverVersion) {
-        simpanPendingVersion(serverVersion);
-
-        if (adaFormAktif()) {
-          tampilkanBannerVersi(serverVersion);
-          return;
-        }
-
-        reloadDenganVersiBaru(serverVersion);
-        return;
-      }
-
-      if (!silent) {
-        simpanVersiAplikasi(serverVersion);
-      }
-
-      hapusPendingVersion();
-      hapusBannerVersi();
+      // Bila server berubah ketika halaman lama masih terbuka, jangan navigasi otomatis
+      // ke URL iframe bertanda tangan. Tampilkan banner dan gunakan reload() yang aman.
+      simpanPendingVersion(serverVersion);
+      tampilkanBannerVersi(serverVersion);
     }
 
     function cekVersiAplikasi(silent) {
       try {
         if (!window.google || !google.script || !google.script.run) return;
+        appVersionLastCheckAt_ = Date.now();
 
         google.script.run
           .withSuccessHandler(function (serverVersion) {
@@ -8620,7 +8613,12 @@
     }
 
     function mulaiMonitorVersiAplikasi() {
-      cekVersiAplikasi(true);
+      // doGet() menanam versi backend langsung ke HTML. Karena itu halaman yang
+      // baru dimuat tidak perlu memanggil getAppVersion() lagi.
+      simpanVersiAplikasi(CLIENT_APP_VERSION);
+      hapusPendingVersion();
+      hapusBannerVersi();
+      appVersionLastCheckAt_ = Date.now();
 
       if (appVersionMonitorId) {
         clearInterval(appVersionMonitorId);
@@ -8628,6 +8626,7 @@
 
       appVersionMonitorId = setInterval(function () {
         if (document.hidden) return;
+        if (!sToken) return;
         if (navigator.onLine === false) return;
         cekVersiAplikasi(false);
       }, APP_VERSION_INTERVAL_MS);
@@ -8635,7 +8634,11 @@
 
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) {
-        cekVersiAplikasi(true);
+        // Jangan membuat request setiap pengguna berpindah tab. Cek hanya jika
+        // pengguna sudah login dan jeda pemeriksaan versi sudah tercapai.
+        if (sToken && Date.now() - appVersionLastCheckAt_ >= APP_VERSION_INTERVAL_MS) {
+          cekVersiAplikasi(true);
+        }
         setTimeout(cekPendingReloadSaatAman, 300);
       }
     });
@@ -8855,6 +8858,8 @@
     var disposisiNotifDisembunyikanSampai = 0;
     var disposisiNotifRequestAktif_ = false;
     var disposisiNotifTerakhirMs_ = 0;
+    var disposisiNotifCacheClient_ = null;
+    var disposisiNotifCacheClientAt_ = 0;
     var DISPOSISI_NOTIF_MIN_GAP_MS_ = 30000;
     var DISPOSISI_NOTIF_INTERVAL_MS_ = 300000; // PATCH TAHAP 1: 5 menit
 
@@ -8956,6 +8961,10 @@
       }
       if (!sToken || !window.google || !google.script || !google.script.run) return;
       if (disposisiNotifRequestAktif_) return;
+      if (!force && disposisiNotifCacheClient_ && Date.now() - disposisiNotifCacheClientAt_ < DISPOSISI_NOTIF_MIN_GAP_MS_) {
+        renderNotifikasiDisposisiBaru(disposisiNotifCacheClient_);
+        return;
+      }
       if (!force && disposisiNotifTerakhirMs_ && (Date.now() - disposisiNotifTerakhirMs_ < DISPOSISI_NOTIF_MIN_GAP_MS_)) return;
 
       disposisiNotifRequestAktif_ = true;
@@ -8963,6 +8972,8 @@
         .withSuccessHandler(function (res) {
           disposisiNotifRequestAktif_ = false;
           disposisiNotifTerakhirMs_ = Date.now();
+          disposisiNotifCacheClient_ = res || null;
+          disposisiNotifCacheClientAt_ = Date.now();
           renderNotifikasiDisposisiBaru(res);
         })
         .withFailureHandler(function () {
@@ -9385,6 +9396,24 @@
       }
     }
 
+    function terapkanAksesDisposisiDariSesi_() {
+      disposisiAccessStatus = {
+        loaded: true,
+        boleh: true,
+        bolehInbox: true,
+        bolehTerbit: !!(sData && sData.canPublishDisposisi === true),
+        isLurahDisposisi: !!(sData && sData.isLurahDisposisi === true),
+        isOperatorDisposisiAktif: !!(sData && sData.isOperatorDisposisiAktif === true)
+      };
+      aturMenuRoleVisibility();
+    }
+
+    function jadwalkanSinkronisasiConstants_() {
+      setTimeout(function () {
+        try { fetchAppConstants(); } catch (e) { console.warn('Sinkronisasi constants gagal dijadwalkan:', e); }
+      }, 6000);
+    }
+
     function refreshAksesDisposisiModul_(callback) {
       if (!sToken || !window.google || !google.script || !google.script.run) {
         if (typeof callback === 'function') callback(false);
@@ -9422,34 +9451,264 @@
         .getStatusAksesDisposisiModul(sToken);
     }
 
-    function muatDisposisiHalaman(force) {
-      if (!userCanAccessDisposisi()) {
-        renderAksesDisposisiDitolak_();
-        refreshAksesDisposisiModul_(function (boleh) {
-          if (boleh) muatDisposisiHalaman(true);
-        });
-        return;
+    // ===== HOTFIX 2A-1C.1: BOOTSTRAP DISPOSISI TIGA TAHAP + TIMEOUT =====
+    var DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_ = 20000;
+    var disposisiLoadStateV2A1C1_ = {
+      pageSeq: 0,
+      shellSeq: 0,
+      inboxSeq: 0,
+      managementSeq: 0,
+      shellTimer: null,
+      inboxTimer: null,
+      managementTimer: null
+    };
+
+    function clearDisposisiStageTimerV2A1C1_(name) {
+      var key = name + 'Timer';
+      if (disposisiLoadStateV2A1C1_[key]) {
+        clearTimeout(disposisiLoadStateV2A1C1_[key]);
+        disposisiLoadStateV2A1C1_[key] = null;
       }
-      var sum = document.getElementById('disposisiSummary');
-      var body = document.getElementById('disposisiBody');
-      if (sum) sum.innerHTML = '<span class="badge bg-yellow">Memuat</span> Menyiapkan modul disposisi surat...';
-      if (body) body.innerHTML = '<div class="disposisi-empty">Sedang menyiapkan struktur disposisi surat...</div>';
+    }
+
+    function localDisposisiShellV2A1C1_() {
+      var canManage = !!(sData && sData.isLurahDisposisi === true);
+      var canOperate = !!(sData && sData.isOperatorDisposisiAktif === true && !canManage);
+      return {
+        sukses: true,
+        localShell: true,
+        shellLoaded: false,
+        canManage: canManage,
+        canOperateDisposisi: canOperate,
+        canPublishDisposisi: !!(canManage || canOperate || (sData && sData.canPublishDisposisi)),
+        canInboxDisposisi: true,
+        inboxLoaded: false,
+        inboxLoading: true,
+        managementLoaded: !(canManage || canOperate),
+        managementLoading: !!(canManage || canOperate),
+        currentUser: {
+          nama: (sData && sData.nama) || '',
+          jabatan: (sData && sData.jabatan) || '',
+          username: ''
+        },
+        pegawaiAktif: 0,
+        pegawaiList: [],
+        daftarLurah: [],
+        disposisiSaya: [],
+        tahap: '2A-1C.2-local-shell'
+      };
+    }
+
+    function mergeDisposisiBootstrapV2A1C1_(patch) {
+      var current = disposisiBootstrap || localDisposisiShellV2A1C1_();
+      disposisiBootstrap = Object.assign({}, current, patch || {});
+      return disposisiBootstrap;
+    }
+
+    function muatDisposisiShellV2A1C1_(pageSeq) {
+      var requestId = ++disposisiLoadStateV2A1C1_.shellSeq;
+      clearDisposisiStageTimerV2A1C1_('shell');
+      disposisiLoadStateV2A1C1_.shellTimer = setTimeout(function () {
+        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.shellSeq) return;
+        mergeDisposisiBootstrapV2A1C1_({
+          shellError: 'Verifikasi akses server memerlukan waktu lebih lama. Inbox dan panel tetap dicoba secara terpisah.',
+          shellLoaded: false
+        });
+        renderDisposisiHalaman_(disposisiBootstrap);
+        muatDisposisiInboxDataV2A1C1_(pageSeq, false);
+        if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) {
+          muatDisposisiManagementDataV2A1C1_(pageSeq, false);
+        }
+      }, DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_);
 
       google.script.run
         .withSuccessHandler(function (res) {
-          disposisiBootstrap = res || null;
-          if (res && res.aksesDitolak) {
-            disposisiAccessStatus = { loaded:true, boleh:false };
-            sData.canAccessDisposisi = false;
-            sData.isOperatorDisposisiAktif = false;
-            aturMenuRoleVisibility();
+          if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.shellSeq) return;
+          clearDisposisiStageTimerV2A1C1_('shell');
+          if (!res || res.sukses === false) {
+            mergeDisposisiBootstrapV2A1C1_({ shellError: (res && res.pesan) || 'Verifikasi akses gagal.', shellLoaded: false });
+            renderDisposisiHalaman_(disposisiBootstrap);
+          } else {
+            var preserve = {
+              disposisiSaya: (disposisiBootstrap && disposisiBootstrap.disposisiSaya) || [],
+              inboxLoaded: !!(disposisiBootstrap && disposisiBootstrap.inboxLoaded),
+              inboxLoading: !!(disposisiBootstrap && disposisiBootstrap.inboxLoading),
+              inboxError: (disposisiBootstrap && disposisiBootstrap.inboxError) || '',
+              inboxRequestStartedV2A1C1: !!(disposisiBootstrap && disposisiBootstrap.inboxRequestStartedV2A1C1),
+              managementLoaded: !!(disposisiBootstrap && disposisiBootstrap.managementLoaded),
+              managementLoading: !!(disposisiBootstrap && disposisiBootstrap.managementLoading),
+              managementError: (disposisiBootstrap && disposisiBootstrap.managementError) || '',
+              managementRequestStartedV2A1C1: !!(disposisiBootstrap && disposisiBootstrap.managementRequestStartedV2A1C1),
+              pegawaiAktif: Number((disposisiBootstrap && disposisiBootstrap.pegawaiAktif) || 0),
+              pegawaiList: (disposisiBootstrap && Array.isArray(disposisiBootstrap.pegawaiList)) ? disposisiBootstrap.pegawaiList : [],
+              daftarLurah: (disposisiBootstrap && Array.isArray(disposisiBootstrap.daftarLurah)) ? disposisiBootstrap.daftarLurah : []
+            };
+            disposisiBootstrap = Object.assign({}, disposisiBootstrap || {}, res, preserve, { shellError: '', shellLoaded: true });
+            renderDisposisiHalaman_(disposisiBootstrap);
           }
-          renderDisposisiHalaman_(res);
+          muatDisposisiInboxDataV2A1C1_(pageSeq, false);
+          if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) {
+            muatDisposisiManagementDataV2A1C1_(pageSeq, false);
+          }
         })
         .withFailureHandler(function (err) {
-          renderDisposisiHalaman_({ sukses: false, pesan: (err && err.message) || err || 'Gagal memuat modul disposisi.' });
+          if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.shellSeq) return;
+          clearDisposisiStageTimerV2A1C1_('shell');
+          mergeDisposisiBootstrapV2A1C1_({
+            shellError: (err && err.message) || err || 'Verifikasi akses gagal.',
+            shellLoaded: false
+          });
+          renderDisposisiHalaman_(disposisiBootstrap);
+          muatDisposisiInboxDataV2A1C1_(pageSeq, false);
+          if (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi) {
+            muatDisposisiManagementDataV2A1C1_(pageSeq, false);
+          }
         })
-        .getDisposisiBootstrap(sToken);
+        .getDisposisiShellBootstrap(sToken);
+    }
+
+    function muatDisposisiInboxDataV2A1C1_(pageSeq, force) {
+      if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq) return;
+      if (!force && disposisiBootstrap && disposisiBootstrap.inboxRequestStartedV2A1C1) return;
+      var requestId = ++disposisiLoadStateV2A1C1_.inboxSeq;
+      mergeDisposisiBootstrapV2A1C1_({
+        inboxRequestStartedV2A1C1: true,
+        inboxLoaded: false,
+        inboxLoading: true,
+        inboxError: ''
+      });
+      renderDisposisiHalaman_(disposisiBootstrap);
+      clearDisposisiStageTimerV2A1C1_('inbox');
+      disposisiLoadStateV2A1C1_.inboxTimer = setTimeout(function () {
+        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
+        mergeDisposisiBootstrapV2A1C1_({
+          inboxLoading: false,
+          inboxLoaded: false,
+          inboxError: 'Inbox belum selesai setelah 20 detik. Anda dapat mencoba lagi tanpa memuat ulang seluruh halaman.'
+        });
+        renderDisposisiHalaman_(disposisiBootstrap);
+      }, DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_);
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
+          clearDisposisiStageTimerV2A1C1_('inbox');
+          if (!res || res.sukses === false) {
+            mergeDisposisiBootstrapV2A1C1_({ inboxLoading: false, inboxLoaded: false, inboxError: (res && res.pesan) || 'Inbox gagal dimuat.' });
+          } else {
+            mergeDisposisiBootstrapV2A1C1_({
+              disposisiSaya: Array.isArray(res.disposisiSaya) ? res.disposisiSaya : [],
+              inboxLoading: false,
+              inboxLoaded: true,
+              inboxError: ''
+            });
+            if (res.ringkasanDisposisi && res.ringkasanDisposisi.sukses !== false) {
+              disposisiNotifCacheClient_ = res.ringkasanDisposisi;
+              disposisiNotifCacheClientAt_ = Date.now();
+              disposisiNotifTerakhirMs_ = Date.now();
+            }
+          }
+          renderDisposisiHalaman_(disposisiBootstrap);
+        })
+        .withFailureHandler(function (err) {
+          if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
+          clearDisposisiStageTimerV2A1C1_('inbox');
+          mergeDisposisiBootstrapV2A1C1_({ inboxLoading: false, inboxLoaded: false, inboxError: (err && err.message) || err || 'Inbox gagal dimuat.' });
+          renderDisposisiHalaman_(disposisiBootstrap);
+        })
+        .getDisposisiInboxData(sToken);
+    }
+
+    function muatDisposisiManagementDataV2A1C1_(pageSeq, force) {
+      if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq) return;
+      if (!(disposisiBootstrap && (disposisiBootstrap.canManage || disposisiBootstrap.canOperateDisposisi))) return;
+      if (!force && disposisiBootstrap.managementRequestStartedV2A1C1) return;
+      var requestId = ++disposisiLoadStateV2A1C1_.managementSeq;
+      mergeDisposisiBootstrapV2A1C1_({
+        managementRequestStartedV2A1C1: true,
+        managementLoaded: false,
+        managementLoading: true,
+        managementError: ''
+      });
+      renderDisposisiHalaman_(disposisiBootstrap);
+      clearDisposisiStageTimerV2A1C1_('management');
+      disposisiLoadStateV2A1C1_.managementTimer = setTimeout(function () {
+        if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.managementSeq) return;
+        mergeDisposisiBootstrapV2A1C1_({
+          managementLoading: false,
+          managementLoaded: false,
+          managementError: 'Panel pengelolaan belum selesai setelah 20 detik. Inbox tetap dapat digunakan.'
+        });
+        renderDisposisiHalaman_(disposisiBootstrap);
+      }, DISPOSISI_STAGE_TIMEOUT_MS_V2A1C1_);
+
+      google.script.run
+        .withSuccessHandler(function (management) {
+          if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.managementSeq) return;
+          clearDisposisiStageTimerV2A1C1_('management');
+          if (!management || management.sukses === false) {
+            mergeDisposisiBootstrapV2A1C1_({ managementLoading: false, managementLoaded: false, managementError: (management && management.pesan) || 'Panel pengelolaan gagal dimuat.' });
+          } else {
+            mergeDisposisiBootstrapV2A1C1_(Object.assign({}, management, {
+              disposisiSaya: (disposisiBootstrap && disposisiBootstrap.disposisiSaya) || [],
+              currentUser: (disposisiBootstrap && disposisiBootstrap.currentUser) || {},
+              managementLoading: false,
+              managementLoaded: true,
+              managementError: ''
+            }));
+          }
+          renderDisposisiHalaman_(disposisiBootstrap);
+        })
+        .withFailureHandler(function (err) {
+          if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.managementSeq) return;
+          clearDisposisiStageTimerV2A1C1_('management');
+          mergeDisposisiBootstrapV2A1C1_({ managementLoading: false, managementLoaded: false, managementError: (err && err.message) || err || 'Panel pengelolaan gagal dimuat.' });
+          renderDisposisiHalaman_(disposisiBootstrap);
+        })
+        .getDisposisiManagementBootstrap(sToken);
+    }
+
+    function cobaLagiDisposisiShellV2A1C1_() {
+      muatDisposisiHalaman(true);
+    }
+
+    function cobaLagiDisposisiInboxV2A1C1_() {
+      if (!disposisiBootstrap) return muatDisposisiHalaman(true);
+      disposisiBootstrap.inboxRequestStartedV2A1C1 = false;
+      muatDisposisiInboxDataV2A1C1_(disposisiLoadStateV2A1C1_.pageSeq, true);
+    }
+
+    function cobaLagiDisposisiManagementV2A1C1_() {
+      if (!disposisiBootstrap) return muatDisposisiHalaman(true);
+      disposisiBootstrap.managementRequestStartedV2A1C1 = false;
+      muatDisposisiManagementDataV2A1C1_(disposisiLoadStateV2A1C1_.pageSeq, true);
+    }
+
+    function muatDisposisiHalaman(force) {
+      if (!userCanAccessDisposisi()) {
+        renderAksesDisposisiDitolak_();
+        refreshAksesDisposisiModul_(function (boleh) { if (boleh) muatDisposisiHalaman(true); });
+        return;
+      }
+
+      clearDisposisiStageTimerV2A1C1_('shell');
+      clearDisposisiStageTimerV2A1C1_('inbox');
+      clearDisposisiStageTimerV2A1C1_('management');
+      var pageSeq = ++disposisiLoadStateV2A1C1_.pageSeq;
+      disposisiLoadStateV2A1C1_.shellSeq++;
+      disposisiLoadStateV2A1C1_.inboxSeq++;
+      disposisiLoadStateV2A1C1_.managementSeq++;
+
+      disposisiBootstrap = localDisposisiShellV2A1C1_();
+      renderDisposisiHalaman_(disposisiBootstrap);
+      muatDisposisiShellV2A1C1_(pageSeq);
+    }
+    // ===== END HOTFIX 2A-1C.1 =====
+
+    function renderDisposisiManagementErrorV2A1C_(message) {
+      var el = document.getElementById('disposisiManagementLoadingV2A1C');
+      if (!el) return;
+      el.innerHTML = '<div class="disposisi-empty" style="border-left:5px solid #dc2626;text-align:left"><b>Panel pengelolaan belum dapat dimuat.</b><br><small>' + escapeHTML(message || 'Silakan muat ulang halaman Disposisi.') + '</small></div>';
     }
 
     function getDisposisiTargetCheckboxes_() {
@@ -9634,6 +9893,10 @@
       if (typeof disposisiNotifRequestAktif_ !== 'undefined') disposisiNotifRequestAktif_ = false;
       if (typeof disposisiNotifTerakhirMs_ !== 'undefined') disposisiNotifTerakhirMs_ = 0;
       if (typeof adminDashboardRequestId_ !== 'undefined') adminDashboardRequestId_++;
+      if (typeof dashboardDisposisiDeferredTimer_ !== 'undefined' && dashboardDisposisiDeferredTimer_) {
+        clearTimeout(dashboardDisposisiDeferredTimer_);
+        dashboardDisposisiDeferredTimer_ = null;
+      }
       if (typeof daftarPegawaiPinState_ !== 'undefined' && daftarPegawaiPinState_) {
         daftarPegawaiPinState_.loaded = false;
         daftarPegawaiPinState_.loading = false;
@@ -9665,20 +9928,17 @@
             simpanMemori("kinerja_token", res.token);
             simpanMemori("kinerja_data", JSON.stringify(sData));
 
-            // Fetch app constants from server first
-            fetchAppConstants().then(function () {
-              setSapaanDashboard();
-              var jCheck = (res.jabatan || "").toLowerCase();
-
-              aturMenuRoleVisibility();
-              refreshAksesDisposisiModul_();
-              document.getElementById('halamanLogin').style.display = "none";
-              document.getElementById('aplikasiUtama').style.display = "flex";
-              muatDashboard();
-              prosesLevel1();
-              // Status cut-off dibaca saat halaman Input dibuka dan divalidasi ulang oleh backend saat submit.
-              mulaiMonitorNotifikasiDisposisiBaru_();
-            });
+            // PATCH 2A-1: tampilkan aplikasi segera. Constants disinkronkan di
+            // belakang layar dan hak Disposisi sudah ikut dalam respons login.
+            setSapaanDashboard();
+            terapkanAksesDisposisiDariSesi_();
+            document.getElementById('halamanLogin').style.display = "none";
+            document.getElementById('aplikasiUtama').style.display = "flex";
+            muatDashboard();
+            prosesLevel1();
+            // Status cut-off dibaca saat halaman Input dibuka dan divalidasi ulang oleh backend saat submit.
+            mulaiMonitorNotifikasiDisposisiBaru_();
+            jadwalkanSinkronisasiConstants_();
           } else {
             msg.innerText = "Error: " + ((res && res.pesan) ? res.pesan : "Respon login tidak valid.");
             msg.style.color = "var(--danger)";
@@ -10319,6 +10579,17 @@
       requestId: 0,
       minRefreshMs: 15000
     };
+    var dashboardDisposisiDeferredTimer_ = null;
+
+    function jadwalkanNotifikasiDisposisiSetelahDashboard_(requestId) {
+      if (dashboardDisposisiDeferredTimer_) clearTimeout(dashboardDisposisiDeferredTimer_);
+      dashboardDisposisiDeferredTimer_ = setTimeout(function () {
+        dashboardDisposisiDeferredTimer_ = null;
+        if (requestId !== dashboardRequestState_.requestId) return;
+        if (_halamanAktif !== 'halDash') return;
+        refreshNotifikasiDisposisiBaru();
+      }, 350);
+    }
 
     function muatDashboard(force) {
       force = force === true;
@@ -10375,6 +10646,7 @@
             elTj.innerHTML = '<span class="badge ' + warnaTotal + '" style="padding:10px 15px; margin-bottom:5px; display:inline-block; font-size:16px;">Total: ' + formatRp(stats.rpTotal) + '</span><br><span class="badge bg-gray" style="padding:6px 10px; margin-bottom:3px; display:inline-block; font-size:12px; font-weight:600;">Produktifitas: ' + formatRp(stats.rpProd) + ' (' + Math.round(stats.poinProd) + '%)</span><br><span class="badge bg-gray" style="padding:6px 10px; display:inline-block; font-size:12px; font-weight:600;">Tugas Umum: ' + formatRp(stats.rpTU) + ' (' + Math.round(stats.poinTU) + '%)</span>';
           }
         }
+        jadwalkanNotifikasiDisposisiSetelahDashboard_(dashboardRequestId);
       }).withFailureHandler(function (err) {
         if (dashboardRequestId !== dashboardRequestState_.requestId) return;
         dashboardRequestState_.loading = false;
@@ -10382,10 +10654,10 @@
         console.error("Gagal memuat dashboard:", detail);
         var kotakStats = document.querySelectorAll('.stat-card');
         if (kotakStats[1]) kotakStats[1].querySelector('.stat-value').innerHTML = '<span style="font-size:14px; color:var(--danger);">⚠️ Gagal memuat data. Silakan muat ulang halaman.</span>';
+        jadwalkanNotifikasiDisposisiSetelahDashboard_(dashboardRequestId);
       }).getDashboardStats(sToken);
 
       refreshNotifikasiLaporanWajib();
-      refreshNotifikasiDisposisiBaru();
     }
 
     var RIWAYAT_PAGE_SIZE = 20;
@@ -12071,6 +12343,13 @@
     let adminReviewHasMore = false;
     let adminReviewPageSize = 10;
     let adminReviewLoadingMore = false;
+    let adminReviewLoadingInitial = false;
+    let adminReviewRequestSeq = 0;
+    let adminReviewActiveRequestKey = '';
+    let adminReviewLastCompletedRequestKey = '';
+    let adminReviewLastCompletedAt = 0;
+    let adminReviewDebounceTimer = null;
+    const ADMIN_REVIEW_DUPLICATE_SUPPRESS_MS = 3000;
     let currentRevisiId = null;
     var adminReviewStateKey = 'ADMIN_REVIEW_STAGE3_V1';
 
@@ -12630,6 +12909,9 @@
       var href = media.openUrl || media.urlRaw || media.fullUrl || '';
       if (!href) return '';
       var label = media.label || media.fileName || defaultLabel || 'Lampiran';
+      if (media.lazyMetadata && media.fileId) {
+        return '<button type="button" class="admin-bukti-chip" style="border:0;cursor:pointer;" onclick="event.stopPropagation(); bukaLampiranAdminLazy_(\'' + escapeJsSingleQuote_(media.fileId) + '\', \'' + escapeJsSingleQuote_(label) + '\', \'' + escapeJsSingleQuote_(href) + '\')">' + iconText + ' ' + escapeHTML(label) + '</button>';
+      }
       return '<a class="admin-bukti-chip" href="' + escapeHTML(href) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">' + iconText + ' ' + escapeHTML(label) + '</a>';
     }
 
@@ -12656,7 +12938,13 @@
           var targetUrl = media.openUrl || media.urlRaw || openUrl;
           var imageUrl = media.stageUrl || media.previewUrl || openUrl || targetUrl;
 
-          if (media.isImage && imageUrl) {
+          if (media.lazyMetadata && media.fileId && targetUrl) {
+            html += '' +
+              '<button type="button" class="admin-bukti-file" onclick="event.stopPropagation(); bukaLampiranAdminLazy_(\'' + escapeJsSingleQuote_(media.fileId) + '\', \'' + escapeJsSingleQuote_(label) + '\', \'' + escapeJsSingleQuote_(targetUrl) + '\')">' +
+              '<span class="admin-bukti-file-title">📎 ' + escapeHTML(label) + '</span>' +
+              '<span class="admin-bukti-file-meta">Klik untuk membaca jenis file dan membuka lampiran</span>' +
+              '</button>';
+          } else if (media.isImage && imageUrl) {
             var thumbUrl = media.previewUrl || imageUrl || targetUrl || openUrl;
             html += '' +
               '<button type="button" class="admin-bukti-thumb" onclick="event.stopPropagation(); bukaFotoAdmin(\'' + escapeJsSingleQuote_(imageUrl) + '\', \'' + escapeJsSingleQuote_(targetUrl || openUrl || imageUrl) + '\', \''
@@ -13037,6 +13325,42 @@
       bukaPreviewBuktiVisual(imageUrl, openUrl, label);
     }
 
+    function bukaLampiranAdminLazy_(fileId, label, openUrl) {
+      var id = String(fileId || '').trim();
+      var fallbackUrl = String(openUrl || '').trim();
+      if (!id || !sToken) {
+        if (fallbackUrl) window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      // Buka tab kosong dalam gesture klik agar PDF/dokumen tidak diblokir popup browser.
+      var pendingWindow = null;
+      try {
+        pendingWindow = window.open('', '_blank');
+        if (pendingWindow && pendingWindow.document) {
+          pendingWindow.document.write('<title>Memuat lampiran...</title><p style="font-family:Arial;padding:24px">Memeriksa lampiran Google Drive...</p>');
+        }
+      } catch (e) { pendingWindow = null; }
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          var meta = res && res.sukses ? (res.meta || {}) : {};
+          var target = meta.openUrl || fallbackUrl;
+          if (meta.isImage) {
+            try { if (pendingWindow && !pendingWindow.closed) pendingWindow.close(); } catch (eClose) { }
+            bukaFotoAdmin(meta.stageUrl || meta.previewUrl || meta.fullUrl || target, target, meta.label || label || 'Bukti Visual');
+            return;
+          }
+          if (pendingWindow && !pendingWindow.closed) pendingWindow.location.href = target || 'about:blank';
+          else if (target) window.open(target, '_blank', 'noopener,noreferrer');
+        })
+        .withFailureHandler(function () {
+          if (pendingWindow && !pendingWindow.closed) pendingWindow.location.href = fallbackUrl || 'about:blank';
+          else if (fallbackUrl) window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+        })
+        .ambilMetadataLampiranAdminLazy(id, label || 'Lampiran', sToken);
+    }
+
     function tutupModalFotoAdmin() {
       var modal = document.getElementById('modalPreviewBuktiVisual');
       var img = document.getElementById('modalPreviewBuktiVisualImg');
@@ -13210,6 +13534,34 @@
     }
 
 
+    function buatAdminReviewRequestKey_(selectedId, filterStatus, rentang, offset, appendMode) {
+      rentang = rentang || {};
+      return [
+        String(selectedId || ''),
+        String(filterStatus || 'semua'),
+        String(rentang.tanggalMulai || ''),
+        String(rentang.tanggalAkhir || ''),
+        String(Number(offset || 0)),
+        String(Number(adminReviewPageSize || 10)),
+        appendMode ? 'APPEND' : 'INITIAL'
+      ].join('|');
+    }
+
+    function batalkanRequestAdminReviewAktif_() {
+      adminReviewRequestSeq++;
+      adminReviewActiveRequestKey = '';
+      adminReviewLoadingInitial = false;
+      adminReviewLoadingMore = false;
+    }
+
+    function jadwalkanMuatAdminReview_() {
+      if (adminReviewDebounceTimer) clearTimeout(adminReviewDebounceTimer);
+      adminReviewDebounceTimer = setTimeout(function () {
+        adminReviewDebounceTimer = null;
+        muatAdmin(false);
+      }, 250);
+    }
+
     function resetAdminReviewPagination_() {
       adminReviewNextOffset = 0;
       adminReviewHasMore = false;
@@ -13236,7 +13588,7 @@
     }
 
     function muatAdminBerikutnya() {
-      if (adminReviewLoadingMore || !adminReviewHasMore) return;
+      if (adminReviewLoadingInitial || adminReviewLoadingMore || !adminReviewHasMore) return;
       muatAdmin(false, true);
     }
 
@@ -13861,12 +14213,14 @@
       ensureAdminReviewDateRangeDefaults_();
 
       if (forceReloadList || !adminReviewPegawaiList.length) {
+        batalkanRequestAdminReviewAktif_();
         muatDaftarPegawaiReviewAdmin(true);
         return;
       }
 
       var selectedId = (selectEl.value || '').trim();
       if (!selectedId) {
+        batalkanRequestAdminReviewAktif_();
         resetAdminReviewPayload_();
         simpanStateAdminReview();
         renderAdminReviewSummary_([], 0);
@@ -13877,6 +14231,25 @@
       var filterStatus = ((document.getElementById('adminFilterStatus') || {}).value || 'semua').toLowerCase();
       var rentang = getAdminReviewDateRange_();
       var offset = appendMode ? adminReviewNextOffset : 0;
+      var requestKey = buatAdminReviewRequestKey_(selectedId, filterStatus, rentang, offset, appendMode);
+
+      // Jangan kirim request identik yang masih berjalan.
+      if (adminReviewActiveRequestKey === requestKey) return;
+      if (appendMode && (adminReviewLoadingInitial || adminReviewLoadingMore)) return;
+
+      // Tekan/menu/onchange ganda sesaat setelah hasil yang sama selesai cukup
+      // menggunakan data yang sudah berada di memori frontend.
+      if (!appendMode &&
+          adminReviewLastCompletedRequestKey === requestKey &&
+          Date.now() - adminReviewLastCompletedAt < ADMIN_REVIEW_DUPLICATE_SUPPRESS_MS &&
+          adminReviewServerSummary &&
+          adminReviewItems.length > 0) {
+        renderAdminReviewView();
+        return;
+      }
+
+      var requestId = ++adminReviewRequestSeq;
+      adminReviewActiveRequestKey = requestKey;
 
       if (appendMode) {
         adminReviewLoadingMore = true;
@@ -13886,13 +14259,20 @@
           btnMore.innerHTML = '<span class="spinner"></span> Memuat laporan berikutnya...';
         }
       } else {
-        wrap.innerHTML = '<div class="admin-review-empty">Memuat laporan pegawai terpilih...</div>';
         resetAdminReviewPayload_();
+        adminReviewLoadingInitial = true;
+        adminReviewActiveRequestKey = requestKey;
+        wrap.innerHTML = '<div class="admin-review-empty">Memuat laporan pegawai terpilih...</div>';
         simpanStateAdminReview();
       }
 
       google.script.run.withSuccessHandler(function (res) {
+        // Respons request lama tidak boleh menimpa pilihan/filter terbaru.
+        if (requestId !== adminReviewRequestSeq) return;
+
+        adminReviewLoadingInitial = false;
         adminReviewLoadingMore = false;
+        adminReviewActiveRequestKey = '';
 
         if (!res || res.sukses === false) {
           if (!appendMode) renderAdminReviewSummary_([], 0);
@@ -13923,6 +14303,8 @@
         }
 
         adminReviewGroups = buildAdminReviewGroups_(adminReviewItems);
+        adminReviewLastCompletedRequestKey = requestKey;
+        adminReviewLastCompletedAt = Date.now();
 
         if (!adminReviewItems.length) {
           renderAdminReviewSummary_([], 0);
@@ -13937,7 +14319,11 @@
 
         renderAdminReviewView();
       }).withFailureHandler(function (err) {
+        if (requestId !== adminReviewRequestSeq) return;
+
+        adminReviewLoadingInitial = false;
         adminReviewLoadingMore = false;
+        adminReviewActiveRequestKey = '';
         if (!appendMode) renderAdminReviewSummary_([], 0);
         wrap.innerHTML = '<div class="admin-review-empty">Gagal memuat laporan pegawai: ' + escapeHTML((err && err.message) ? err.message : err) + '</div>';
       }).ambilLaporanAdminPerPegawai(selectedId, filterStatus, rentang.tanggalMulai, rentang.tanggalAkhir, offset, adminReviewPageSize, sToken);
@@ -16314,7 +16700,8 @@
 
 
     function userBolehKelolaTutupPeriodeLaporan_() {
-      return userIsAdminUtama();
+      // UI mengikuti kebijakan backend: hanya Lurah/Carik sebagai Admin Kinerja.
+      return userIsCarikTunjangan() || userIsLurahTunjangan();
     }
 
     function aturVisibilitasPanelTutupPeriodeLaporan_() {
@@ -16699,7 +17086,7 @@
 
     function simpanTutupPeriodeLaporanUI() {
       if (!userBolehKelolaTutupPeriodeLaporan_()) {
-        alert('Akses ditolak. Fitur ini hanya untuk Admin Kinerja/Carik.');
+        alert('Akses ditolak. Fitur ini hanya untuk Admin Kinerja (Lurah/Carik).');
         return;
       }
       sinkronkanFormTutupPeriodeLaporan_(false);
@@ -16714,7 +17101,7 @@
         return;
       }
 
-      if (!confirm('Tutup input laporan baru untuk periode ' + periode + ' setelah ' + tanggal + ' ' + jam + ' WIB?\n\nRevisi laporan yang sudah ditolak admin tetap diperbolehkan.')) {
+      if (!confirm('Tutup input laporan baru untuk periode ' + periode + ' setelah ' + tanggal + ' ' + jam + ' WIB?\n\nHanya keputusan Admin Kinerja ini yang memajukan periode aktif. Revisi laporan yang sudah ditolak admin tetap diperbolehkan.')) {
         return;
       }
 
@@ -16741,7 +17128,7 @@
 
     function bukaPeriodeLaporanUI() {
       if (!userBolehKelolaTutupPeriodeLaporan_()) {
-        alert('Akses ditolak. Fitur ini hanya untuk Admin Kinerja/Carik.');
+        alert('Akses ditolak. Fitur ini hanya untuk Admin Kinerja (Lurah/Carik).');
         return;
       }
       sinkronkanFormTutupPeriodeLaporan_(false);
@@ -16922,18 +17309,28 @@
       var simpananToken = ambilMemori("kinerja_token");
       var simpananData = ambilMemori("kinerja_data");
       if (simpananToken && simpananData) {
+        var dataSesiTersimpanRaw_ = JSON.parse(simpananData);
+        var perluSinkronAksesDisposisi_ =
+          typeof dataSesiTersimpanRaw_.canPublishDisposisi !== 'boolean' ||
+          typeof dataSesiTersimpanRaw_.isOperatorDisposisiAktif !== 'boolean' ||
+          typeof dataSesiTersimpanRaw_.isLurahDisposisi !== 'boolean';
+
         sToken = simpananToken;
-        sData = buatDataSesiAman_(JSON.parse(simpananData));
+        sData = buatDataSesiAman_(dataSesiTersimpanRaw_);
         setSapaanDashboard();
         var jCheck = (sData.jabatan || "").toLowerCase();
-        aturMenuRoleVisibility();
-        refreshAksesDisposisiModul_();
+        terapkanAksesDisposisiDariSesi_();
+        // Kompatibilitas satu kali untuk sesi yang dibuat sebelum Patch 2A-1.
+        if (perluSinkronAksesDisposisi_) {
+          setTimeout(function () { refreshAksesDisposisiModul_(); }, 2500);
+        }
         document.getElementById('halamanLogin').style.display = "none";
         document.getElementById('aplikasiUtama').style.display = "";
         document.getElementById('aplikasiUtama').style.display = "flex";
         muatDashboard();
         prosesLevel1();
         mulaiMonitorNotifikasiDisposisiBaru_();
+        jadwalkanSinkronisasiConstants_();
       }
     } catch (e) { }
 
@@ -18374,14 +18771,22 @@
       disposisiDaftarLurahAktif = daftarLurah;
       disposisiPegawaiListAktif = Array.isArray(res.pegawaiList) ? res.pegawaiList : [];
       var disposisiSaya = Array.isArray(res.disposisiSaya) ? res.disposisiSaya : [];
+      var inboxLoaded = res.inboxLoaded !== false;
+      var inboxLoading = res.inboxLoading === true || (!inboxLoaded && !res.inboxError);
+      var inboxError = String(res.inboxError || '');
+      var managementError = String(res.managementError || '');
       var modeLabel = canManage ? 'Mode Lurah' : (canOperate ? 'Mode Operator Disposisi' : 'Mode Pegawai');
       var modeClass = canManage ? 'bg-green' : (canOperate ? 'bg-yellow' : 'bg-gray');
-      var totalBaru = disposisiSaya.filter(disposisiSayaBaruV1_).length;
-      var totalDibuka = disposisiSaya.filter(function (d) { return disposisiUpperV1_(d.statusBaca) === 'DIBUKA'; }).length;
+      var totalBaru = inboxLoaded ? disposisiSaya.filter(disposisiSayaBaruV1_).length : 0;
+      var totalDibuka = inboxLoaded ? disposisiSaya.filter(function (d) { return disposisiUpperV1_(d.statusBaca) === 'DIBUKA'; }).length : 0;
 
-      var totalBelumDibuka = disposisiSaya.filter(disposisiSayaBelumDibukaV1_).length;
-      var totalDalamProses = disposisiSaya.filter(disposisiSayaDalamProsesV1_).length;
-      var totalSelesai = disposisiSaya.filter(disposisiSayaSelesaiV1_).length;
+      var totalBelumDibuka = inboxLoaded ? disposisiSaya.filter(disposisiSayaBelumDibukaV1_).length : 0;
+      var totalDalamProses = inboxLoaded ? disposisiSaya.filter(disposisiSayaDalamProsesV1_).length : 0;
+      var totalSelesai = inboxLoaded ? disposisiSaya.filter(disposisiSayaSelesaiV1_).length : 0;
+      var angkaBaru = inboxLoaded ? totalBaru : '…';
+      var angkaBelumDibuka = inboxLoaded ? totalBelumDibuka : '…';
+      var angkaDalamProses = inboxLoaded ? totalDalamProses : '…';
+      var angkaSelesai = inboxLoaded ? totalSelesai : '…';
       var roleText = canManage ? 'Lurah: Kelola dan teruskan disposisi surat.' : (canOperate ? 'Operator: Input dan kelola data surat/disposisi.' : 'Pantau disposisi yang ditugaskan kepada Anda.');
 
       sum.innerHTML = '' +
@@ -18390,13 +18795,24 @@
           '<span>' + escapeHTML(roleText) + '</span>' +
         '</div>' +
         '<div class="disposisi-v1-stats">' +
-          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">mark_email_unread</span> Disposisi Baru</div><div class="disposisi-v1-stat-number">' + totalBaru + '</div></div>' +
-          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">drafts</span> Belum Dibuka</div><div class="disposisi-v1-stat-number">' + totalBelumDibuka + '</div></div>' +
-          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">pending_actions</span> Dalam Proses</div><div class="disposisi-v1-stat-number">' + totalDalamProses + '</div></div>' +
-          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">task_alt</span> Selesai</div><div class="disposisi-v1-stat-number">' + totalSelesai + '</div></div>' +
+          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">mark_email_unread</span> Disposisi Baru</div><div class="disposisi-v1-stat-number">' + angkaBaru + '</div></div>' +
+          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">drafts</span> Belum Dibuka</div><div class="disposisi-v1-stat-number">' + angkaBelumDibuka + '</div></div>' +
+          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">pending_actions</span> Dalam Proses</div><div class="disposisi-v1-stat-number">' + angkaDalamProses + '</div></div>' +
+          '<div class="disposisi-v1-stat-card"><div class="disposisi-v1-stat-head"><span class="material-symbols-outlined">task_alt</span> Selesai</div><div class="disposisi-v1-stat-number">' + angkaSelesai + '</div></div>' +
         '</div>';
+      if (res.shellError) {
+        sum.innerHTML += '<div class="disposisi-muted-box" style="margin-top:10px;border-left:4px solid #d97706;background:#fff7ed;">' +
+          '<b>Verifikasi akses belum tuntas.</b> ' + escapeHTML(res.shellError) +
+          ' <button type="button" class="btn-unduh" style="margin-left:8px;padding:6px 10px;" onclick="cobaLagiDisposisiShellV2A1C1_()">Coba Lagi</button></div>';
+      }
 
       function renderDisposisiSayaCard_(spanStyle, asAccordion) {
+        if (!inboxLoaded) {
+          var statusInboxHtml = inboxError
+            ? '<div class="disposisi-empty" style="text-align:left;border-left:5px solid #dc2626;"><b>Inbox belum dapat dimuat.</b><br><small>' + escapeHTML(inboxError) + '</small><br><button type="button" class="btn-unduh" style="margin-top:10px;" onclick="cobaLagiDisposisiInboxV2A1C1_()">Coba Lagi Inbox</button></div>'
+            : '<div class="disposisi-empty" style="text-align:left;"><span class="spinner"></span> Memuat disposisi yang ditugaskan kepada akun Anda secara terpisah...</div>';
+          return '<div id="disposisiInboxStageV2A1C1" class="disposisi-card disposisi-card-full" style="' + (spanStyle || '') + ';border-left:5px solid #2563eb;"><h3>Disposisi Saya</h3>' + statusInboxHtml + '</div>';
+        }
         var isi = '' +
           '<p>Daftar disposisi yang masuk ke akun <b>' + escapeHTML(currentUser.nama || '-') + '</b>. ' +
           (canOperate ? 'Akun ini juga aktif sebagai operator, tetapi tetap dapat menerima dan menindaklanjuti disposisi seperti pegawai lain.' : '') +
@@ -18434,6 +18850,14 @@
       var html = renderDisposisiFilterV1_() + (canManage || canOperate ? '<div class="disposisi-page-stack">' : '<div class="disposisi-grid">');
 
       if (canManage || canOperate) {
+        if (res.managementLoaded === false) {
+          var managementStageHtml = managementError
+            ? '<div class="disposisi-empty" style="text-align:left;border-left:5px solid #dc2626;"><b>Panel pengelolaan belum dapat dimuat.</b><br><small>' + escapeHTML(managementError) + '</small><br><button type="button" class="btn-unduh" style="margin-top:10px;" onclick="cobaLagiDisposisiManagementV2A1C1_()">Coba Lagi Panel</button></div>'
+            : '<div class="disposisi-empty" style="text-align:left;"><span class="spinner"></span> Daftar pegawai dan riwayat penerbitan sedang dimuat terpisah. Inbox tidak perlu menunggu proses ini.</div>';
+          html += '<div id="disposisiManagementLoadingV2A1C" class="disposisi-card disposisi-card-full" style="border-left:5px solid #2563eb;">' +
+            '<h3>Panel Pengelolaan Disposisi</h3>' + managementStageHtml + '</div>';
+          html += renderDisposisiSayaCard_('', true);
+        } else {
         if (canManage) html += renderPetugasOperatorDisposisiCard_(res);
         html += renderFormInputDisposisiCard_(canOperate && !canManage);
         html += '' +
@@ -18457,6 +18881,7 @@
         // Dual-role fix: Lurah/operator tetap pegawai dan bisa menjadi penerima disposisi.
         // Pada mode Lurah/operator, Disposisi Saya dibuat accordion agar halaman tidak terlalu panjang.
         html += renderDisposisiSayaCard_('', true);
+        }
       } else {
         html += renderDisposisiSayaCard_('grid-column: span 2;') +
           '<div class="disposisi-card">' +
@@ -18471,7 +18896,7 @@
       renderPendingPesanWhatsAppDisposisi_();
       renderDisposisiDraftBanner_();
 
-      if (canManage || canOperate) {
+      if ((canManage || canOperate) && res.managementLoaded !== false) {
         var list = Array.isArray(res.pegawaiList) ? res.pegawaiList : [];
         renderDisposisiTargetChecklist_(list);
         var hariIni = new Date();
