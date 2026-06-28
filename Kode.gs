@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.27.09";
+var APP_VERSION = "2026.06.28.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -17608,4 +17608,567 @@ function statusIndexLaporan2B0() {
 }
 
 // ===== END PATCH PERFORMA 2B-0 =====
+
+// ============================================================================
+// PATCH PERFORMA 2B-1 — DUAL-WRITE INDEX_LAPORAN
+// Versi aplikasi: 2026.06.28.01
+//
+// Prinsip keselamatan:
+// 1) Rekap_Kinerja tetap menjadi sumber kebenaran utama.
+// 2) Dual-write hanya aktif setelah validasi 100% dan aktivasi manual pemilik.
+// 3) Kegagalan menulis Index_Laporan tidak membatalkan submit/revisi/review utama.
+// 4) Kegagalan sinkronisasi dicatat ke Index_Laporan_Sync_Queue.
+// 5) Seluruh endpoint baca produksi masih memakai jalur lama pada tahap 2B-1.
+// ============================================================================
+
+var INDEX_LAPORAN_2B1_CONFIG = {
+  VERSION: '2B1-2026.06.28.01',
+  ROW_FORMAT_VERSION: INDEX_LAPORAN_2B0_CONFIG.VERSION,
+  WRITE_ENABLED_PROPERTY: 'INDEX_LAPORAN_2B1_WRITE_ENABLED',
+  WRITE_ENABLED_AT_PROPERTY: 'INDEX_LAPORAN_2B1_WRITE_ENABLED_AT',
+  LAST_SYNC_PROPERTY: 'INDEX_LAPORAN_2B1_LAST_SYNC',
+  QUEUE_SHEET_NAME: 'Index_Laporan_Sync_Queue',
+  QUEUE_HEADERS: [
+    'QUEUE_ID', 'WAKTU', 'OPERATION', 'ROW_REKAP', 'ID_LAPORAN', 'ID_USER',
+    'NONCE', 'CONTEXT', 'ATTEMPTS', 'STATUS', 'LAST_ERROR', 'DIPROSES_PADA'
+  ],
+  QUEUE_PROCESS_LIMIT_DEFAULT: 50,
+  QUEUE_MAX_ATTEMPTS: 5,
+  SOURCE_LOOKBACK_ROWS: 300,
+  LOCK_WAIT_MS: 5000,
+  DEDUP_CACHE_PREFIX: 'INDEX_LAPORAN_2B1_QUEUE_DEDUP_'
+};
+
+function dualWriteIndexLaporanAktif2B1_() {
+  try {
+    return String(portalScriptProperties_().getProperty(INDEX_LAPORAN_2B1_CONFIG.WRITE_ENABLED_PROPERTY) || '').toLowerCase() === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+function hasilStringSuksesDualWrite2B1_(hasil) {
+  return /^✅/.test(String(hasil || '').trim());
+}
+
+function hasilObjekLayakSinkronDualWrite2B1_(hasil) {
+  if (!hasil || typeof hasil !== 'object') return false;
+  if (hasil.sukses === false) return false;
+  var pesan = String(hasil.pesan || '').toLowerCase();
+  if (!pesan) return false;
+  if (/sesi habis|akses ditolak|tidak ditemukan|tidak valid|server sedang|gagal/.test(pesan)) return false;
+  return /berhasil|disimpan|selesai|dinormalisasi|diterapkan/.test(pesan);
+}
+
+function pastikanHeaderIndexLaporan2B1_(sh) {
+  if (!sh) throw new Error('Sheet Index_Laporan belum tersedia.');
+  var headers = INDEX_LAPORAN_2B0_CONFIG.HEADERS;
+  if (sh.getLastRow() < 1 || sh.getLastColumn() < headers.length) {
+    throw new Error('Struktur Index_Laporan belum lengkap. Jalankan bangunUlangIndexLaporan2B0().');
+  }
+  var actual = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+  for (var i = 0; i < headers.length; i++) {
+    if (String(actual[i] || '').trim() !== headers[i]) {
+      throw new Error('Header Index_Laporan tidak cocok pada kolom ' + (i + 1) + '.');
+    }
+  }
+}
+
+function formatSatuBarisIndexLaporan2B1_(sh, rowNumber) {
+  var M = getIndexLaporanColumnMap2B0_();
+  var width = INDEX_LAPORAN_2B0_CONFIG.HEADERS.length;
+  sh.getRange(rowNumber, 1, 1, width).setNumberFormat('@');
+  sh.getRange(rowNumber, M.ROW_REKAP + 1).setNumberFormat('0');
+  sh.getRange(rowNumber, M.POIN_FINAL + 1).setNumberFormat('0.########');
+  sh.getRange(rowNumber, M.TANGGAL_LAPORAN + 1).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+  sh.getRange(rowNumber, M.TERAKHIR_DIUBAH + 1).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+}
+
+function cariBarisIndexDenganRowRekap2B1_(sh, rowRekap) {
+  var M = getIndexLaporanColumnMap2B0_();
+  var lastRow = sh.getLastRow();
+  rowRekap = Number(rowRekap || 0);
+  if (!rowRekap || lastRow < 2) return 0;
+
+  if (rowRekap <= lastRow) {
+    var direct = Number(sh.getRange(rowRekap, M.ROW_REKAP + 1).getValue() || 0);
+    if (direct === rowRekap) return rowRekap;
+  }
+
+  var finder = sh.getRange(2, M.ROW_REKAP + 1, lastRow - 1, 1)
+    .createTextFinder(String(rowRekap))
+    .matchEntireCell(true);
+  var found = finder.findNext();
+  return found ? found.getRow() : 0;
+}
+
+function cariRowRekapDariIndexById2B1_(idLaporan) {
+  idLaporan = normalizeId_(idLaporan);
+  if (!idLaporan) return 0;
+  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) return 0;
+  var M = getIndexLaporanColumnMap2B0_();
+  var found = sh.getRange(2, M.ID_LAPORAN + 1, sh.getLastRow() - 1, 1)
+    .createTextFinder(idLaporan)
+    .matchEntireCell(true)
+    .findNext();
+  if (!found) return 0;
+  return Number(sh.getRange(found.getRow(), M.ROW_REKAP + 1).getValue() || 0);
+}
+
+function cariRowRekapByIdDualWrite2B1_(idLaporan) {
+  var id = normalizeId_(idLaporan);
+  if (!id) return 0;
+  var shRekap = getSheet_('Rekap_Kinerja');
+  var rowFromIndex = cariRowRekapDariIndexById2B1_(id);
+  if (rowFromIndex >= 2 && rowFromIndex <= shRekap.getLastRow()) {
+    var value = normalizeId_(shRekap.getRange(rowFromIndex, SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN + 1).getValue());
+    if (idsEqual_(value, id)) return rowFromIndex;
+  }
+  return Number(cariRowRekapKinerjaById_(shRekap, id) || 0);
+}
+
+function cariRowRekapByNonceDualWrite2B1_(idUser, nonce) {
+  idUser = normalizeId_(idUser);
+  nonce = String(nonce || '').trim();
+  if (!idUser || !nonce) return 0;
+
+  var sh = getSheet_('Rekap_Kinerja');
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+  var startRow = Math.max(2, lastRow - INDEX_LAPORAN_2B1_CONFIG.SOURCE_LOOKBACK_ROWS + 1);
+  var count = lastRow - startRow + 1;
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var first = Math.min(C.ID_USER, C.NONCE);
+  var width = Math.abs(C.NONCE - C.ID_USER) + 1;
+  var values = sh.getRange(startRow, first + 1, count, width).getValues();
+  var relUser = C.ID_USER - first;
+  var relNonce = C.NONCE - first;
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (idsEqual_(values[i][relUser], idUser) && String(values[i][relNonce] || '').trim() === nonce) {
+      return startRow + i;
+    }
+  }
+  return 0;
+}
+
+function updateMetadataDualWriteIndexLaporan2B1_(context, rowRekap) {
+  try {
+    var props = portalScriptProperties_();
+    var raw = props.getProperty(INDEX_LAPORAN_2B0_CONFIG.METADATA_PROPERTY) || '';
+    var meta = raw ? JSON.parse(raw) : {};
+    var ss = getSS_();
+    var shRekap = ss.getSheetByName('Rekap_Kinerja');
+    var shIndex = ss.getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+    meta.sourceRows = shRekap ? Math.max(0, shRekap.getLastRow() - 1) : Number(meta.sourceRows || 0);
+    meta.indexRows = shIndex ? Math.max(0, shIndex.getLastRow() - 1) : Number(meta.indexRows || 0);
+    meta.dualWriteVersion = INDEX_LAPORAN_2B1_CONFIG.VERSION;
+    meta.lastDualWriteAt = new Date().toISOString();
+    meta.lastDualWriteContext = String(context || '');
+    meta.lastDualWriteRowRekap = Number(rowRekap || 0);
+    meta.checksumPendingValidation = true;
+    props.setProperty(INDEX_LAPORAN_2B0_CONFIG.METADATA_PROPERTY, JSON.stringify(meta));
+    props.setProperty(INDEX_LAPORAN_2B1_CONFIG.LAST_SYNC_PROPERTY, JSON.stringify({
+      waktu: meta.lastDualWriteAt,
+      context: meta.lastDualWriteContext,
+      rowRekap: meta.lastDualWriteRowRekap
+    }));
+  } catch (e) {
+    Logger.log('Peringatan update metadata dual-write gagal: ' + (e && e.message ? e.message : e));
+  }
+}
+
+function sinkronkanSatuRowIndexLaporan2B1Internal_(rowRekap, context, force) {
+  rowRekap = Number(rowRekap || 0);
+  if (!rowRekap || rowRekap < 2) throw new Error('ROW_REKAP tidak valid: ' + rowRekap);
+  if (!force && !dualWriteIndexLaporanAktif2B1_()) {
+    return { sukses: true, dilewati: true, alasan: 'DUAL_WRITE_NONAKTIF', rowRekap: rowRekap };
+  }
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(INDEX_LAPORAN_2B1_CONFIG.LOCK_WAIT_MS)) {
+    throw new Error('INDEX_SYNC_LOCK_TIMEOUT');
+  }
+
+  try {
+    var ss = getSS_();
+    var shRekap = ss.getSheetByName('Rekap_Kinerja');
+    var shIndex = ss.getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+    if (!shRekap) throw new Error('Sheet Rekap_Kinerja tidak ditemukan.');
+    if (!shIndex) throw new Error('Sheet Index_Laporan tidak ditemukan.');
+    pastikanHeaderIndexLaporan2B1_(shIndex);
+
+    if (rowRekap > shRekap.getLastRow()) throw new Error('ROW_REKAP melebihi baris sumber: ' + rowRekap);
+    var lastCol = Math.max(shRekap.getLastColumn(), SHEET_COLUMNS.REKAP_KINERJA.STAF_INSTRUKSI_LOKASI + 1);
+    var sourceRow = shRekap.getRange(rowRekap, 1, 1, lastCol).getValues()[0];
+    var idLaporan = normalizeId_(sourceRow[SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
+    if (!idLaporan) throw new Error('ID_LAPORAN kosong pada ROW_REKAP ' + rowRekap);
+    var expected = buatBarisIndexLaporan2B0_(sourceRow, rowRekap);
+
+    var targetRow = cariBarisIndexDenganRowRekap2B1_(shIndex, rowRekap);
+    var indexLastRow = shIndex.getLastRow();
+    if (!targetRow) {
+      if (rowRekap === indexLastRow + 1) {
+        targetRow = rowRekap;
+      } else {
+        throw new Error('INDEX_ROW_GAP: row sumber ' + rowRekap + ', last row index ' + indexLastRow);
+      }
+    }
+
+    formatSatuBarisIndexLaporan2B1_(shIndex, targetRow);
+    shIndex.getRange(targetRow, 1, 1, expected.length).setValues([expected]);
+    SpreadsheetApp.flush();
+    var actual = shIndex.getRange(targetRow, 1, 1, expected.length).getValues()[0];
+    var diff = bedaBarisIndexLaporan2B0_(expected, actual);
+    if (diff.length) {
+      throw new Error('VERIFIKASI_INDEX_GAGAL: ' + JSON.stringify(diff.slice(0, 3)));
+    }
+
+    updateMetadataDualWriteIndexLaporan2B1_(context, rowRekap);
+    return {
+      sukses: true,
+      rowRekap: rowRekap,
+      rowIndex: targetRow,
+      idLaporan: idLaporan,
+      context: String(context || '')
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function ensureIndexSyncQueueSheet2B1_() {
+  var ss = getSS_();
+  var name = INDEX_LAPORAN_2B1_CONFIG.QUEUE_SHEET_NAME;
+  var sh = ss.getSheetByName(name);
+  var headers = INDEX_LAPORAN_2B1_CONFIG.QUEUE_HEADERS;
+  if (!sh) sh = ss.insertSheet(name);
+  if (sh.getLastRow() < 1 || sh.getLastColumn() < headers.length) {
+    sh.clear();
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  } else {
+    var current = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+    var mismatch = false;
+    for (var i = 0; i < headers.length; i++) {
+      if (String(current[i] || '').trim() !== headers[i]) { mismatch = true; break; }
+    }
+    if (mismatch) throw new Error('Header Index_Laporan_Sync_Queue tidak cocok.');
+  }
+  return sh;
+}
+
+function queueDedupKeyIndexLaporan2B1_(item) {
+  var raw = [item.operation, item.rowRekap, item.idLaporan, item.idUser, item.nonce, item.context].join('|');
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, raw, Utilities.Charset.UTF_8);
+  var hexParts = [];
+  for (var i = 0; i < digest.length; i++) {
+    var b = digest[i];
+    var v = (b < 0 ? b + 256 : b).toString(16);
+    hexParts.push(v.length === 1 ? '0' + v : v);
+  }
+  var hex = hexParts.join('');
+  return INDEX_LAPORAN_2B1_CONFIG.DEDUP_CACHE_PREFIX + hex;
+}
+
+function antrekanPerbaikanIndexLaporan2B1_(item, error) {
+  item = item || {};
+  try {
+    var cache = CacheService.getScriptCache();
+    var dedupKey = queueDedupKeyIndexLaporan2B1_(item);
+    if (cache.get(dedupKey)) return { sukses: true, duplikat: true };
+    cache.put(dedupKey, '1', 600);
+
+    var sh = ensureIndexSyncQueueSheet2B1_();
+    sh.appendRow([
+      Utilities.getUuid(), new Date(), String(item.operation || 'ROW'), Number(item.rowRekap || 0),
+      normalizeId_(item.idLaporan), normalizeId_(item.idUser), String(item.nonce || ''),
+      String(item.context || ''), 0, 'PENDING', String(error && error.message ? error.message : error || ''), ''
+    ]);
+    return { sukses: true, duplikat: false };
+  } catch (queueError) {
+    Logger.log('GAGAL MENULIS QUEUE INDEX 2B1: ' + (queueError && queueError.message ? queueError.message : queueError));
+    return { sukses: false, pesan: String(queueError && queueError.message ? queueError.message : queueError) };
+  }
+}
+
+function sinkronkanSatuRowIndexLaporan2B1_(rowRekap, context, options) {
+  options = options || {};
+  try {
+    return sinkronkanSatuRowIndexLaporan2B1Internal_(rowRekap, context, !!options.force);
+  } catch (e) {
+    if (!options.noQueue) {
+      antrekanPerbaikanIndexLaporan2B1_({
+        operation: 'ROW', rowRekap: rowRekap, context: context
+      }, e);
+    }
+    Logger.log('DUAL-WRITE INDEX GAGAL [' + String(context || '') + '] row ' + rowRekap + ': ' + (e && e.message ? e.message : e));
+    return { sukses: false, rowRekap: Number(rowRekap || 0), pesan: String(e && e.message ? e.message : e) };
+  }
+}
+
+function sinkronkanIndexLaporanById2B1_(idLaporan, context, options) {
+  options = options || {};
+  var rowRekap = 0;
+  try {
+    if (!options.force && !dualWriteIndexLaporanAktif2B1_()) return { sukses: true, dilewati: true, alasan: 'DUAL_WRITE_NONAKTIF' };
+    rowRekap = cariRowRekapByIdDualWrite2B1_(idLaporan);
+    if (!rowRekap) throw new Error('ROW_REKAP tidak ditemukan untuk ID_LAPORAN ' + normalizeId_(idLaporan));
+    return sinkronkanSatuRowIndexLaporan2B1_(rowRekap, context, options);
+  } catch (e) {
+    if (!options.noQueue) {
+      antrekanPerbaikanIndexLaporan2B1_({ operation: 'BY_ID', idLaporan: idLaporan, context: context }, e);
+    }
+    return { sukses: false, rowRekap: rowRekap, pesan: String(e && e.message ? e.message : e) };
+  }
+}
+
+function sinkronkanIndexLaporanByNonce2B1_(idUser, nonce, context, options) {
+  options = options || {};
+  var rowRekap = 0;
+  try {
+    if (!options.force && !dualWriteIndexLaporanAktif2B1_()) return { sukses: true, dilewati: true, alasan: 'DUAL_WRITE_NONAKTIF' };
+    rowRekap = cariRowRekapByNonceDualWrite2B1_(idUser, nonce);
+    if (!rowRekap) throw new Error('ROW_REKAP tidak ditemukan untuk nonce submit.');
+    return sinkronkanSatuRowIndexLaporan2B1_(rowRekap, context, options);
+  } catch (e) {
+    if (!options.noQueue) {
+      antrekanPerbaikanIndexLaporan2B1_({ operation: 'BY_NONCE', idUser: idUser, nonce: nonce, context: context }, e);
+    }
+    return { sukses: false, rowRekap: rowRekap, pesan: String(e && e.message ? e.message : e) };
+  }
+}
+
+function sinkronkanDaftarIdIndexLaporan2B1_(ids, context) {
+  if (!dualWriteIndexLaporanAktif2B1_()) return { sukses: true, dilewati: true, jumlah: 0 };
+  ids = Array.isArray(ids) ? ids : [];
+  var sukses = 0;
+  var gagal = 0;
+  for (var i = 0; i < ids.length; i++) {
+    var res = sinkronkanIndexLaporanById2B1_(ids[i], context, {});
+    if (res && res.sukses) sukses++; else gagal++;
+  }
+  return { sukses: gagal === 0, jumlahSukses: sukses, jumlahGagal: gagal };
+}
+
+function tandaiPerluRebuildIndexLaporan2B1_(context, detail) {
+  if (!dualWriteIndexLaporanAktif2B1_()) return;
+  antrekanPerbaikanIndexLaporan2B1_({ operation: 'FULL_REBUILD', context: context }, new Error(String(detail || 'Mutasi massal memerlukan rebuild manual.')));
+}
+
+function hitungStatusQueueIndexLaporan2B1_() {
+  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B1_CONFIG.QUEUE_SHEET_NAME);
+  var out = { total: 0, pending: 0, selesai: 0, gagal: 0, perluRebuild: 0 };
+  if (!sh || sh.getLastRow() < 2) return out;
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, INDEX_LAPORAN_2B1_CONFIG.QUEUE_HEADERS.length).getValues();
+  out.total = data.length;
+  for (var i = 0; i < data.length; i++) {
+    var op = String(data[i][2] || '');
+    var st = String(data[i][9] || '').toUpperCase();
+    if (op === 'FULL_REBUILD' && st !== 'DONE') out.perluRebuild++;
+    if (st === 'PENDING' || st === 'RETRY') out.pending++;
+    else if (st === 'DONE') out.selesai++;
+    else if (st === 'FAILED' || st === 'NEED_REBUILD') out.gagal++;
+  }
+  return out;
+}
+
+function prosesAntreanPerbaikanIndexLaporan2B1(limit) {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  limit = Math.max(1, Math.min(Number(limit || INDEX_LAPORAN_2B1_CONFIG.QUEUE_PROCESS_LIMIT_DEFAULT), 200));
+  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B1_CONFIG.QUEUE_SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) return { sukses: true, diproses: 0, selesai: 0, gagal: 0, pesan: 'Queue kosong.' };
+
+  var width = INDEX_LAPORAN_2B1_CONFIG.QUEUE_HEADERS.length;
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, width).getValues();
+  var diproses = 0, selesai = 0, gagal = 0, needRebuild = 0;
+  for (var i = 0; i < data.length && diproses < limit; i++) {
+    var status = String(data[i][9] || '').toUpperCase();
+    var attempts = Number(data[i][8] || 0);
+    if (!(status === 'PENDING' || status === 'RETRY' || status === 'FAILED')) continue;
+    if (attempts >= INDEX_LAPORAN_2B1_CONFIG.QUEUE_MAX_ATTEMPTS) continue;
+
+    diproses++;
+    var operation = String(data[i][2] || 'ROW');
+    var res = null;
+    if (operation === 'FULL_REBUILD') {
+      needRebuild++;
+      sh.getRange(i + 2, 9, 1, 4).setValues([[attempts + 1, 'NEED_REBUILD', 'Nonaktifkan dual-write lalu jalankan bangunUlangIndexLaporan2B0() secara manual.', new Date()]]);
+      continue;
+    }
+
+    if (operation === 'ROW') {
+      res = sinkronkanSatuRowIndexLaporan2B1_(Number(data[i][3] || 0), String(data[i][7] || 'QUEUE'), { force: true, noQueue: true });
+    } else if (operation === 'BY_ID') {
+      res = sinkronkanIndexLaporanById2B1_(data[i][4], String(data[i][7] || 'QUEUE'), { force: true, noQueue: true });
+    } else if (operation === 'BY_NONCE') {
+      res = sinkronkanIndexLaporanByNonce2B1_(data[i][5], data[i][6], String(data[i][7] || 'QUEUE'), { force: true, noQueue: true });
+    } else {
+      res = { sukses: false, pesan: 'Operation queue tidak dikenal: ' + operation };
+    }
+
+    if (res && res.sukses) {
+      selesai++;
+      sh.getRange(i + 2, 9, 1, 4).setValues([[attempts + 1, 'DONE', '', new Date()]]);
+    } else {
+      gagal++;
+      var nextStatus = attempts + 1 >= INDEX_LAPORAN_2B1_CONFIG.QUEUE_MAX_ATTEMPTS ? 'FAILED' : 'RETRY';
+      sh.getRange(i + 2, 9, 1, 4).setValues([[attempts + 1, nextStatus, String(res && res.pesan ? res.pesan : 'Sinkronisasi gagal.'), new Date()]]);
+    }
+  }
+
+  return { sukses: gagal === 0, diproses: diproses, selesai: selesai, gagal: gagal, perluRebuild: needRebuild, queue: hitungStatusQueueIndexLaporan2B1_() };
+}
+
+function ujiSinkronisasiBarisTerakhirIndexLaporan2B1() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var sh = getSheet_('Rekap_Kinerja');
+  var row = sh.getLastRow();
+  if (row < 2) return { sukses: false, pesan: 'Rekap_Kinerja belum memiliki data.' };
+  var sync = sinkronkanSatuRowIndexLaporan2B1_(row, 'UJI_MANUAL_BARIS_TERAKHIR', { force: true, noQueue: true });
+  var snapshot = bacaSumberIndexLaporan2B0_();
+  var validation = validasiIndexLaporan_({ sheet: getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME), expectedRows: snapshot.expectedRows, checksumSumber: snapshot.checksumSumber });
+  return { sukses: !!(sync.sukses && validation.valid), sync: sync, validation: validation };
+}
+
+function aktifkanDualWriteIndexLaporan2B1() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var snapshot = bacaSumberIndexLaporan2B0_();
+  var validation = validasiIndexLaporan_({
+    sheet: getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME),
+    expectedRows: snapshot.expectedRows,
+    checksumSumber: snapshot.checksumSumber
+  });
+  if (!validation.valid) {
+    return { sukses: false, pesan: 'Dual-write tidak diaktifkan karena Index_Laporan belum valid 100%.', validation: validation };
+  }
+  var queue = hitungStatusQueueIndexLaporan2B1_();
+  if (queue.pending || queue.gagal || queue.perluRebuild) {
+    return { sukses: false, pesan: 'Dual-write tidak diaktifkan karena queue perbaikan belum bersih.', queue: queue };
+  }
+  var props = portalScriptProperties_();
+  props.setProperty(INDEX_LAPORAN_2B1_CONFIG.WRITE_ENABLED_PROPERTY, 'true');
+  props.setProperty(INDEX_LAPORAN_2B1_CONFIG.WRITE_ENABLED_AT_PROPERTY, new Date().toISOString());
+  return { sukses: true, aktif: true, versi: INDEX_LAPORAN_2B1_CONFIG.VERSION, validation: validation, queue: queue };
+}
+
+function nonaktifkanDualWriteIndexLaporan2B1() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  portalScriptProperties_().setProperty(INDEX_LAPORAN_2B1_CONFIG.WRITE_ENABLED_PROPERTY, 'false');
+  return { sukses: true, aktif: false, pesan: 'Dual-write Index_Laporan dinonaktifkan. Rekap_Kinerja tetap berjalan seperti biasa.' };
+}
+
+function validasiDualWriteIndexLaporan2B1() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var snapshot = bacaSumberIndexLaporan2B0_();
+  var validation = validasiIndexLaporan_({
+    sheet: getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME),
+    expectedRows: snapshot.expectedRows,
+    checksumSumber: snapshot.checksumSumber
+  });
+  return { sukses: true, aktif: dualWriteIndexLaporanAktif2B1_(), validation: validation, queue: hitungStatusQueueIndexLaporan2B1_() };
+}
+
+function statusDualWriteIndexLaporan2B1() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var props = portalScriptProperties_();
+  var lastSyncRaw = props.getProperty(INDEX_LAPORAN_2B1_CONFIG.LAST_SYNC_PROPERTY) || '';
+  var lastSync = null;
+  try { lastSync = lastSyncRaw ? JSON.parse(lastSyncRaw) : null; } catch (e) { lastSync = null; }
+  return {
+    sukses: true,
+    aktif: dualWriteIndexLaporanAktif2B1_(),
+    versi: INDEX_LAPORAN_2B1_CONFIG.VERSION,
+    formatBaris: INDEX_LAPORAN_2B1_CONFIG.ROW_FORMAT_VERSION,
+    diaktifkanPada: props.getProperty(INDEX_LAPORAN_2B1_CONFIG.WRITE_ENABLED_AT_PROPERTY) || '',
+    lastSync: lastSync,
+    queue: hitungStatusQueueIndexLaporan2B1_(),
+    readFlags: {
+      READ_RIWAYAT: false,
+      READ_ADMIN_REVIEW: false,
+      READ_TIMELINE: false,
+      READ_BY_ID: false,
+      READ_BY_DISPOSISI: false
+    },
+    pesan: 'Tahap 2B-1: hanya dual-write. Endpoint baca produksi belum menggunakan Index_Laporan.'
+  };
+}
+
+// --------------------------------------------------------------------------
+// Integrasi dual-write pada jalur produksi utama.
+// Semua wrapper dipasang setelah seluruh patch/override lama selesai didefinisikan.
+// --------------------------------------------------------------------------
+
+var simpanBarisRekapKinerjaSubmit__SEBELUM_DUAL_WRITE_2B1 = simpanBarisRekapKinerjaSubmit_;
+simpanBarisRekapKinerjaSubmit_ = function (paket, ctx, draft, evaluasi, barisBaru) {
+  var hasil = simpanBarisRekapKinerjaSubmit__SEBELUM_DUAL_WRITE_2B1(paket, ctx, draft, evaluasi, barisBaru);
+  if (hasil && hasil.sukses && Number(hasil.lastRowIdx || 0) >= 2 && dualWriteIndexLaporanAktif2B1_()) {
+    sinkronkanSatuRowIndexLaporan2B1_(Number(hasil.lastRowIdx), 'SUBMIT_LAPORAN', {});
+  }
+  return hasil;
+};
+
+var simpanRevisiLaporanDitolakPegawai__SEBELUM_DUAL_WRITE_2B1 = simpanRevisiLaporanDitolakPegawai;
+simpanRevisiLaporanDitolakPegawai = function (paket, token) {
+  var hasil = simpanRevisiLaporanDitolakPegawai__SEBELUM_DUAL_WRITE_2B1(paket, token);
+  if (hasilStringSuksesDualWrite2B1_(hasil) && dualWriteIndexLaporanAktif2B1_()) {
+    var idLaporan = paket ? (paket.idLaporanRevisi || paket.idLaporan || '') : '';
+    sinkronkanIndexLaporanById2B1_(idLaporan, 'REVISI_PEGAWAI', {});
+  }
+  return hasil;
+};
+
+var prosesReviewAdmin__SEBELUM_DUAL_WRITE_2B1 = prosesReviewAdmin;
+prosesReviewAdmin = function (idLaporan, status, poinFinal, catatan, token) {
+  var hasil = prosesReviewAdmin__SEBELUM_DUAL_WRITE_2B1(idLaporan, status, poinFinal, catatan, token);
+  if (hasilObjekLayakSinkronDualWrite2B1_(hasil) && dualWriteIndexLaporanAktif2B1_()) {
+    sinkronkanIndexLaporanById2B1_(idLaporan, 'REVIEW_ADMIN_FINAL', {});
+  }
+  return hasil;
+};
+
+var koreksiStatusCutoffLama__SEBELUM_DUAL_WRITE_2B1 = koreksiStatusCutoffLama;
+koreksiStatusCutoffLama = function (ids, catatanKoreksi, token) {
+  var hasil = koreksiStatusCutoffLama__SEBELUM_DUAL_WRITE_2B1(ids, catatanKoreksi, token);
+  if (hasil && hasil.sukses && Number(hasil.jumlah || 0) > 0) {
+    sinkronkanDaftarIdIndexLaporan2B1_(ids, 'KOREKSI_STATUS_CUTOFF_LAMA');
+  }
+  return hasil;
+};
+
+var terapkanPoinKoreksiCutoffLama__SEBELUM_DUAL_WRITE_2B1 = terapkanPoinKoreksiCutoffLama;
+terapkanPoinKoreksiCutoffLama = function (ids, token) {
+  var hasil = terapkanPoinKoreksiCutoffLama__SEBELUM_DUAL_WRITE_2B1(ids, token);
+  if (hasil && hasil.sukses && Number(hasil.jumlah || 0) > 0) {
+    sinkronkanDaftarIdIndexLaporan2B1_(ids, 'KOREKSI_POIN_CUTOFF_LAMA');
+  }
+  return hasil;
+};
+
+var normalisasiStatusLewatCutoffLama__SEBELUM_DUAL_WRITE_2B1 = normalisasiStatusLewatCutoffLama;
+normalisasiStatusLewatCutoffLama = function (token) {
+  var hasil = normalisasiStatusLewatCutoffLama__SEBELUM_DUAL_WRITE_2B1(token);
+  if (hasil && hasil.sukses && Number(hasil.jumlah || 0) > 0) {
+    tandaiPerluRebuildIndexLaporan2B1_('NORMALISASI_STATUS_MASSAL', 'Normalisasi massal mengubah ' + Number(hasil.jumlah || 0) + ' laporan.');
+  }
+  return hasil;
+};
+
+// Perluas status 2B-0 agar menampilkan keadaan dual-write aktual.
+var statusIndexLaporan2B0__SEBELUM_DUAL_WRITE_2B1 = statusIndexLaporan2B0;
+statusIndexLaporan2B0 = function () {
+  var result = statusIndexLaporan2B0__SEBELUM_DUAL_WRITE_2B1();
+  if (result && typeof result === 'object') {
+    result.dualWrite2B1 = {
+      aktif: dualWriteIndexLaporanAktif2B1_(),
+      versi: INDEX_LAPORAN_2B1_CONFIG.VERSION,
+      queue: hitungStatusQueueIndexLaporan2B1_()
+    };
+    if (result.featureFlags) result.featureFlags.WRITE_INDEX = dualWriteIndexLaporanAktif2B1_();
+    result.pesan = 'Tahap 2B-1: dual-write dapat diaktifkan manual; endpoint baca produksi masih menggunakan jalur lama.';
+  }
+  return result;
+};
+
+// ===== END PATCH PERFORMA 2B-1 =====
 
