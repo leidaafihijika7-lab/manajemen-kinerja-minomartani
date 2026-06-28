@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.28.02";
+var APP_VERSION = "2026.06.28.03";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -502,6 +502,9 @@ var PORTAL_RUNTIME_CACHE_ = {
   rekapDisposisiProjectionV2A1B: null,
   // HOTFIX 2A-1C.2: paket Inbox + ringkasan yang dipakai bersama dalam satu eksekusi.
   disposisiSharedByUserV2A1C2: {},
+  // HOTFIX 3B-0.1: cache kompatibilitas daftar disposisi per pengguna.
+  // Harus selalu berupa object sebelum cabang cache menulis [userKey].
+  disposisiSayaByUserV2A1C: {},
   // HOTFIX 2A-1C.3: paket management Lurah/operator dalam satu eksekusi.
   disposisiManagementByUserV2A1C3: {},
   // PATCH PERFORMA 2A-2: proyeksi dan hasil Dashboard Admin selama satu eksekusi.
@@ -10832,7 +10835,17 @@ function ambilPaketDisposisiUserV2A1C2_(idUser) {
   var userKey = normalizeId_(idUser);
   if (!userKey) return { disposisiSaya: [], ringkasan: ringkasanDisposisiKosongV2A1C2_(''), optimasi: '2A-1C.2-empty' };
 
-  if (!PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2) PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 = {};
+  // HOTFIX 3B-0.1: pertahanan berlapis untuk eksekusi lama/cold start.
+  // Tanpa inisialisasi ini, penulisan cache kompatibilitas di bawah dapat gagal
+  // dengan: Cannot set properties of undefined (setting '<ID_USER>').
+  if (!PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C ||
+      typeof PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C !== 'object') {
+    PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C = {};
+  }
+  if (!PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 ||
+      typeof PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 !== 'object') {
+    PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 = {};
+  }
   if (PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey]) return PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey];
 
   var cached = bacaPaketDisposisiCacheV2A1C2_(userKey);
@@ -18394,4 +18407,24 @@ statusIndexLaporan2B0 = function () {
 };
 
 // ===== END PATCH PERFORMA 2B-1 =====
+
+// ===== HOTFIX 3B-0.1: DIAGNOSTIK RUNTIME CACHE DISPOSISI =====
+function maintenanceDiagnostikCacheDisposisi3B01() {
+  var maintainer = wajibMaintainerPortal3B0_("maintenanceDiagnostikCacheDisposisi3B01");
+  var cache = PORTAL_RUNTIME_CACHE_ || {};
+  var hasil = {
+    sukses: true,
+    versi: "3B0.1-2026.06.28.03",
+    maintainerAktif: maintainer.email || "",
+    runtimeCache: {
+      disposisiSharedByUserV2A1C2: !!cache.disposisiSharedByUserV2A1C2 && typeof cache.disposisiSharedByUserV2A1C2 === "object",
+      disposisiSayaByUserV2A1C: !!cache.disposisiSayaByUserV2A1C && typeof cache.disposisiSayaByUserV2A1C === "object",
+      laporanDisposisiIndexByUser: !!cache.laporanDisposisiIndexByUser && typeof cache.laporanDisposisiIndexByUser === "object"
+    },
+    pesan: "Runtime cache Disposisi siap."
+  };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+// ===== END HOTFIX 3B-0.1 =====
 
