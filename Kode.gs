@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.28.01";
+var APP_VERSION = "2026.06.28.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -197,7 +197,7 @@ function cariJabatanRole_(jabatan) {
 // 1. Update APP_VERSION above if you made changes to constants
 // 2. Deploy as new version in Google Apps Script
 // 3. Run initialization functions from Script Editor:
-//    → Run: initializeAppConstants()
+//    → Run: maintenanceInitializeAppConstants3B0()
 //    → This saves all constants to PropertiesService
 //    → Run: refreshMasterTunjanganCache()  [NEW v2026.04.20.9]
 //    → This pre-caches Master Tunjangan data for performance
@@ -221,7 +221,7 @@ function cariJabatanRole_(jabatan) {
 // These constants are shared between backend (Kode.js) and frontend (Index.html)
 // to ensure single source of truth and prevent sync issues
 
-function initializeAppConstants() {
+function initializeAppConstantsInternal3B0_() {
   try {
     var constants = JSON.parse(JSON.stringify(APP_SHARED_DEFAULTS));
     constants.APP_VERSION = APP_VERSION;
@@ -236,32 +236,236 @@ function initializeAppConstants() {
   }
 }
 
+function mergeKonstantaAplikasi3B0_(base, override) {
+  var out = base && typeof base === "object" ? JSON.parse(JSON.stringify(base)) : {};
+  if (!override || typeof override !== "object") return out;
+
+  Object.keys(override).forEach(function (key) {
+    if (key === "__proto__" || key === "prototype" || key === "constructor") return;
+    var value = override[key];
+    var isPlainObject = value && typeof value === "object" && !Array.isArray(value) && !(value instanceof Date);
+    var baseIsPlainObject = out[key] && typeof out[key] === "object" && !Array.isArray(out[key]) && !(out[key] instanceof Date);
+    out[key] = isPlainObject && baseIsPlainObject
+      ? mergeKonstantaAplikasi3B0_(out[key], value)
+      : JSON.parse(JSON.stringify(value));
+  });
+  return out;
+}
+
 function ambilConstantsAplikasi() {
   try {
-    var props = PropertiesService.getScriptProperties();
-    var constantsJson = props.getProperty("APP_CONSTANTS");
+    var defaults = JSON.parse(JSON.stringify(APP_SHARED_DEFAULTS || {}));
+    defaults.APP_VERSION = APP_VERSION;
 
-    if (!constantsJson) {
-      // Fallback if constants not initialized yet
-      Logger.log("⚠️ Constants not found in PropertiesService, initializing now...");
-      initializeAppConstants();
-      constantsJson = props.getProperty("APP_CONSTANTS");
+    var constantsJson = portalScriptProperties_().getProperty("APP_CONSTANTS") || "";
+    var stored = {};
+    var source = "DEFAULT_RUNTIME";
+
+    if (constantsJson) {
+      try {
+        stored = JSON.parse(constantsJson) || {};
+        source = "SCRIPT_PROPERTIES";
+      } catch (parseError) {
+        Logger.log("Peringatan 3B-0: APP_CONSTANTS tidak valid. Menggunakan default runtime tanpa menulis Script Properties.");
+      }
     }
 
-    var constants = JSON.parse(constantsJson || "{}");
+    var constants = mergeKonstantaAplikasi3B0_(defaults, stored);
+    constants.APP_VERSION = APP_VERSION;
+
     return {
       sukses: true,
       data: constants,
+      source: source,
       timestamp: new Date().toString()
     };
   } catch (e) {
     return handleError("ambilConstantsAplikasi", e, {
       sukses: false,
       pesan: "",
-      data: {}
+      data: mergeKonstantaAplikasi3B0_(JSON.parse(JSON.stringify(APP_SHARED_DEFAULTS || {})), { APP_VERSION: APP_VERSION })
     });
   }
 }
+
+// ===== TAHAP 3B-0: HARDENING FUNGSI MAINTENANCE PUBLIC =====
+var PORTAL_MAINTENANCE_3B0_CONFIG = {
+  VERSION: "3B0-2026.06.28.02",
+  EMAILS_PROPERTY: "PORTAL_MAINTENANCE_EMAILS",
+  LEGACY_INDEX_EMAIL_PROPERTY: "INDEX_LAPORAN_MAINTAINER_EMAIL"
+};
+
+var PORTAL_MAINTENANCE_PUBLIC_REGISTRY_3B0 = {
+  maintenanceStatusPortal3B0: "OWNER_ONLY_READ",
+  maintenanceInitializeAppConstants3B0: "OWNER_ONLY_WRITE_PROPERTIES",
+  maintenanceSiapkanKolomKeamananPin3B0: "OWNER_ONLY_SCHEMA",
+  maintenanceSiapkanKolomDetailRekap3B0: "OWNER_ONLY_SCHEMA",
+  maintenancePerbaikiPeriodeTunjangan3B0: "OWNER_ONLY_DATA_FIX",
+  initializeAppConstants: "BLOCKED_COMPATIBILITY_STUB",
+  siapkanKolomKeamananPinPegawai: "BLOCKED_COMPATIBILITY_STUB",
+  siapkanKolomDetailFormRekapKinerja: "BLOCKED_COMPATIBILITY_STUB",
+  perbaikiKolomPeriodeTunjangan: "BLOCKED_COMPATIBILITY_STUB",
+  logAudit: "BLOCKED_COMPATIBILITY_STUB",
+  logAI: "BLOCKED_COMPATIBILITY_STUB",
+  dapatkanAtauBuatFolder: "BLOCKED_COMPATIBILITY_STUB"
+};
+
+function daftarEmailMaintainerPortal3B0_() {
+  var map = {};
+  function add(raw) {
+    String(raw || "").split(/[;,\s]+/).forEach(function (email) {
+      email = String(email || "").trim().toLowerCase();
+      if (email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) map[email] = true;
+    });
+  }
+
+  var props = portalScriptProperties_();
+  add(props.getProperty(PORTAL_MAINTENANCE_3B0_CONFIG.EMAILS_PROPERTY));
+  add(props.getProperty(PORTAL_MAINTENANCE_3B0_CONFIG.LEGACY_INDEX_EMAIL_PROPERTY));
+
+  // Fallback aman untuk Spreadsheet milik pribadi. Pada Shared Drive, set
+  // PORTAL_MAINTENANCE_EMAILS secara eksplisit karena getOwner() dapat kosong.
+  try {
+    var spreadsheetId = String(props.getProperty("SPREADSHEET_ID") || "").trim();
+    if (spreadsheetId) {
+      var owner = DriveApp.getFileById(spreadsheetId).getOwner();
+      if (owner) add(owner.getEmail());
+    }
+  } catch (ownerError) {
+    Logger.log("Peringatan 3B-0: pemilik Spreadsheet tidak dapat dibaca. " + getInternalErrorMessage_(ownerError));
+  }
+
+  return Object.keys(map).sort();
+}
+
+function pastikanMaintainerPortal3B0_(aksi) {
+  var activeEmail = "";
+  try {
+    activeEmail = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
+  } catch (e) { }
+
+  var allowed = daftarEmailMaintainerPortal3B0_();
+  if (!activeEmail) {
+    throw new Error("Akses maintenance ditolak: email pengguna aktif tidak tersedia. Jalankan dari Apps Script Editor dengan akun maintainer.");
+  }
+  if (allowed.indexOf(activeEmail) < 0) {
+    throw new Error("Akses maintenance ditolak untuk akun aktif. Atur Script Property PORTAL_MAINTENANCE_EMAILS bila Spreadsheet berada di Shared Drive.");
+  }
+
+  return {
+    email: activeEmail,
+    aksi: normalisasiNilaiLog3B0_(aksi || "MAINTENANCE", 160),
+    waktu: new Date()
+  };
+}
+
+function catatMaintenancePortal3B0_(ctx, status, detail) {
+  try {
+    logAudit_(
+      "MAINTENANCE:" + (ctx && ctx.email ? ctx.email : "UNKNOWN"),
+      "3B0_" + normalisasiNilaiLog3B0_(status || "INFO", 80) + "_" + normalisasiNilaiLog3B0_(ctx && ctx.aksi ? ctx.aksi : "UNKNOWN", 120),
+      detail || ""
+    );
+  } catch (e) {
+    Logger.log("Peringatan 3B-0: audit maintenance gagal. " + getInternalErrorMessage_(e));
+  }
+}
+
+function hasilEndpointMaintenanceDiblokir3B0_(namaFungsi) {
+  Logger.log("3B-0 BLOCKED public maintenance endpoint: " + String(namaFungsi || "UNKNOWN"));
+  return {
+    sukses: false,
+    kode: "MAINTENANCE_ENDPOINT_PRIVATE_3B0",
+    pesan: "Fungsi maintenance ini tidak dapat dipanggil langsung dari Portal. Jalankan fungsi maintenance3B0 yang sesuai dari Apps Script Editor menggunakan akun maintainer."
+  };
+}
+
+function maintenanceStatusPortal3B0() {
+  var ctx = pastikanMaintainerPortal3B0_("STATUS_HARDENING");
+  try {
+    var result = {
+      sukses: true,
+      versi: PORTAL_MAINTENANCE_3B0_CONFIG.VERSION,
+      maintainerAktif: ctx.email,
+      configuredMaintainers: daftarEmailMaintainerPortal3B0_(),
+      publicRegistry: PORTAL_MAINTENANCE_PUBLIC_REGISTRY_3B0,
+      constantsSourceIsReadOnly: true,
+      pesan: "Hardening maintenance 3B-0 aktif."
+    };
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    return handleError("maintenanceStatusPortal3B0", e, { sukses: false, pesan: "" });
+  }
+}
+
+function maintenanceInitializeAppConstants3B0() {
+  var ctx = pastikanMaintainerPortal3B0_("INITIALIZE_APP_CONSTANTS");
+  try {
+    var result = initializeAppConstantsInternal3B0_();
+    var ok = !!(result && result.sukses === true);
+    catatMaintenancePortal3B0_(ctx, ok ? "SUCCESS" : "FAILED", result);
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
+    return handleError("maintenanceInitializeAppConstants3B0", e, { sukses: false, pesan: "" });
+  }
+}
+
+function maintenanceSiapkanKolomKeamananPin3B0() {
+  var ctx = pastikanMaintainerPortal3B0_("SIAPKAN_KOLOM_KEAMANAN_PIN");
+  try {
+    var result = siapkanKolomKeamananPinPegawaiInternal3B0_();
+    var ok = !!(result && result.sukses === true);
+    catatMaintenancePortal3B0_(ctx, ok ? "SUCCESS" : "FAILED", result);
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
+    return handleError("maintenanceSiapkanKolomKeamananPin3B0", e, { sukses: false, pesan: "" });
+  }
+}
+
+function maintenanceSiapkanKolomDetailRekap3B0() {
+  var ctx = pastikanMaintainerPortal3B0_("SIAPKAN_KOLOM_DETAIL_REKAP");
+  try {
+    var result = siapkanKolomDetailFormRekapKinerja_();
+    var ok = !!(result && result.sukses === true);
+    catatMaintenancePortal3B0_(ctx, ok ? "SUCCESS" : "FAILED", result);
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
+    return handleError("maintenanceSiapkanKolomDetailRekap3B0", e, { sukses: false, pesan: "" });
+  }
+}
+
+function maintenancePerbaikiPeriodeTunjangan3B0() {
+  var ctx = pastikanMaintainerPortal3B0_("PERBAIKI_PERIODE_TUNJANGAN");
+  try {
+    var result = perbaikiKolomPeriodeTunjanganInternal3B0_();
+    var ok = !!(result && result.sukses === true);
+    catatMaintenancePortal3B0_(ctx, ok ? "SUCCESS" : "FAILED", result);
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
+    return handleError("maintenancePerbaikiPeriodeTunjangan3B0", e, { sukses: false, pesan: "" });
+  }
+}
+
+// Compatibility stubs: nama lama tetap ada agar pemanggilan lama gagal secara
+// jelas, tetapi tidak lagi mempunyai side effect.
+function initializeAppConstants() { return hasilEndpointMaintenanceDiblokir3B0_("initializeAppConstants"); }
+function siapkanKolomKeamananPinPegawai() { return hasilEndpointMaintenanceDiblokir3B0_("siapkanKolomKeamananPinPegawai"); }
+function siapkanKolomDetailFormRekapKinerja() { return hasilEndpointMaintenanceDiblokir3B0_("siapkanKolomDetailFormRekapKinerja"); }
+function perbaikiKolomPeriodeTunjangan() { return hasilEndpointMaintenanceDiblokir3B0_("perbaikiKolomPeriodeTunjangan"); }
+function logAudit() { return hasilEndpointMaintenanceDiblokir3B0_("logAudit"); }
+function logAI() { return hasilEndpointMaintenanceDiblokir3B0_("logAI"); }
+function dapatkanAtauBuatFolder() { return hasilEndpointMaintenanceDiblokir3B0_("dapatkanAtauBuatFolder"); }
+// ===== END TAHAP 3B-0 =====
+
 
 // ===== DEBUG HELPERS =====
 
@@ -1277,11 +1481,47 @@ function cekHakAksesPredikatPimpinan(idUser) {
   return cekHakAksesAdmin(idUser);
 }
 
-function logAudit(idUser, aksi, detail) {
+function normalisasiNilaiLog3B0_(value, maxLength) {
+  var textValue = "";
   try {
-    getSheet_("Audit_Log").appendRow([new Date(), idUser, aksi, detail]);
+    if (value === null || typeof value === "undefined") {
+      textValue = "";
+    } else if (typeof value === "string") {
+      textValue = value;
+    } else if (typeof value === "object") {
+      textValue = JSON.stringify(value);
+    } else {
+      textValue = String(value);
+    }
   } catch (e) {
-    Logger.log("Peringatan: Gagal mencatat logAudit. Detail: " + e.message);
+    textValue = String(value || "");
+  }
+
+  textValue = textValue
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+
+  var limit = Math.max(1, Number(maxLength || 4000));
+  if (textValue.length > limit) {
+    textValue = textValue.substring(0, limit) + "...[DIPOTONG_3B0]";
+  }
+
+  // Cegah formula injection pada sel Spreadsheet.
+  if (/^[=+\-@]/.test(textValue)) textValue = "'" + textValue;
+  return textValue;
+}
+
+function logAudit_(idUser, aksi, detail) {
+  try {
+    getSheet_("Audit_Log").appendRow([
+      new Date(),
+      normalisasiNilaiLog3B0_(idUser, 160),
+      normalisasiNilaiLog3B0_(aksi, 160),
+      normalisasiNilaiLog3B0_(detail, 6000)
+    ]);
+  } catch (e) {
+    Logger.log("Peringatan: Gagal mencatat logAudit_. Detail: " + getInternalErrorMessage_(e));
   }
 }
 
@@ -1343,7 +1583,7 @@ function catatErrorInternal_(functionName, error, errorId) {
   Logger.log("ERROR_ID " + errorId + " in " + functionName + ": " + msg + stack);
 
   try {
-    logAudit("SYSTEM", "ERROR_" + functionName, "Error ID: " + errorId + " | " + msg);
+    logAudit_("SYSTEM", "ERROR_" + functionName, "Error ID: " + errorId + " | " + msg);
   } catch (auditErr) {
     Logger.log("Peringatan: Gagal mencatat audit error untuk " + functionName + ". Error ID: " + errorId + ". Detail audit: " + getInternalErrorMessage_(auditErr));
   }
@@ -1383,25 +1623,23 @@ function handleError(functionName, error, defaultReturn) {
 
 // FIX BUG: Tambah parameter namaModel — sebelumnya 'modelAI' direferensikan
 // sebagai variabel bebas yang tidak pernah terdefinisi (selalu undefined).
-function logAI(idLaporan, prompt, respons, poin, statusObj, indexRekap, namaModel) {
+function logAI_(idLaporan, prompt, respons, poin, statusObj, indexRekap, namaModel) {
   try {
-    // Status bisa = "PENDING", "SELESAI", "ERROR"
+    // Status bisa = "PENDING", "SELESAI", "ERROR".
+    // Payload dibatasi agar AI_Logs tidak menerima sel sangat besar atau formula.
     var C = SHEET_COLUMNS.AI_LOGS;
-    var status = statusObj || "SELESAI";
-    var idx = indexRekap || "";
-    var modelLabel = namaModel || "gemini-2.5-flash";
     var row = [];
     row[C.WAKTU] = new Date();
-    row[C.ID_LAPORAN] = idLaporan;
-    row[C.PROMPT] = prompt;
-    row[C.RESPONS] = respons;
-    row[C.POIN] = poin;
-    row[C.STATUS] = status;
-    row[C.INDEX_REKAP] = idx;
-    row[C.MODEL] = modelLabel;
+    row[C.ID_LAPORAN] = normalisasiNilaiLog3B0_(idLaporan, 200);
+    row[C.PROMPT] = normalisasiNilaiLog3B0_(prompt, 12000);
+    row[C.RESPONS] = normalisasiNilaiLog3B0_(respons, 20000);
+    row[C.POIN] = isFinite(Number(poin)) ? Number(poin) : 0;
+    row[C.STATUS] = normalisasiNilaiLog3B0_(statusObj || "SELESAI", 120);
+    row[C.INDEX_REKAP] = normalisasiNilaiLog3B0_(indexRekap || "", 120);
+    row[C.MODEL] = normalisasiNilaiLog3B0_(namaModel || "gemini-2.5-flash", 160);
     ensureSheetAILogs_().appendRow(row);
   } catch (e) {
-    Logger.log("Peringatan: Gagal mencatat logAI. Detail: " + e.message);
+    Logger.log("Peringatan: Gagal mencatat logAI_. Detail: " + getInternalErrorMessage_(e));
   }
 }
 
@@ -1414,7 +1652,7 @@ function folderCacheKey_(parentFolder, namaFolder) {
   return 'FOLDER_ID_CHILD_' + parentId + '_' + safeName;
 }
 
-function dapatkanAtauBuatFolder(parentFolder, namaFolder) {
+function dapatkanAtauBuatFolder_(parentFolder, namaFolder) {
   if (!parentFolder) throw new Error('Folder induk tidak valid.');
   namaFolder = String(namaFolder || '').trim();
   if (!namaFolder) throw new Error('Nama folder tidak boleh kosong.');
@@ -2447,7 +2685,7 @@ function koreksiLaporanLewatCutoffPeriode_(periode, tanggalMulai, tanggalAkhir, 
 
     if (dikoreksi || sudahLewatCutoff) invalidasiCacheRekapKinerjaReadOnly_();
 
-    logAudit("SYSTEM", "KOREKSI_LEWAT_CUTOFF", p + " | Cut-off: " + meta.tanggalCutoff + " | Dikoreksi: " + dikoreksi + " | Sudah Lewat Cut-off: " + sudahLewatCutoff + " | Total Lewat: " + totalLewat);
+    logAudit_("SYSTEM", "KOREKSI_LEWAT_CUTOFF", p + " | Cut-off: " + meta.tanggalCutoff + " | Dikoreksi: " + dikoreksi + " | Sudah Lewat Cut-off: " + sudahLewatCutoff + " | Total Lewat: " + totalLewat);
 
     var hasil = {
       sukses: true,
@@ -3033,7 +3271,7 @@ function ensureDataPegawaiSecurityColumns_() {
   return sh;
 }
 
-function siapkanKolomKeamananPinPegawai() {
+function siapkanKolomKeamananPinPegawaiInternal3B0_() {
   try {
     ensureDataPegawaiSecurityColumns_();
     getPinPepper_();
@@ -3121,7 +3359,7 @@ function migrasiPinPegawaiKeV2_(idUser, pin, username) {
       if (idsEqual_(values[i][SHEET_COLUMNS.DATA_PEGAWAI.ID], idUser)) {
         simpanPinPegawaiV2ByRow_(sheet, i + 1, pin);
         bersihkanCacheDataPegawai_();
-        logAudit(idUser, "MIGRASI_PIN_HASH_V2", "Username: " + (username || ""));
+        logAudit_(idUser, "MIGRASI_PIN_HASH_V2", "Username: " + (username || ""));
         return true;
       }
     }
@@ -3285,7 +3523,7 @@ function adminGantiPinPegawai(username, pinBaru6Digit, token) {
     clearLoginUserFailures_(user);
 
     var admin = getPegawaiById_(idUserAdmin) || {};
-    logAudit(idUserAdmin, "GANTI_PIN_ADMIN", "Admin: " + (admin.nama || '') + " | Username: " + user + " | Nama: " + namaPegawai + " | Hash: v2");
+    logAudit_(idUserAdmin, "GANTI_PIN_ADMIN", "Admin: " + (admin.nama || '') + " | Username: " + user + " | Nama: " + namaPegawai + " | Hash: v2");
 
     return { sukses: true, pesan: "PIN berhasil diganti untuk " + (namaPegawai || user) + "." };
   } catch (e) {
@@ -3321,15 +3559,15 @@ function cekLogin(username, pin, clientId) {
     var jumlahGagalGlobal = ambilCounterLogin_(cache, keyGlobal);
 
     if (jumlahGagalUser >= maxUser) {
-      logAudit('SYSTEM', 'LOGIN_BLOCKED_USER', 'Username dibatasi sementara: ' + inputUserBersih + ' | failUser=' + jumlahGagalUser);
+      logAudit_('SYSTEM', 'LOGIN_BLOCKED_USER', 'Username dibatasi sementara: ' + inputUserBersih + ' | failUser=' + jumlahGagalUser);
       return { sukses: false, pesan: loginThrottleMessage_() };
     }
     if (jumlahGagalClient >= maxClient) {
-      logAudit('SYSTEM', 'LOGIN_BLOCKED_CLIENT', 'Client dibatasi sementara: ' + hashKeyPendek_(clientId || 'missing-client') + ' | failClient=' + jumlahGagalClient);
+      logAudit_('SYSTEM', 'LOGIN_BLOCKED_CLIENT', 'Client dibatasi sementara: ' + hashKeyPendek_(clientId || 'missing-client') + ' | failClient=' + jumlahGagalClient);
       return { sukses: false, pesan: loginThrottleMessage_() };
     }
     if (jumlahGagalGlobal >= maxGlobal) {
-      logAudit('SYSTEM', 'LOGIN_BLOCKED_GLOBAL', 'Login global dibatasi sementara | failGlobal=' + jumlahGagalGlobal);
+      logAudit_('SYSTEM', 'LOGIN_BLOCKED_GLOBAL', 'Login global dibatasi sementara | failGlobal=' + jumlahGagalGlobal);
       return { sukses: false, pesan: loginThrottleMessage_() };
     }
 
@@ -3371,7 +3609,7 @@ function cekLogin(username, pin, clientId) {
             idsEqual_(petugasDisposisiAktifLogin.pegawaiId, idUserLogin)
           );
 
-          logAudit(idUserLogin, "LOGIN", "Sukses login" + (verifikasi.legacy ? " | PIN hash dimigrasikan ke v2" : ""));
+          logAudit_(idUserLogin, "LOGIN", "Sukses login" + (verifikasi.legacy ? " | PIN hash dimigrasikan ke v2" : ""));
           return {
             sukses: true,
             token: token,
@@ -3401,7 +3639,7 @@ function cekLogin(username, pin, clientId) {
     var alasan = usernameDitemukan
       ? (statusPinSalah ? 'PIN salah' : 'Verifikasi PIN gagal')
       : 'Username tidak ditemukan';
-    logAudit(
+    logAudit_(
       'SYSTEM',
       'LOGIN_FAIL',
       alasan + ' | user=' + inputUserBersih +
@@ -3444,7 +3682,7 @@ var REKAP_KINERJA_DETAIL_HEADERS = [
   "apbkal_carik_lokasi", "staf_instruksi_lokasi"
 ];
 
-function siapkanKolomDetailFormRekapKinerja() {
+function siapkanKolomDetailFormRekapKinerja_() {
   var sh = getSheet_("Rekap_Kinerja");
   var startCol = 30; // AD dalam indeks 1-based
   var totalNeeded = startCol + REKAP_KINERJA_DETAIL_HEADERS.length - 1; // sampai BS
@@ -4046,9 +4284,9 @@ function uploadBuktiKinerjaBlob(formObj) {
     var timestamp = Utilities.formatDate(now, 'GMT+7', 'yyyyMMdd_HHmmss');
     var tahunStr = Utilities.formatDate(now, 'GMT+7', 'yyyy');
     var rootFolder = DriveApp.getFolderById(folderRootId);
-    var folderTahun = dapatkanAtauBuatFolder(rootFolder, tahunStr);
-    var folderFotoUtama = dapatkanAtauBuatFolder(folderTahun, 'FOTO');
-    var folderPDFUtama = dapatkanAtauBuatFolder(folderTahun, 'PDF');
+    var folderTahun = dapatkanAtauBuatFolder_(rootFolder, tahunStr);
+    var folderFotoUtama = dapatkanAtauBuatFolder_(folderTahun, 'FOTO');
+    var folderPDFUtama = dapatkanAtauBuatFolder_(folderTahun, 'PDF');
 
     var results = [];
     var MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -4357,10 +4595,10 @@ function muatKonfigurasiSubmitKinerja_(ctx) {
   ctx.tahunBulanStr = Utilities.formatDate(d, "GMT+7", "yyyy-MM");
 
   ctx.rootFolder = DriveApp.getFolderById(ctx.folderRootId);
-  ctx.folderTahun = dapatkanAtauBuatFolder(ctx.rootFolder, ctx.tahunStr);
-  ctx.folderFotoUtama = dapatkanAtauBuatFolder(ctx.folderTahun, "FOTO");
-  ctx.folderPDFUtama = dapatkanAtauBuatFolder(ctx.folderTahun, "PDF");
-  dapatkanAtauBuatFolder(ctx.folderTahun, "BACKUP");
+  ctx.folderTahun = dapatkanAtauBuatFolder_(ctx.rootFolder, ctx.tahunStr);
+  ctx.folderFotoUtama = dapatkanAtauBuatFolder_(ctx.folderTahun, "FOTO");
+  ctx.folderPDFUtama = dapatkanAtauBuatFolder_(ctx.folderTahun, "PDF");
+  dapatkanAtauBuatFolder_(ctx.folderTahun, "BACKUP");
 }
 
 function validasiPayloadSubmitKinerja_(paket, pegawaiUser) {
@@ -4759,7 +4997,7 @@ function buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi) {
 function simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, barisBaru) {
   // Siapkan schema sebelum lock simpan final. Fungsi ini sudah memakai guard
   // sehingga pada kondisi normal tidak menulis header berulang kali.
-  siapkanKolomDetailFormRekapKinerja();
+  siapkanKolomDetailFormRekapKinerja_();
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -4872,10 +5110,10 @@ function jalankanEfekSampingSubmitKinerja_(ctx, draft, evaluasi, lastRowIdx) {
   // Pekerjaan non-kritis dilakukan setelah lock final dilepas agar antrean submit
   // dan review admin tidak tertahan oleh audit/disposisi/log AI.
   if (ctx.aiAktif) {
-    logAI(ctx.idLaporan, evaluasi.promptAI, "", evaluasi.parsed.poin, "PENDING", lastRowIdx, "gemini-2.5-flash");
+    logAI_(ctx.idLaporan, evaluasi.promptAI, "", evaluasi.parsed.poin, "PENDING", lastRowIdx, "gemini-2.5-flash");
   }
 
-  logAudit(ctx.idUser, "SUBMIT_LAPORAN", ctx.idLaporan);
+  logAudit_(ctx.idUser, "SUBMIT_LAPORAN", ctx.idLaporan);
 
   if (draft.disposisiRef && draft.disposisiRef.idDisposisi) {
     try {
@@ -5281,7 +5519,7 @@ function rapikanBahasaLaporanAI(teks, konteks, token) {
 
     hasil = sanitizeForSheet_(hasil).substring(0, 5000);
     try {
-      logAI("PREVIEW_RAPIKAN_BAHASA", promptAI, hasilAI ? (hasilAI.raw || "") : "", 0, "PREVIEW", 0, "gemini-2.5-flash");
+      logAI_("PREVIEW_RAPIKAN_BAHASA", promptAI, hasilAI ? (hasilAI.raw || "") : "", 0, "PREVIEW", 0, "gemini-2.5-flash");
     } catch (logErr) { }
 
     return {
@@ -6198,7 +6436,7 @@ function simpanRevisiLaporanDitolakPegawai(paket, token) {
       lock.releaseLock();
     }
 
-    logAudit(idUser, 'REVISI_LAPORAN_PEGAWAI', idLaporan + ' | Revisi ke-' + revisiKe);
+    logAudit_(idUser, 'REVISI_LAPORAN_PEGAWAI', idLaporan + ' | Revisi ke-' + revisiKe);
     return '✅ Revisi laporan tersimpan. Status kembali menjadi Menunggu Review untuk diperiksa Admin.';
   } catch (e) {
     return pesanErrorStringAman_('simpanRevisiLaporanDitolakPegawai', e, '❌ ');
@@ -7847,7 +8085,7 @@ function prosesReviewAdmin(idLaporan, status, poinFinal, catatan, token) {
   } finally {
     lock.releaseLock();
     if (auditReviewDetail) {
-      logAudit(idAdmin, "REVIEW_LAPORAN", auditReviewDetail);
+      logAudit_(idAdmin, "REVIEW_LAPORAN", auditReviewDetail);
     }
   }
 }
@@ -8831,7 +9069,7 @@ function getFolderRootDisposisi_() {
   }
   var root = DriveApp.getFolderById(folderIdDisposisi || folderIdBukti);
   if (!folderIdDisposisi && folderIdBukti) {
-    root = dapatkanAtauBuatFolder(root, "DISPOSISI_SURAT");
+    root = dapatkanAtauBuatFolder_(root, "DISPOSISI_SURAT");
   }
   return root;
 }
@@ -8848,8 +9086,8 @@ function getTargetFolderLampiranDisposisi_(tanggalDisposisi, isPdf) {
   var root = getFolderRootDisposisi_();
   var d = parseTanggalKosongAman_(tanggalDisposisi) || new Date();
   var tahun = Utilities.formatDate(d, "GMT+7", "yyyy");
-  var folderTahun = dapatkanAtauBuatFolder(root, tahun);
-  return dapatkanAtauBuatFolder(folderTahun, isPdf ? "PDF" : "FOTO");
+  var folderTahun = dapatkanAtauBuatFolder_(root, tahun);
+  return dapatkanAtauBuatFolder_(folderTahun, isPdf ? "PDF" : "FOTO");
 }
 
 function simpanLampiranDisposisiBytes_(bytesUpload, mimeType, fileName, nomorDisposisi, tanggalDisposisi, perihal) {
@@ -10972,10 +11210,10 @@ function getDisposisiBootstrap(token) {
 // ===== END DISPOSISI SURAT TAHAP 1C =====
 
 // ===== PATCH UTILITAS TUNJANGAN APRIL 2026 =====
-// Jalankan perbaikiKolomPeriodeTunjangan() satu kali setelah paste kode ini,
+// Jalankan maintenancePerbaikiPeriodeTunjangan3B0() satu kali setelah paste kode ini,
 // terutama jika data draft sebelumnya sudah terlanjur tersimpan dengan kolom periode
 // yang dibaca sebagai Date oleh Google Sheets.
-function perbaikiKolomPeriodeTunjangan() {
+function perbaikiKolomPeriodeTunjanganInternal3B0_() {
   var sh = ensureSheetRekapTunjanganBulanan_();
   var lastRow = sh.getLastRow();
 
@@ -11198,7 +11436,7 @@ function koreksiLaporanBlackoutCutoffApril2026_() {
 
     if (poinDinolkan || statusDisetujuiDikoreksi || statusSudahLewatCutoff) invalidasiCacheRekapKinerjaReadOnly_();
 
-    logAudit("SYSTEM", "KOREKSI_BLACKOUT_CUTOFF_APRIL_2026", "Cut-off: " + meta.tanggalCutoff + " | Buka kembali: 2026-04-28 00:00:00 | Status disetujui dikoreksi: " + statusDisetujuiDikoreksi + " | Poin dinolkan: " + poinDinolkan + " | Total blackout: " + totalBlackout);
+    logAudit_("SYSTEM", "KOREKSI_BLACKOUT_CUTOFF_APRIL_2026", "Cut-off: " + meta.tanggalCutoff + " | Buka kembali: 2026-04-28 00:00:00 | Status disetujui dikoreksi: " + statusDisetujuiDikoreksi + " | Poin dinolkan: " + poinDinolkan + " | Total blackout: " + totalBlackout);
 
     var hasil = {
       sukses: true,
@@ -11349,7 +11587,7 @@ function simpanCutoffInputLaporanPeriode(periode, tanggalMulai, tanggalAkhir, ja
 
     var meta = simpanCutoffTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCutoff);
     var buka = tanggalBukaKembaliCutoff_(meta);
-    logAudit(idUser, "SIMPAN_CUTOFF_INPUT_LAPORAN", normalizePeriode_(periode) + " | Cut-off: " + meta.tanggalCutoff + " | Buka kembali: " + formatTanggalJamClient_(buka));
+    logAudit_(idUser, "SIMPAN_CUTOFF_INPUT_LAPORAN", normalizePeriode_(periode) + " | Cut-off: " + meta.tanggalCutoff + " | Buka kembali: " + formatTanggalJamClient_(buka));
     return {
       sukses: true,
       pesan: "Cut-off input laporan berhasil disimpan. Input akan ditutup setelah " + meta.tanggalCutoff + " dan dibuka kembali pada " + formatTanggalJamClient_(buka) + ".",
@@ -12099,7 +12337,7 @@ function simpanCutoffInputLaporanPeriode(periode, tanggalMulai, tanggalAkhir, ja
     var buka = parseTanggal(lock.bukaKembali || '');
     var bukaLabel = (buka instanceof Date && !isNaN(buka.getTime())) ? formatTanggalJamClient_(buka) : (lock.bukaKembali || '-');
 
-    logAudit(idUser, 'SIMPAN_CUTOFF_INPUT_LAPORAN', normalizePeriode_(periode) + ' | Cut-off: ' + meta.tanggalCutoff + ' | Input dibekukan sampai: ' + bukaLabel);
+    logAudit_(idUser, 'SIMPAN_CUTOFF_INPUT_LAPORAN', normalizePeriode_(periode) + ' | Cut-off: ' + meta.tanggalCutoff + ' | Input dibekukan sampai: ' + bukaLabel);
     return {
       sukses: true,
       pesan: 'Cut-off input laporan berhasil disimpan. Input laporan akan dibekukan setelah ' + meta.tanggalCutoff + ' dan dibuka kembali pada ' + bukaLabel + '.',
@@ -12224,7 +12462,7 @@ function simpanTutupPeriodeLaporan(payload, token) {
     PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36 = null;
     invalidasiCacheAdminDashboardV2A2_();
 
-    logAudit(
+    logAudit_(
       idUser,
       'TUTUP_PERIODE_LAPORAN',
       periode + ' | Batas akhir: ' + formatTutupPeriodeClient_(cutoff) + ' | Alasan: ' + alasan
@@ -12264,7 +12502,7 @@ function bukaPeriodeLaporan(payload, token) {
     PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36 = null;
     invalidasiCacheAdminDashboardV2A2_();
 
-    logAudit(
+    logAudit_(
       idUser,
       'BUKA_PERIODE_LAPORAN',
       periode + ' | Alasan: ' + alasan
@@ -12865,7 +13103,7 @@ function normalisasiStatusLewatCutoffLama(token) {
     }
 
     invalidasiCacheRekapKinerjaReadOnly_();
-    logAudit(idUser, "NORMALISASI_STATUS_LEWAT_CUTOFF", "Jumlah dinormalisasi: " + updated);
+    logAudit_(idUser, "NORMALISASI_STATUS_LEWAT_CUTOFF", "Jumlah dinormalisasi: " + updated);
 
     return {
       sukses: true,
@@ -14262,7 +14500,7 @@ function koreksiStatusCutoffLama(ids, catatanKoreksi, token) {
     }
 
     invalidasiCacheRekapKinerjaReadOnly_();
-    logAudit(idAdmin, 'KOREKSI_STATUS_CUTOFF_LAMA', 'Jumlah: ' + updated + '. Detail: ' + detailAudit.join('; '));
+    logAudit_(idAdmin, 'KOREKSI_STATUS_CUTOFF_LAMA', 'Jumlah: ' + updated + '. Detail: ' + detailAudit.join('; '));
 
     return {
       sukses: true,
@@ -14859,7 +15097,7 @@ function terapkanPoinKoreksiCutoffLama(ids, token) {
     }
 
     if (updated) invalidasiCacheRekapKinerjaReadOnly_();
-    logAudit(idAdmin, 'TERAPKAN_POIN_KOREKSI_CUTOFF_LAMA', 'Jumlah: ' + updated + ' | Estimasi delta Rp: ' + totalDeltaRp + ' | ' + audit.join('; '));
+    logAudit_(idAdmin, 'TERAPKAN_POIN_KOREKSI_CUTOFF_LAMA', 'Jumlah: ' + updated + ' | Estimasi delta Rp: ' + totalDeltaRp + ' | ' + audit.join('; '));
 
     return {
       sukses: true,
@@ -15160,7 +15398,7 @@ terapkanPoinKoreksiCutoffLama = function (ids, token) {
     }
 
     if (updated) invalidasiCacheRekapKinerjaReadOnly_();
-    logAudit(idAdmin, 'TERAPKAN_POIN_KOREKSI_CUTOFF_LAMA_V28', 'Jumlah: ' + updated + ' | Estimasi delta Rp: ' + totalDeltaRp + ' | ' + audit.join('; '));
+    logAudit_(idAdmin, 'TERAPKAN_POIN_KOREKSI_CUTOFF_LAMA_V28', 'Jumlah: ' + updated + ' | Estimasi delta Rp: ' + totalDeltaRp + ' | ' + audit.join('; '));
 
     return {
       sukses: true,
@@ -17526,22 +17764,7 @@ function tulisLaporanAuditIndexLaporan2B0_(audit, validation) {
 // wrapper ini jika akun aktif adalah pemilik file Spreadsheet database.
 // Eksekusi manual dari Apps Script Editor oleh pemilik database tetap diizinkan.
 function pastikanPemilikDatabaseIndexLaporan2B0_() {
-  var activeEmail = '';
-  var ownerEmail = String(portalScriptProperties_().getProperty('INDEX_LAPORAN_MAINTAINER_EMAIL') || '').trim().toLowerCase();
-  try { activeEmail = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase(); } catch (eActive) { }
-  if (!ownerEmail) {
-    try {
-      var spreadsheetId = String(portalScriptProperties_().getProperty('SPREADSHEET_ID') || '').trim();
-      if (spreadsheetId) {
-        var owner = DriveApp.getFileById(spreadsheetId).getOwner();
-        ownerEmail = owner ? String(owner.getEmail() || '').trim().toLowerCase() : '';
-      }
-    } catch (eOwner) { }
-  }
-
-  if (!activeEmail || !ownerEmail || activeEmail !== ownerEmail) {
-    throw new Error('Akses maintenance Index_Laporan ditolak. Jalankan fungsi ini dari Apps Script Editor menggunakan akun pemilik Spreadsheet database.');
-  }
+  pastikanMaintainerPortal3B0_("INDEX_LAPORAN_MAINTENANCE");
   return true;
 }
 

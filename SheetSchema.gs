@@ -88,11 +88,17 @@ var SHEET_COLUMNS = {
     DINONAKTIFKAN_OLEH_NAMA: 9, DINONAKTIFKAN_PADA: 10,
     CATATAN: 11
   },
-  // Sheet bayangan tahap 2B-0. Belum digunakan oleh endpoint produksi.
+  // Sheet index laporan. Tahap 2B-1 dapat menulis sinkron secara opsional,
+  // tetapi endpoint baca produksi belum menggunakannya.
   INDEX_LAPORAN: {
     ID_LAPORAN: 0, ROW_REKAP: 1, ID_USER: 2, TANGGAL_LAPORAN: 3,
     PERIODE_RESMI: 4, KATEGORI: 5, STATUS_REVIEW: 6, POIN_FINAL: 7,
     ID_DISPOSISI: 8, NONCE: 9, TERAKHIR_DIUBAH: 10, INDEX_VERSION: 11
+  },
+  INDEX_LAPORAN_SYNC_QUEUE: {
+    QUEUE_ID: 0, WAKTU: 1, OPERATION: 2, ROW_REKAP: 3,
+    ID_LAPORAN: 4, ID_USER: 5, NONCE: 6, CONTEXT: 7,
+    ATTEMPTS: 8, STATUS: 9, LAST_ERROR: 10, DIPROSES_PADA: 11
   },
 
   AI_LOGS: {
