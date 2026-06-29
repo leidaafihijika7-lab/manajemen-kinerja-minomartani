@@ -9670,27 +9670,33 @@
         .getDisposisiShellBootstrap(sToken);
     }
 
-    function muatDisposisiInboxDataV2A1C1_(pageSeq, force) {
+    function muatDisposisiInboxDataV2A1C1_(pageSeq, force, preserveExisting) {
       if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq) return;
       if (!bolehMulaiDisposisiStageV2A1C3_('inbox', !!force)) return;
       if (!force && disposisiBootstrap && disposisiBootstrap.inboxLoaded) return;
       var requestId = ++disposisiLoadStateV2A1C1_.inboxSeq;
+      var pertahankanInbox = !!preserveExisting && !!(disposisiBootstrap && disposisiBootstrap.inboxLoaded !== false && Array.isArray(disposisiBootstrap.disposisiSaya));
       setDisposisiStageActiveV2A1C3_('inbox', true);
-      mergeDisposisiBootstrapV2A1C1_({ inboxRequestStartedV2A1C1: true, inboxLoaded: false, inboxLoading: true, inboxError: '' });
+      mergeDisposisiBootstrapV2A1C1_({
+        inboxRequestStartedV2A1C1: true,
+        inboxLoaded: pertahankanInbox,
+        inboxLoading: true,
+        inboxError: ''
+      });
       renderDisposisiHalaman_(disposisiBootstrap);
       jadwalkanDisposisiStageTimeoutV2A1C3_('inbox', pageSeq, requestId, function () {
         mergeDisposisiBootstrapV2A1C1_({
           inboxLoading: true,
-          inboxLoaded: false,
-          inboxError: 'Inbox masih diproses server. Permintaan baru ditahan agar tidak membangun data yang sama dua kali.'
+          inboxLoaded: pertahankanInbox,
+          inboxError: pertahankanInbox ? '' : 'Inbox masih diproses server. Permintaan baru ditahan agar tidak membangun data yang sama dua kali.'
         });
         renderDisposisiHalaman_(disposisiBootstrap);
       }, function () {
         mergeDisposisiBootstrapV2A1C1_({
           inboxRequestStartedV2A1C1: false,
           inboxLoading: false,
-          inboxLoaded: false,
-          inboxError: 'Inbox belum selesai setelah 60 detik. Tombol coba lagi sekarang tersedia.'
+          inboxLoaded: pertahankanInbox,
+          inboxError: pertahankanInbox ? '' : 'Inbox belum selesai setelah 60 detik. Tombol coba lagi sekarang tersedia.'
         });
       });
 
@@ -9700,7 +9706,12 @@
           clearDisposisiStageTimerV2A1C1_('inbox');
           selesaiDisposisiStageV2A1C3_('inbox');
           if (!res || res.sukses === false) {
-            mergeDisposisiBootstrapV2A1C1_({ inboxRequestStartedV2A1C1: false, inboxLoading: false, inboxLoaded: false, inboxError: (res && res.pesan) || 'Inbox gagal dimuat.' });
+            mergeDisposisiBootstrapV2A1C1_({
+              inboxRequestStartedV2A1C1: false,
+              inboxLoading: false,
+              inboxLoaded: pertahankanInbox,
+              inboxError: pertahankanInbox ? '' : ((res && res.pesan) || 'Inbox gagal dimuat.')
+            });
           } else {
             mergeDisposisiBootstrapV2A1C1_({
               disposisiSaya: Array.isArray(res.disposisiSaya) ? res.disposisiSaya : [],
@@ -9721,7 +9732,12 @@
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
           clearDisposisiStageTimerV2A1C1_('inbox');
           selesaiDisposisiStageV2A1C3_('inbox');
-          mergeDisposisiBootstrapV2A1C1_({ inboxRequestStartedV2A1C1: false, inboxLoading: false, inboxLoaded: false, inboxError: (err && err.message) || err || 'Inbox gagal dimuat.' });
+          mergeDisposisiBootstrapV2A1C1_({
+            inboxRequestStartedV2A1C1: false,
+            inboxLoading: false,
+            inboxLoaded: pertahankanInbox,
+            inboxError: pertahankanInbox ? '' : ((err && err.message) || err || 'Inbox gagal dimuat.')
+          });
           renderDisposisiHalaman_(disposisiBootstrap);
         })
         .getDisposisiInboxData(sToken);
@@ -9836,7 +9852,10 @@
       disposisiBootstrap = localDisposisiShellV2A1C1_();
       renderDisposisiHalaman_(disposisiBootstrap);
       updateDisposisiRefreshButtonV2A1C3_();
-      muatDisposisiShellV2A1C1_(pageSeq, !!force);
+      // HOTFIX 3B-0.3: cooldown force sudah diputuskan di level halaman.
+      // Shell pada pageSeq baru wajib dimulai tanpa diperiksa ulang oleh cooldown stage;
+      // sebelumnya halaman sudah di-reset ke state loading, tetapi request shell dapat tertahan.
+      muatDisposisiShellV2A1C1_(pageSeq, false);
     }
     // ===== END HOTFIX 2A-1C.3 =====
 
@@ -18863,6 +18882,51 @@
       }
     }
 
+    // ===== HOTFIX 3B-0.3: REFRESH INBOX SETELAH STATUS BACA =====
+    // Hindari full-page reload yang dapat masuk celah cooldown page/stage dan
+    // meninggalkan halaman pada local shell (angka "…" + placeholder loading).
+    function refreshInboxDisposisiSetelahDibuka3B03_(idDisposisi) {
+      var pageSeq = Number(disposisiLoadStateV2A1C1_.pageSeq || 0);
+      if (!disposisiBootstrap || pageSeq <= 0) {
+        disposisiLoadStateV2A1C1_.lastPageLoadAt = 0;
+        muatDisposisiHalaman(true);
+        return;
+      }
+
+      var idTarget = String(idDisposisi || '');
+      var list = Array.isArray(disposisiBootstrap.disposisiSaya) ? disposisiBootstrap.disposisiSaya.slice() : [];
+      list = list.map(function (item) {
+        if (String((item && item.idDisposisi) || '') !== idTarget) return item;
+        return Object.assign({}, item || {}, { statusBaca: 'DIBUKA' });
+      });
+
+      if (disposisiLoadStateV2A1C1_.pendingRefreshTimer) {
+        clearTimeout(disposisiLoadStateV2A1C1_.pendingRefreshTimer);
+        disposisiLoadStateV2A1C1_.pendingRefreshTimer = null;
+      }
+      disposisiLoadStateV2A1C1_.pendingForceRefresh = false;
+      clearDisposisiStageTimerV2A1C1_('inbox');
+      disposisiLoadStateV2A1C1_.inboxSeq++;
+      disposisiLoadStateV2A1C1_.inboxActive = false;
+      disposisiLoadStateV2A1C1_.inboxStartedAt = 0;
+      disposisiLoadStateV2A1C1_.inboxCompletedAt = 0;
+
+      mergeDisposisiBootstrapV2A1C1_({
+        disposisiSaya: list,
+        inboxRequestStartedV2A1C1: false,
+        inboxLoaded: true,
+        inboxLoading: false,
+        inboxError: ''
+      });
+      renderDisposisiHalaman_(disposisiBootstrap);
+      updateDisposisiRefreshButtonV2A1C3_();
+
+      // Force hanya untuk melewati shortcut "sudah loaded". completedAt di-reset
+      // agar cooldown stage tidak menahan request ini. Data lama tetap ditampilkan.
+      muatDisposisiInboxDataV2A1C1_(pageSeq, true, true);
+    }
+    // ===== END HOTFIX 3B-0.3 =====
+
     function tandaiDisposisiSudahDibukaUI_(idDisposisi) {
       if (!idDisposisi) return;
       var msg = document.getElementById('disposisiSummary');
@@ -18873,7 +18937,7 @@
             if (msg) msg.innerHTML = '<span class="badge bg-red">Gagal</span> ' + escapeHTML((res && res.pesan) || 'Gagal memperbarui status baca.');
             return;
           }
-          muatDisposisiHalaman(true);
+          refreshInboxDisposisiSetelahDibuka3B03_(idDisposisi);
         })
         .withFailureHandler(function (err) {
           if (msg) msg.innerHTML = '<span class="badge bg-red">Gagal</span> ' + escapeHTML((err && err.message) || err || 'Gagal memperbarui status baca.');
