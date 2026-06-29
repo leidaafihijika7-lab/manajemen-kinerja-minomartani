@@ -88,8 +88,8 @@ var SHEET_COLUMNS = {
     DINONAKTIFKAN_OLEH_NAMA: 9, DINONAKTIFKAN_PADA: 10,
     CATATAN: 11
   },
-  // Sheet index laporan. Tahap 2B-1 dapat menulis sinkron secara opsional,
-  // tetapi endpoint baca produksi belum menggunakannya.
+  // Sheet index laporan. Tahap 2B-1 menulis sinkron secara opsional.
+  // Tahap 2B-2A dapat memakai ROW_REKAP untuk pembacaan Riwayat dengan fallback.
   INDEX_LAPORAN: {
     ID_LAPORAN: 0, ROW_REKAP: 1, ID_USER: 2, TANGGAL_LAPORAN: 3,
     PERIODE_RESMI: 4, KATEGORI: 5, STATUS_REVIEW: 6, POIN_FINAL: 7,

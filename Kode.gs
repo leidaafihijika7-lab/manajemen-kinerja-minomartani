@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.06.29.01";
+var APP_VERSION = "2026.06.29.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -18454,4 +18454,712 @@ function maintenanceDiagnostikCacheDisposisi3B01() {
   return maintenanceDiagnostikCacheDisposisi3B02();
 }
 // ===== END HOTFIX 3B-0.2 =====
+
+// ============================================================================
+// PATCH PERFORMA 2B-2A — READ RIWAYAT PEGAWAI MELALUI INDEX_LAPORAN
+// Versi aplikasi: 2026.06.29.02
+//
+// Prinsip keselamatan:
+// 1) READ_RIWAYAT tetap false secara default dan hanya aktif secara manual.
+// 2) Rekap_Kinerja tetap sumber kebenaran; Index_Laporan hanya memilih ROW_REKAP.
+// 3) Kesehatan index diperiksa sebelum setiap read index.
+// 4) Error/mismatch otomatis fallback ke jalur lama dan membuka circuit breaker.
+// 5) Pencarian keyword tetap memakai jalur lama karena deskripsi/catatan tidak ada di index.
+// 6) Detail laporan (by ID) belum dialihkan pada tahap 2B-2A.
+// ============================================================================
+
+var INDEX_LAPORAN_2B2A_CONFIG = {
+  VERSION: '2B2A-2026.06.29.02',
+  READ_ENABLED_PROPERTY: 'INDEX_LAPORAN_2B2A_READ_RIWAYAT_ENABLED',
+  READ_ENABLED_AT_PROPERTY: 'INDEX_LAPORAN_2B2A_READ_RIWAYAT_ENABLED_AT',
+  SHADOW_PERCENT_PROPERTY: 'INDEX_LAPORAN_2B2A_SHADOW_PERCENT',
+  DEFAULT_SHADOW_PERCENT: 10,
+  CIRCUIT_CACHE_KEY: 'IDX_2B2A_RIWAYAT_CIRCUIT',
+  METRICS_CACHE_KEY: 'IDX_2B2A_RIWAYAT_METRICS',
+  HEADER_CACHE_KEY: 'IDX_2B2A_HEADER_OK',
+  METRICS_TTL_SECONDS: 21600,
+  CIRCUIT_TTL_SECONDS: 300,
+  HEADER_TTL_SECONDS: 600,
+  MAX_BLOCK_SPAN: 300,
+  MAX_BLOCK_GAP: 80,
+  SAMPLE_USERS: 5
+};
+
+function readRiwayatIndexAktif2B2A_() {
+  try {
+    return String(portalScriptProperties_().getProperty(INDEX_LAPORAN_2B2A_CONFIG.READ_ENABLED_PROPERTY) || '').toLowerCase() === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+function persentaseShadowReadRiwayat2B2A_() {
+  var raw = '';
+  try { raw = portalScriptProperties_().getProperty(INDEX_LAPORAN_2B2A_CONFIG.SHADOW_PERCENT_PROPERTY) || ''; } catch (e) { raw = ''; }
+  var n = raw === '' ? INDEX_LAPORAN_2B2A_CONFIG.DEFAULT_SHADOW_PERCENT : Number(raw);
+  if (!isFinite(n)) n = INDEX_LAPORAN_2B2A_CONFIG.DEFAULT_SHADOW_PERCENT;
+  return Math.max(0, Math.min(100, n));
+}
+
+function bacaCircuitReadRiwayat2B2A_() {
+  try {
+    var raw = CacheService.getScriptCache().get(INDEX_LAPORAN_2B2A_CONFIG.CIRCUIT_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function bukaCircuitReadRiwayat2B2A_(reason, detail) {
+  var payload = {
+    aktif: true,
+    reason: String(reason || 'UNKNOWN'),
+    detail: String(detail || '').substring(0, 800),
+    waktu: new Date().toISOString(),
+    ttlDetik: INDEX_LAPORAN_2B2A_CONFIG.CIRCUIT_TTL_SECONDS
+  };
+  try {
+    CacheService.getScriptCache().put(
+      INDEX_LAPORAN_2B2A_CONFIG.CIRCUIT_CACHE_KEY,
+      JSON.stringify(payload),
+      INDEX_LAPORAN_2B2A_CONFIG.CIRCUIT_TTL_SECONDS
+    );
+  } catch (e) { }
+  return payload;
+}
+
+function resetCircuitReadRiwayat2B2A_() {
+  try { CacheService.getScriptCache().remove(INDEX_LAPORAN_2B2A_CONFIG.CIRCUIT_CACHE_KEY); } catch (e) { }
+}
+
+function bacaMetrikReadRiwayat2B2A_() {
+  var kosong = {
+    calls: 0,
+    indexSuccess: 0,
+    legacyDisabled: 0,
+    legacyKeyword: 0,
+    fallbackHealth: 0,
+    fallbackCircuit: 0,
+    fallbackError: 0,
+    shadowChecks: 0,
+    shadowMismatch: 0,
+    totalIndexMs: 0,
+    totalLegacyMs: 0,
+    lastRoute: '',
+    lastDurationMs: 0,
+    lastAt: '',
+    lastError: ''
+  };
+  try {
+    var raw = CacheService.getScriptCache().get(INDEX_LAPORAN_2B2A_CONFIG.METRICS_CACHE_KEY);
+    if (!raw) return kosong;
+    var parsed = JSON.parse(raw) || {};
+    for (var k in kosong) if (Object.prototype.hasOwnProperty.call(kosong, k) && parsed[k] === undefined) parsed[k] = kosong[k];
+    return parsed;
+  } catch (e) {
+    return kosong;
+  }
+}
+
+function catatMetrikReadRiwayat2B2A_(route, durationMs, errorText) {
+  try {
+    var m = bacaMetrikReadRiwayat2B2A_();
+    m.calls = Number(m.calls || 0) + 1;
+    route = String(route || '');
+    if (route === 'INDEX') m.indexSuccess = Number(m.indexSuccess || 0) + 1;
+    else if (route === 'LEGACY_DISABLED') m.legacyDisabled = Number(m.legacyDisabled || 0) + 1;
+    else if (route === 'LEGACY_KEYWORD') m.legacyKeyword = Number(m.legacyKeyword || 0) + 1;
+    else if (route === 'FALLBACK_HEALTH') m.fallbackHealth = Number(m.fallbackHealth || 0) + 1;
+    else if (route === 'FALLBACK_CIRCUIT') m.fallbackCircuit = Number(m.fallbackCircuit || 0) + 1;
+    else if (route === 'FALLBACK_ERROR') m.fallbackError = Number(m.fallbackError || 0) + 1;
+    else if (route === 'SHADOW_CHECK') m.shadowChecks = Number(m.shadowChecks || 0) + 1;
+    else if (route === 'SHADOW_MISMATCH') m.shadowMismatch = Number(m.shadowMismatch || 0) + 1;
+    if (route === 'INDEX') m.totalIndexMs = Number(m.totalIndexMs || 0) + Number(durationMs || 0);
+    if (route.indexOf('LEGACY') >= 0 || route.indexOf('FALLBACK') >= 0) m.totalLegacyMs = Number(m.totalLegacyMs || 0) + Number(durationMs || 0);
+    m.lastRoute = route;
+    m.lastDurationMs = Number(durationMs || 0);
+    m.lastAt = new Date().toISOString();
+    if (errorText) m.lastError = String(errorText).substring(0, 800);
+    CacheService.getScriptCache().put(
+      INDEX_LAPORAN_2B2A_CONFIG.METRICS_CACHE_KEY,
+      JSON.stringify(m),
+      INDEX_LAPORAN_2B2A_CONFIG.METRICS_TTL_SECONDS
+    );
+  } catch (e) { }
+}
+
+function tandaiShadowReadRiwayat2B2A_(mismatch) {
+  try {
+    var m = bacaMetrikReadRiwayat2B2A_();
+    m.shadowChecks = Number(m.shadowChecks || 0) + 1;
+    if (mismatch) m.shadowMismatch = Number(m.shadowMismatch || 0) + 1;
+    m.lastAt = new Date().toISOString();
+    m.lastRoute = mismatch ? 'SHADOW_MISMATCH' : 'SHADOW_MATCH';
+    CacheService.getScriptCache().put(
+      INDEX_LAPORAN_2B2A_CONFIG.METRICS_CACHE_KEY,
+      JSON.stringify(m),
+      INDEX_LAPORAN_2B2A_CONFIG.METRICS_TTL_SECONDS
+    );
+  } catch (e) { }
+}
+
+function pastikanHeaderIndexReadRiwayat2B2A_(shIndex) {
+  var cache = CacheService.getScriptCache();
+  try {
+    if (cache.get(INDEX_LAPORAN_2B2A_CONFIG.HEADER_CACHE_KEY) === INDEX_LAPORAN_2B0_CONFIG.VERSION) return true;
+  } catch (e) { }
+  pastikanHeaderIndexLaporan2B1_(shIndex);
+  try {
+    cache.put(INDEX_LAPORAN_2B2A_CONFIG.HEADER_CACHE_KEY, INDEX_LAPORAN_2B0_CONFIG.VERSION, INDEX_LAPORAN_2B2A_CONFIG.HEADER_TTL_SECONDS);
+  } catch (e2) { }
+  return true;
+}
+
+function cekKesehatanRinganReadRiwayatIndex2B2A_() {
+  var out = {
+    valid: false,
+    dualWriteAktif: dualWriteIndexLaporanAktif2B1_(),
+    sourceRows: 0,
+    indexRows: 0,
+    headerValid: false,
+    queue: { total: 0, pending: 0, selesai: 0, gagal: 0, perluRebuild: 0 },
+    alasan: ''
+  };
+  try {
+    var ss = getSS_();
+    var shSource = ss.getSheetByName('Rekap_Kinerja');
+    var shIndex = ss.getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+    if (!shSource || !shIndex) {
+      out.alasan = 'SHEET_TIDAK_TERSEDIA';
+      return out;
+    }
+    out.sourceRows = Math.max(0, shSource.getLastRow() - 1);
+    out.indexRows = Math.max(0, shIndex.getLastRow() - 1);
+    pastikanHeaderIndexReadRiwayat2B2A_(shIndex);
+    out.headerValid = true;
+    out.queue = hitungStatusQueueIndexLaporan2B1_();
+    if (!out.dualWriteAktif) out.alasan = 'DUAL_WRITE_NONAKTIF';
+    else if (out.sourceRows !== out.indexRows) out.alasan = 'JUMLAH_BARIS_TIDAK_SAMA';
+    else if (out.queue.pending || out.queue.gagal || out.queue.perluRebuild) out.alasan = 'QUEUE_TIDAK_BERSIH';
+    else out.valid = true;
+    return out;
+  } catch (e) {
+    out.alasan = 'HEALTH_ERROR: ' + String(e && e.message ? e.message : e);
+    return out;
+  }
+}
+
+function buatItemRiwayatDariRow2B2A_(row, idUser) {
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var rowIdLaporan = normalizeId_(row[C.ID_LAPORAN]);
+  var w = row[C.TANGGAL_LAPORAN];
+  var waktuDate = parseTanggal(w);
+  var waktuTeks = (waktuDate instanceof Date && !isNaN(waktuDate.getTime()))
+    ? Utilities.formatDate(waktuDate, 'GMT+7', 'dd/MM/yyyy HH:mm')
+    : (w ? w.toString() : '');
+  var kategori = row[C.KATEGORI] || '-';
+  var deskripsi = row[C.DESKRIPSI] || '-';
+  var status = row[C.STATUS_REVIEW] || '-';
+  var catatan = row[C.CATATAN_ADMIN] || '-';
+  var urlVisualRaw = row[C.VISUAL_URL] ? row[C.VISUAL_URL].toString() : '';
+  var urlVisualList = urlVisualRaw
+    ? urlVisualRaw.split(',').map(function (u) { return (u || '').toString().trim(); }).filter(Boolean)
+    : [];
+  var cekRevisiItem = cekBolehRevisiLaporanPegawai_(row, idUser);
+  return {
+    idLaporan: rowIdLaporan,
+    waktu: waktuTeks,
+    kategori: kategori,
+    deskripsi: deskripsi,
+    deskripsiRingkas: String(deskripsi || '-').length > 240 ? String(deskripsi || '-').substring(0, 240) + '...' : String(deskripsi || '-'),
+    status: status,
+    poinFinal: Number(row[C.POIN_FINAL]) || 0,
+    catatan: catatan,
+    jumlahBukti: urlVisualList.length,
+    urlVisualPreview: urlVisualList.slice(0, 3),
+    bisaRevisi: !!cekRevisiItem.boleh,
+    alasanTidakBisaRevisi: cekRevisiItem.boleh ? '' : (cekRevisiItem.pesan || ''),
+    periodeRevisi: cekRevisiItem.periode || ''
+  };
+}
+
+function ambilRiwayatKuPagedLegacyByUser2B2A_(params, idUser) {
+  params = params || {};
+  var bulanMeta = parseBulanRiwayat_(params.bulan || '');
+  var keyword = String(params.keyword || '').toLowerCase().trim();
+  var limit = Math.max(1, Math.min(50, Number(params.limit) || 20));
+  var offset = Math.max(0, Number(params.offset) || 0);
+  var targetId = normalizeId_(params.fokusIdLaporan || params.fokusId || '');
+  var data = getRekapKinerjaValuesReadOnly_();
+  var hasil = [];
+  var total = 0;
+  var targetItem = null;
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (!idsEqual_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_USER], idUser)) continue;
+    var rowIdLaporan = normalizeId_(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
+    var w = data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN];
+    var waktuDate = parseTanggal(w);
+    var isTarget = !!(targetId && idsEqual_(rowIdLaporan, targetId));
+    if (bulanMeta && !isTarget) {
+      if (!(waktuDate instanceof Date) || isNaN(waktuDate.getTime())) continue;
+      if (waktuDate < bulanMeta.start || waktuDate >= bulanMeta.end) continue;
+    }
+    var item = buatItemRiwayatDariRow2B2A_(data[i], idUser);
+    var searchText = [item.waktu, item.kategori, item.deskripsi, item.status, item.catatan, rowIdLaporan].join(' ').toLowerCase();
+    if (keyword && searchText.indexOf(keyword) === -1 && !isTarget) continue;
+    if (isTarget) targetItem = item;
+    if (total >= offset && hasil.length < limit) hasil.push(item);
+    total++;
+  }
+  if (targetItem) {
+    var sudahAdaTarget = hasil.some(function (it) { return idsEqual_(it.idLaporan, targetItem.idLaporan); });
+    if (!sudahAdaTarget) hasil.unshift(targetItem);
+  }
+  return {
+    sukses: true,
+    items: hasil,
+    total: total,
+    limit: limit,
+    offset: offset,
+    hasMore: total > (offset + limit),
+    bulan: bulanMeta ? bulanMeta.label : ''
+  };
+}
+
+function bacaKandidatIndexRiwayat2B2A_(idUser, params) {
+  params = params || {};
+  var bulanMeta = parseBulanRiwayat_(params.bulan || '');
+  var targetId = normalizeId_(params.fokusIdLaporan || params.fokusId || '');
+  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+  if (!sh) throw new Error('INDEX_SHEET_TIDAK_TERSEDIA');
+  pastikanHeaderIndexReadRiwayat2B2A_(sh);
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+  var M = getIndexLaporanColumnMap2B0_();
+  var rows = sh.getRange(2, 1, lastRow - 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues();
+  var out = [];
+  var seenRow = {};
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (!idsEqual_(r[M.ID_USER], idUser)) continue;
+    var rowRekap = Number(r[M.ROW_REKAP] || 0);
+    var idLaporan = normalizeId_(r[M.ID_LAPORAN]);
+    if (rowRekap < 2 || !idLaporan) throw new Error('INDEX_ROW_TIDAK_VALID');
+    var keyRow = 'r' + rowRekap;
+    if (seenRow[keyRow]) throw new Error('INDEX_ROW_REKAP_DUPLIKAT_' + rowRekap);
+    seenRow[keyRow] = true;
+    var isTarget = !!(targetId && idsEqual_(idLaporan, targetId));
+    var tanggal = tanggalValidIndexLaporan2B0_(r[M.TANGGAL_LAPORAN]);
+    if (bulanMeta && !isTarget) {
+      if (!(tanggal instanceof Date) || isNaN(tanggal.getTime())) continue;
+      if (tanggal < bulanMeta.start || tanggal >= bulanMeta.end) continue;
+    }
+    out.push({
+      rowRekap: rowRekap,
+      idLaporan: idLaporan,
+      idUser: normalizeId_(r[M.ID_USER]),
+      tanggal: tanggal,
+      isTarget: isTarget
+    });
+  }
+  out.sort(function (a, b) { return b.rowRekap - a.rowRekap; });
+  return out;
+}
+
+function kelompokBarisRekapReadRiwayat2B2A_(rowNumbers) {
+  var nums = rowNumbers.slice().sort(function (a, b) { return a - b; });
+  var groups = [];
+  var current = null;
+  for (var i = 0; i < nums.length; i++) {
+    var n = nums[i];
+    if (!current) {
+      current = { start: n, end: n, requested: [n] };
+      continue;
+    }
+    var span = n - current.start + 1;
+    var gap = n - current.end;
+    if (span <= INDEX_LAPORAN_2B2A_CONFIG.MAX_BLOCK_SPAN && gap <= INDEX_LAPORAN_2B2A_CONFIG.MAX_BLOCK_GAP) {
+      current.end = n;
+      current.requested.push(n);
+    } else {
+      groups.push(current);
+      current = { start: n, end: n, requested: [n] };
+    }
+  }
+  if (current) groups.push(current);
+  return groups;
+}
+
+function bacaBarisRekapTerpilih2B2A_(entries) {
+  var wanted = {};
+  var rowNumbers = [];
+  for (var i = 0; i < entries.length; i++) {
+    var rn = Number(entries[i].rowRekap || 0);
+    if (!rn || wanted['r' + rn]) continue;
+    wanted['r' + rn] = entries[i];
+    rowNumbers.push(rn);
+  }
+  var result = {};
+  if (!rowNumbers.length) return result;
+  var sh = getSheet_('Rekap_Kinerja');
+  var lastRow = sh.getLastRow();
+  var lastCol = Math.max(sh.getLastColumn(), SHEET_COLUMNS.REKAP_KINERJA.STAF_INSTRUKSI_LOKASI + 1);
+  var groups = kelompokBarisRekapReadRiwayat2B2A_(rowNumbers);
+  for (var g = 0; g < groups.length; g++) {
+    var group = groups[g];
+    if (group.start < 2 || group.end > lastRow) throw new Error('ROW_REKAP_DI_LUAR_SUMBER');
+    var block = sh.getRange(group.start, 1, group.end - group.start + 1, lastCol).getValues();
+    for (var q = 0; q < group.requested.length; q++) {
+      var rowNumber = group.requested[q];
+      var row = block[rowNumber - group.start];
+      var expected = wanted['r' + rowNumber];
+      var actualId = normalizeId_(row[SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
+      var actualUser = normalizeId_(row[SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
+      if (!idsEqual_(actualId, expected.idLaporan) || !idsEqual_(actualUser, expected.idUser)) {
+        throw new Error('INDEX_ROW_STALE_' + rowNumber);
+      }
+      result['r' + rowNumber] = row;
+    }
+  }
+  return result;
+}
+
+function ambilRiwayatKuPagedIndexByUser2B2A_(params, idUser) {
+  params = params || {};
+  if (String(params.keyword || '').trim()) throw new Error('KEYWORD_HARUS_JALUR_LEGACY');
+  var bulanMeta = parseBulanRiwayat_(params.bulan || '');
+  var limit = Math.max(1, Math.min(50, Number(params.limit) || 20));
+  var offset = Math.max(0, Number(params.offset) || 0);
+  var targetId = normalizeId_(params.fokusIdLaporan || params.fokusId || '');
+  var candidates = bacaKandidatIndexRiwayat2B2A_(idUser, params);
+  var selected = candidates.slice(offset, offset + limit);
+  var targetEntry = null;
+  if (targetId) {
+    for (var i = 0; i < candidates.length; i++) {
+      if (idsEqual_(candidates[i].idLaporan, targetId)) { targetEntry = candidates[i]; break; }
+    }
+  }
+  var readEntries = selected.slice();
+  if (targetEntry) {
+    var targetAlready = readEntries.some(function (it) { return it.rowRekap === targetEntry.rowRekap; });
+    if (!targetAlready) readEntries.push(targetEntry);
+  }
+  var rowsByNumber = bacaBarisRekapTerpilih2B2A_(readEntries);
+  var items = [];
+  for (var s = 0; s < selected.length; s++) {
+    items.push(buatItemRiwayatDariRow2B2A_(rowsByNumber['r' + selected[s].rowRekap], idUser));
+  }
+  if (targetEntry) {
+    var targetInItems = items.some(function (it) { return idsEqual_(it.idLaporan, targetEntry.idLaporan); });
+    if (!targetInItems) items.unshift(buatItemRiwayatDariRow2B2A_(rowsByNumber['r' + targetEntry.rowRekap], idUser));
+  }
+  return {
+    sukses: true,
+    items: items,
+    total: candidates.length,
+    limit: limit,
+    offset: offset,
+    hasMore: candidates.length > (offset + limit),
+    bulan: bulanMeta ? bulanMeta.label : ''
+  };
+}
+
+function ringkasHasilRiwayatUntukBanding2B2A_(res) {
+  res = res || {};
+  return {
+    sukses: !!res.sukses,
+    items: Array.isArray(res.items) ? res.items : [],
+    total: Number(res.total || 0),
+    limit: Number(res.limit || 0),
+    offset: Number(res.offset || 0),
+    hasMore: !!res.hasMore,
+    bulan: String(res.bulan || '')
+  };
+}
+
+function bandingkanHasilRiwayat2B2A_(legacy, indexed) {
+  var a = JSON.stringify(ringkasHasilRiwayatUntukBanding2B2A_(legacy));
+  var b = JSON.stringify(ringkasHasilRiwayatUntukBanding2B2A_(indexed));
+  return {
+    sama: a === b,
+    legacyLength: legacy && Array.isArray(legacy.items) ? legacy.items.length : 0,
+    indexLength: indexed && Array.isArray(indexed.items) ? indexed.items.length : 0,
+    legacyTotal: Number(legacy && legacy.total || 0),
+    indexTotal: Number(indexed && indexed.total || 0)
+  };
+}
+
+function pilihSampleIdUserIndex2B2A_(limit) {
+  limit = Math.max(1, Math.min(Number(limit || INDEX_LAPORAN_2B2A_CONFIG.SAMPLE_USERS), 20));
+  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) return [];
+  pastikanHeaderIndexReadRiwayat2B2A_(sh);
+  var M = getIndexLaporanColumnMap2B0_();
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues();
+  var out = [];
+  var seen = {};
+  for (var i = data.length - 1; i >= 0 && out.length < limit; i--) {
+    var id = normalizeId_(data[i][M.ID_USER]);
+    if (!id || seen['u' + id]) continue;
+    seen['u' + id] = true;
+    out.push(id);
+  }
+  return out;
+}
+
+function bulanTerbaruUserIndex2B2A_(idUser) {
+  var candidates = bacaKandidatIndexRiwayat2B2A_(idUser, {});
+  for (var i = 0; i < candidates.length; i++) {
+    var d = candidates[i].tanggal;
+    if (d instanceof Date && !isNaN(d.getTime())) return Utilities.formatDate(d, 'GMT+7', 'yyyy-MM');
+  }
+  return '';
+}
+
+function jalankanUjiReadRiwayatIndex2B2A_(idUser, params) {
+  var users = idUser ? [normalizeId_(idUser)] : pilihSampleIdUserIndex2B2A_(INDEX_LAPORAN_2B2A_CONFIG.SAMPLE_USERS);
+  var cases = [];
+  var allValid = true;
+  for (var u = 0; u < users.length; u++) {
+    var uid = users[u];
+    if (!uid) continue;
+    var caseParams = [];
+    if (params && typeof params === 'object') {
+      var p = JSON.parse(JSON.stringify(params));
+      p.keyword = '';
+      caseParams.push(p);
+    } else {
+      caseParams.push({ limit: 20, offset: 0, keyword: '' });
+      caseParams.push({ limit: 20, offset: 20, keyword: '' });
+      var bulan = bulanTerbaruUserIndex2B2A_(uid);
+      if (bulan) caseParams.push({ bulan: bulan, limit: 20, offset: 0, keyword: '' });
+    }
+    for (var c = 0; c < caseParams.length; c++) {
+      var tLegacy = Date.now();
+      var legacy = ambilRiwayatKuPagedLegacyByUser2B2A_(caseParams[c], uid);
+      var legacyMs = Date.now() - tLegacy;
+      var tIndex = Date.now();
+      var indexed = ambilRiwayatKuPagedIndexByUser2B2A_(caseParams[c], uid);
+      var indexMs = Date.now() - tIndex;
+      var cmp = bandingkanHasilRiwayat2B2A_(legacy, indexed);
+      if (!cmp.sama) allValid = false;
+      cases.push({
+        idUser: uid,
+        params: caseParams[c],
+        sama: cmp.sama,
+        legacyMs: legacyMs,
+        indexMs: indexMs,
+        legacyTotal: cmp.legacyTotal,
+        indexTotal: cmp.indexTotal,
+        legacyLength: cmp.legacyLength,
+        indexLength: cmp.indexLength
+      });
+    }
+  }
+  return { sukses: allValid && cases.length > 0, jumlahUser: users.length, jumlahKasus: cases.length, cases: cases };
+}
+
+// Simpan jalur lama apa adanya; wrapper 2B-2A dipasang paling akhir.
+var ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A = ambilRiwayatKuPaged;
+ambilRiwayatKuPaged = function (params, token) {
+  var started = Date.now();
+  params = params || {};
+  if (!readRiwayatIndexAktif2B2A_()) {
+    var legacyDisabled = ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A(params, token);
+    catatMetrikReadRiwayat2B2A_('LEGACY_DISABLED', Date.now() - started, '');
+    return legacyDisabled;
+  }
+
+  if (String(params.keyword || '').trim()) {
+    var legacyKeyword = ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A(params, token);
+    catatMetrikReadRiwayat2B2A_('LEGACY_KEYWORD', Date.now() - started, '');
+    return legacyKeyword;
+  }
+
+  var circuit = bacaCircuitReadRiwayat2B2A_();
+  if (circuit && circuit.aktif) {
+    var legacyCircuit = ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A(params, token);
+    catatMetrikReadRiwayat2B2A_('FALLBACK_CIRCUIT', Date.now() - started, circuit.reason || 'CIRCUIT');
+    return legacyCircuit;
+  }
+
+  var idUser = validasiSession(token);
+  if (!idUser) {
+    var invalidSession = ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A(params, token);
+    catatMetrikReadRiwayat2B2A_('FALLBACK_ERROR', Date.now() - started, 'SESSION_INVALID');
+    return invalidSession;
+  }
+
+  var health = cekKesehatanRinganReadRiwayatIndex2B2A_();
+  if (!health.valid) {
+    var legacyHealth = ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A(params, token);
+    catatMetrikReadRiwayat2B2A_('FALLBACK_HEALTH', Date.now() - started, health.alasan || 'INDEX_UNHEALTHY');
+    return legacyHealth;
+  }
+
+  try {
+    var indexStart = Date.now();
+    var indexed = ambilRiwayatKuPagedIndexByUser2B2A_(params, idUser);
+    var indexMs = Date.now() - indexStart;
+    var shadowPercent = persentaseShadowReadRiwayat2B2A_();
+    var shouldShadow = Number(params.offset || 0) === 0 && shadowPercent > 0 && (Math.random() * 100) < shadowPercent;
+    if (shouldShadow) {
+      var legacyShadow = ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A(params, token);
+      var cmp = bandingkanHasilRiwayat2B2A_(legacyShadow, indexed);
+      tandaiShadowReadRiwayat2B2A_(!cmp.sama);
+      if (!cmp.sama) {
+        bukaCircuitReadRiwayat2B2A_('SHADOW_MISMATCH', JSON.stringify(cmp));
+        try { logAudit_(idUser, 'READ_RIWAYAT_INDEX_MISMATCH', JSON.stringify(cmp)); } catch (auditErr) { }
+        return legacyShadow;
+      }
+    }
+    catatMetrikReadRiwayat2B2A_('INDEX', indexMs, '');
+    return indexed;
+  } catch (e) {
+    var msg = String(e && e.message ? e.message : e);
+    bukaCircuitReadRiwayat2B2A_('INDEX_READ_ERROR', msg);
+    try { logAudit_(idUser, 'READ_RIWAYAT_INDEX_FALLBACK', msg.substring(0, 500)); } catch (auditErr2) { }
+    var legacyError = ambilRiwayatKuPaged__SEBELUM_READ_INDEX_2B2A(params, token);
+    catatMetrikReadRiwayat2B2A_('FALLBACK_ERROR', Date.now() - started, msg);
+    return legacyError;
+  }
+};
+
+function statusReadRiwayatIndex2B2A() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var props = portalScriptProperties_();
+  var hasil = {
+    sukses: true,
+    versi: INDEX_LAPORAN_2B2A_CONFIG.VERSION,
+    aktif: readRiwayatIndexAktif2B2A_(),
+    diaktifkanPada: props.getProperty(INDEX_LAPORAN_2B2A_CONFIG.READ_ENABLED_AT_PROPERTY) || '',
+    shadowPercent: persentaseShadowReadRiwayat2B2A_(),
+    health: cekKesehatanRinganReadRiwayatIndex2B2A_(),
+    circuit: bacaCircuitReadRiwayat2B2A_(),
+    metrics: bacaMetrikReadRiwayat2B2A_(),
+    cakupan: {
+      listRiwayatTanpaKeyword: 'INDEX_DENGAN_FALLBACK',
+      pencarianKeyword: 'LEGACY',
+      detailById: 'LEGACY',
+      timeline: 'LEGACY',
+      adminReview: 'LEGACY'
+    },
+    pesan: readRiwayatIndexAktif2B2A_()
+      ? 'READ_RIWAYAT aktif. Jalur index memiliki fallback otomatis ke Rekap_Kinerja.'
+      : 'READ_RIWAYAT belum aktif; produksi masih memakai jalur lama.'
+  };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+
+function ujiReadRiwayatIndex2B2A(idUser, params) {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var health = cekKesehatanRinganReadRiwayatIndex2B2A_();
+  var test = health.valid ? jalankanUjiReadRiwayatIndex2B2A_(idUser || '', params || null) : { sukses: false, jumlahKasus: 0, cases: [], pesan: health.alasan };
+  var hasil = { sukses: !!(health.valid && test.sukses), versi: INDEX_LAPORAN_2B2A_CONFIG.VERSION, health: health, test: test };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+
+function validasiReadRiwayatIndex2B2A() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var snapshot = bacaSumberIndexLaporan2B0_();
+  var validation = validasiIndexLaporan_({
+    sheet: getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME),
+    expectedRows: snapshot.expectedRows,
+    checksumSumber: snapshot.checksumSumber
+  });
+  var queue = hitungStatusQueueIndexLaporan2B1_();
+  var test = validation.valid && !queue.pending && !queue.gagal && !queue.perluRebuild
+    ? jalankanUjiReadRiwayatIndex2B2A_('', null)
+    : { sukses: false, jumlahKasus: 0, cases: [] };
+  var hasil = {
+    sukses: !!(validation.valid && !queue.pending && !queue.gagal && !queue.perluRebuild && test.sukses),
+    aktif: readRiwayatIndexAktif2B2A_(),
+    validation: validation,
+    queue: queue,
+    test: test
+  };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+
+function aktifkanReadRiwayatIndex2B2A() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var validasi = validasiReadRiwayatIndex2B2A();
+  if (!validasi.sukses) {
+    return { sukses: false, aktif: false, pesan: 'READ_RIWAYAT tidak diaktifkan karena validasi atau shadow comparison belum lulus.', validasi: validasi };
+  }
+  var props = portalScriptProperties_();
+  props.setProperty(INDEX_LAPORAN_2B2A_CONFIG.READ_ENABLED_PROPERTY, 'true');
+  props.setProperty(INDEX_LAPORAN_2B2A_CONFIG.READ_ENABLED_AT_PROPERTY, new Date().toISOString());
+  if (!props.getProperty(INDEX_LAPORAN_2B2A_CONFIG.SHADOW_PERCENT_PROPERTY)) {
+    props.setProperty(INDEX_LAPORAN_2B2A_CONFIG.SHADOW_PERCENT_PROPERTY, String(INDEX_LAPORAN_2B2A_CONFIG.DEFAULT_SHADOW_PERCENT));
+  }
+  resetCircuitReadRiwayat2B2A_();
+  var hasil = { sukses: true, aktif: true, versi: INDEX_LAPORAN_2B2A_CONFIG.VERSION, shadowPercent: persentaseShadowReadRiwayat2B2A_(), pesan: 'READ_RIWAYAT berbasis Index_Laporan aktif dengan fallback otomatis.' };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+
+function nonaktifkanReadRiwayatIndex2B2A() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  portalScriptProperties_().setProperty(INDEX_LAPORAN_2B2A_CONFIG.READ_ENABLED_PROPERTY, 'false');
+  resetCircuitReadRiwayat2B2A_();
+  var hasil = { sukses: true, aktif: false, pesan: 'READ_RIWAYAT index dinonaktifkan. Riwayat kembali memakai jalur lama.' };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+
+function aturPersentaseShadowReadRiwayatIndex2B2A(percent) {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  var n = Math.max(0, Math.min(100, Number(percent)));
+  if (!isFinite(n)) throw new Error('Persentase shadow harus angka 0 sampai 100.');
+  portalScriptProperties_().setProperty(INDEX_LAPORAN_2B2A_CONFIG.SHADOW_PERCENT_PROPERTY, String(n));
+  var hasil = { sukses: true, shadowPercent: n };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+
+function resetMetrikReadRiwayatIndex2B2A() {
+  pastikanPemilikDatabaseIndexLaporan2B0_();
+  try { CacheService.getScriptCache().remove(INDEX_LAPORAN_2B2A_CONFIG.METRICS_CACHE_KEY); } catch (e) { }
+  resetCircuitReadRiwayat2B2A_();
+  var hasil = { sukses: true, metrics: bacaMetrikReadRiwayat2B2A_(), circuit: null };
+  Logger.log(JSON.stringify(hasil, null, 2));
+  return hasil;
+}
+
+// Perluas status 2B-1 agar READ_RIWAYAT menampilkan nilai aktual.
+var statusDualWriteIndexLaporan2B1__SEBELUM_READ_2B2A = statusDualWriteIndexLaporan2B1;
+statusDualWriteIndexLaporan2B1 = function () {
+  var result = statusDualWriteIndexLaporan2B1__SEBELUM_READ_2B2A();
+  if (result && typeof result === 'object') {
+    if (!result.readFlags) result.readFlags = {};
+    result.readFlags.READ_RIWAYAT = readRiwayatIndexAktif2B2A_();
+    result.readRiwayat2B2A = {
+      aktif: readRiwayatIndexAktif2B2A_(),
+      versi: INDEX_LAPORAN_2B2A_CONFIG.VERSION,
+      shadowPercent: persentaseShadowReadRiwayat2B2A_(),
+      circuit: bacaCircuitReadRiwayat2B2A_()
+    };
+    result.pesan = 'Tahap 2B-2A: dual-write aktif; pembacaan Riwayat dapat memakai Index_Laporan dengan fallback otomatis.';
+  }
+  return result;
+};
+
+var statusIndexLaporan2B0__SEBELUM_READ_2B2A = statusIndexLaporan2B0;
+statusIndexLaporan2B0 = function () {
+  var result = statusIndexLaporan2B0__SEBELUM_READ_2B2A();
+  if (result && typeof result === 'object') {
+    if (result.featureFlags) result.featureFlags.READ_RIWAYAT = readRiwayatIndexAktif2B2A_();
+    result.readRiwayat2B2A = {
+      aktif: readRiwayatIndexAktif2B2A_(),
+      versi: INDEX_LAPORAN_2B2A_CONFIG.VERSION
+    };
+  }
+  return result;
+};
+
+// ===== END PATCH PERFORMA 2B-2A =====
 
