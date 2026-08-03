@@ -1,0 +1,311 @@
+// ============================================================
+// TAHAP 3B-1B BATCH 1
+// REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
+// Baseline produksi: APP_VERSION 2026.06.29.02
+// ============================================================
+
+var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
+  "3B1B1-2026.08.03.01";
+
+var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
+  registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
+  baselineAppVersion: "2026.08.03.01",
+
+  policy: {
+    privateByDefault: true,
+    privateSuffix: "_",
+    publicRule:
+      "Hanya nama yang tercantum dalam kategori public yang dianggap kontrak public resmi.",
+    enforcement:
+      "DOCUMENTATION_ONLY",
+    behaviorChanged: false,
+    functionRemoved: false,
+    featureFlagsChanged: false
+  },
+
+  categories: {
+    appsScriptTriggers: [
+      "doGet"
+    ],
+
+    frontendEndpoints: [
+      "adminGantiPinPegawai",
+      "ajukanTunjanganKeLurah",
+      "akhiriSession",
+      "ambilAuditKoreksiCutoffLama",
+      "ambilConstantsAplikasi",
+      "ambilDaftarPegawaiReviewAdmin",
+      "ambilDaftarPegawaiUntukAdmin",
+      "ambilDashboardAdminKinerja",
+      "ambilDataRekapPaged",
+      "ambilDetailPegawaiAdminKinerja",
+      "ambilDetailRiwayatLaporan",
+      "ambilDisposisiUntukLaporan",
+      "ambilLaporanAdminPerPegawai",
+      "ambilLaporanAdminPerPegawai3B04B",
+      "ambilLaporanAdminPerPegawai3B04B1",
+      "ambilLaporanDitolakUntukRevisi",
+      "ambilMetadataLampiranAdminLazy",
+      "ambilRekapTunjanganBulanan",
+      "ambilRingkasanDisposisiBaru",
+      "ambilRiwayatKuPaged",
+      "ambilStatusInputLaporanCutoff",
+      "ambilStatusTutupPeriodeLaporan",
+      "ambilTimelinePublik",
+      "ambilTindakLanjutKoreksiCutoffLama",
+      "batalkanDisposisiSurat",
+      "bukaPeriodeLaporan",
+      "cekCutoffDefaultLamaDinonaktifkan",
+      "cekLogin",
+      "cekNotifikasiLaporanWajib",
+      "generateDraftTunjanganBulanan",
+      "generateNarasiBulananAI",
+      "getAppVersion",
+      "getDashboardStats",
+      "getDisposisiInboxData",
+      "getDisposisiManagementBootstrap",
+      "getDisposisiShellBootstrap",
+      "getStatusAksesDisposisiModul",
+      "kembalikanRekapTunjangan",
+      "koreksiJenisDisposisi",
+      "koreksiStatusCutoffLama",
+      "kunciDraftTunjanganBulanan",
+      "prosesReviewAdmin",
+      "rapikanBahasaLaporanAI",
+      "refreshDataPegawaiCache",
+      "setujuiRekapTunjangan",
+      "simpanCutoffInputLaporanPeriode",
+      "simpanDataKinerja",
+      "simpanDisposisiSurat",
+      "simpanPetugasDisposisi",
+      "simpanRevisiLaporanDitolakPegawai",
+      "simpanTutupPeriodeLaporan",
+      "tambahPenerimaDisposisi",
+      "tandaiDisposisiSudahDibuka",
+      "tandaiSudahDicairkan",
+      "terapkanPoinKoreksiCutoffLama",
+      "teruskanKeBendahara",
+      "uploadBuktiKinerjaBlob",
+      "uploadLampiranDisposisiBlob"
+    ],
+
+    maintenanceOwnerOnly: [
+      "maintenanceStatusPortal3B0",
+      "maintenanceInitializeAppConstants3B0",
+      "maintenanceSiapkanKolomKeamananPin3B0",
+      "maintenanceSiapkanKolomDetailRekap3B0",
+      "maintenancePerbaikiPeriodeTunjangan3B0",
+      "maintenanceDiagnostikCacheDisposisi3B01",
+      "maintenanceDiagnostikCacheDisposisi3B02",
+      "statusRegistryFungsi3B1B1",
+      "validasiRegistryFungsi3B1B1",
+      "statusPenandaLewatPeriodeAdmin3B04B1",
+      "aktifkanPenandaLewatPeriodeAdmin3B04B1",
+      "nonaktifkanPenandaLewatPeriodeAdmin3B04B1"
+    ],
+
+    blockedCompatibilityStubs: [
+      "initializeAppConstants",
+      "siapkanKolomKeamananPinPegawai",
+      "siapkanKolomDetailFormRekapKinerja",
+      "perbaikiKolomPeriodeTunjangan",
+      "logAudit",
+      "logAI",
+      "dapatkanAtauBuatFolder"
+    ],
+
+    manualDiagnostics: [
+      "auditIndexLaporan2B0",
+      "bangunUlangIndexLaporan2B0",
+      "buatLaporanAuditIndexLaporan2B0",
+      "validasiIndexLaporan2B0",
+
+      "statusDualWriteIndexLaporan2B1",
+      "ujiSinkronisasiBarisTerakhirIndexLaporan2B1",
+      "aktifkanDualWriteIndexLaporan2B1",
+      "nonaktifkanDualWriteIndexLaporan2B1",
+      "validasiDualWriteIndexLaporan2B1",
+      "prosesAntreanPerbaikanIndexLaporan2B1",
+
+      "statusReadRiwayatIndex2B2A",
+      "ujiReadRiwayatIndex2B2A",
+      "validasiReadRiwayatIndex2B2A",
+      "aktifkanReadRiwayatIndex2B2A",
+      "nonaktifkanReadRiwayatIndex2B2A",
+      "resetMetrikReadRiwayatIndex2B2A",
+
+      "koreksiLaporanBlackoutCutoffApril2026",
+      "koreksiLaporanLewatCutoffApril2026",
+      "normalisasiStatusLewatCutoffLama",
+      "prosesAntreanAI",
+      "statusAuditLaporanLewatPeriode3B04A",
+      "auditLaporanLewatPeriode3B04A",
+      "auditLaporanLewatPeriodeJuli2026_3B04A",
+      "ujiKlasifikasiLaporanLewatPeriode3B04A",
+      "validasiAuditLaporanLewatPeriode3B04A",
+
+      "statusPenandaLewatPeriodeAdmin3B04B",
+      "validasiPenandaLewatPeriodeAdmin3B04B",
+      "validasiPenandaLewatPeriodeAdmin3B04B1"
+    ],
+
+    legacyPublicCompatibility: [
+      "ambilSemuaLaporanAdmin",
+      "ambilDaftarPegawaiAktifUntukDisposisi",
+      "ambilRiwayatKu",
+      "getDisposisiBootstrap",
+      "cariLogErrorSubmitKinerjaV33",
+      "debugPeriodeTutupDariTanggalPelaksanaanV31"
+    ]
+  }
+};
+
+
+/**
+ * Menghasilkan salinan registry agar object sumber tidak dimodifikasi
+ * oleh fungsi pemeriksaan atau pemanggilan manual.
+ */
+function salinRegistryFungsi3B1B1_() {
+  return JSON.parse(
+    JSON.stringify(PORTAL_FUNCTION_REGISTRY_3B1B1_)
+  );
+}
+
+
+/**
+ * Memeriksa struktur registry saja.
+ *
+ * Tidak memanggil endpoint produksi, tidak membaca Spreadsheet,
+ * tidak menulis Properties, dan tidak mengubah feature flag.
+ */
+function validasiStrukturRegistryFungsi3B1B1_() {
+  var registry = salinRegistryFungsi3B1B1_();
+  var categories = registry.categories || {};
+  var seen = {};
+  var counts = {};
+  var duplicateNames = [];
+  var invalidNames = [];
+  var emptyCategories = [];
+
+  Object.keys(categories).forEach(function (categoryName) {
+    var list = categories[categoryName];
+
+    if (!Array.isArray(list)) {
+      invalidNames.push({
+        category: categoryName,
+        name: "",
+        reason: "CATEGORY_NOT_ARRAY"
+      });
+      counts[categoryName] = 0;
+      return;
+    }
+
+    counts[categoryName] = list.length;
+
+    if (!list.length) {
+      emptyCategories.push(categoryName);
+    }
+
+    list.forEach(function (functionName) {
+      var name = String(functionName || "").trim();
+
+      if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)) {
+        invalidNames.push({
+          category: categoryName,
+          name: name,
+          reason: "INVALID_FUNCTION_NAME"
+        });
+        return;
+      }
+
+      if (seen[name]) {
+        duplicateNames.push({
+          name: name,
+          firstCategory: seen[name],
+          duplicateCategory: categoryName
+        });
+      } else {
+        seen[name] = categoryName;
+      }
+    });
+  });
+
+  var totalNames = Object.keys(seen).length;
+  var valid =
+    duplicateNames.length === 0 &&
+    invalidNames.length === 0 &&
+    emptyCategories.length === 0;
+
+  return {
+    sukses: true,
+    valid: valid,
+    registryVersion: registry.registryVersion,
+    baselineAppVersion: registry.baselineAppVersion,
+    totalNamaUnik: totalNames,
+    counts: counts,
+    duplicateNames: duplicateNames,
+    invalidNames: invalidNames,
+    emptyCategories: emptyCategories,
+    behaviorChanged: false,
+    functionRemoved: false,
+    featureFlagsChanged: false
+  };
+}
+
+
+/**
+ * Status ringkas Batch 1.
+ *
+ * Owner/maintainer only. Fungsi ini bersifat read-only.
+ */
+function statusRegistryFungsi3B1B1() {
+  var maintainer = pastikanMaintainerPortal3B0_(
+    "STATUS_REGISTRY_FUNGSI_3B1B1"
+  );
+
+  var validation = validasiStrukturRegistryFungsi3B1B1_();
+
+  var result = {
+    sukses: validation.valid,
+    versi: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
+    appVersion:
+      typeof APP_VERSION !== "undefined"
+        ? String(APP_VERSION)
+        : "",
+    maintainerAktif: String(maintainer || ""),
+    registryValid: validation.valid,
+    totalNamaUnik: validation.totalNamaUnik,
+    counts: validation.counts,
+    policy: salinRegistryFungsi3B1B1_().policy,
+    pesan: validation.valid
+      ? "Registry fungsi Tahap 3B-1B Batch 1 valid dan bersifat dokumentasi saja."
+      : "Registry memiliki duplikasi atau nama yang tidak valid."
+  };
+
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+
+/**
+ * Validasi lengkap registry.
+ *
+ * Owner/maintainer only. Tidak memanggil fungsi yang terdaftar,
+ * sehingga tidak menimbulkan efek samping produksi.
+ */
+function validasiRegistryFungsi3B1B1() {
+  var maintainer = pastikanMaintainerPortal3B0_(
+    "VALIDASI_REGISTRY_FUNGSI_3B1B1"
+  );
+
+  var result = validasiStrukturRegistryFungsi3B1B1_();
+  result.maintainerAktif = String(maintainer || "");
+  result.pesan = result.valid
+    ? "Registry 3B-1B Batch 1 lulus validasi struktur."
+    : "Registry 3B-1B Batch 1 belum valid.";
+
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+// ===== END TAHAP 3B-1B BATCH 1 =====

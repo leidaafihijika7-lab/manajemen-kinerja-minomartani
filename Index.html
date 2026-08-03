@@ -7593,6 +7593,13 @@
                 style="max-width:220px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
                 <option value="semua">Semua Status</option>
                 <option value="menunggu">Hanya Menunggu Review</option>
+                <option
+                 id="adminFilterLewatPeriode3B04B1"
+                 value="lewat_periode"
+                 disabled
+                 hidden>
+                 Hanya Lewat Periode
+                </option>
               </select>
               <button type="button" class="btn-unduh" style="background:linear-gradient(135deg,#64748b,#475569);"
                 onclick="refreshCacheDataPegawai()"><span class="material-symbols-outlined"
@@ -12564,6 +12571,122 @@
         '</div>';
     }
 
+    function adminReviewLatePeriodNoticeHtml3B04B1_(
+  item
+) {
+  if (!item || !item.lewatPeriode) {
+    return '';
+  }
+
+  var jenis = String(
+    item.jenisKetepatan || ''
+  );
+
+  var title =
+    jenis === 'REVISI_SETELAH_CUTOFF'
+      ? 'Revisi Setelah Batas Periode'
+      : jenis ===
+        'SUBMIT_DAN_REVISI_SETELAH_CUTOFF'
+        ? 'Submit dan Revisi Setelah Batas Periode'
+        : 'Lewat Batas Periode';
+
+  var periode =
+    item.periodeLabel ||
+    item.periode ||
+    '';
+
+  var pesan =
+    item.pesanKetepatan ||
+    'Laporan melewati batas akhir periode.';
+
+  return '' +
+    '<div class="admin-review-late-period-3b04b1" ' +
+    'style="' +
+      'margin:0 0 14px;' +
+      'padding:12px 14px;' +
+      'border-radius:14px;' +
+      'background:#fff7ed;' +
+      'border:1px solid #fb923c;' +
+      'color:#9a3412;' +
+      'font-size:12px;' +
+      'line-height:1.6;' +
+    '">' +
+      '<div style="' +
+        'display:flex;' +
+        'align-items:center;' +
+        'gap:7px;' +
+        'font-weight:800;' +
+        'font-size:13px;' +
+        'margin-bottom:4px;' +
+      '">' +
+        '<span class="material-symbols-outlined" ' +
+        'style="font-size:18px;">warning</span>' +
+        '<span>' +
+          escapeHTML(
+            title +
+            (periode
+              ? ' ' + periode
+              : '')
+          ) +
+        '</span>' +
+      '</div>' +
+      '<div>' +
+        escapeHTML(pesan)
+          .replace(/\n/g, '<br>') +
+      '</div>' +
+      '<div style="' +
+        'margin-top:6px;' +
+        'font-weight:700;' +
+        'color:#7c2d12;' +
+      '">' +
+        'Penanda ini hanya informasi. ' +
+        'Poin dan keputusan review tetap ditentukan Admin.' +
+      '</div>' +
+    '</div>';
+}
+
+
+function updateAdminLatePeriodFilter3B04B1_(
+  patch
+) {
+  var option =
+    document.getElementById(
+      'adminFilterLewatPeriode3B04B1'
+    );
+
+  var select =
+    document.getElementById(
+      'adminFilterStatus'
+    );
+
+  if (!option) return;
+
+  var aktif =
+    !!(
+      patch &&
+      patch.aktif === true &&
+      patch.fallback !== true
+    );
+
+  option.disabled = !aktif;
+  option.hidden = !aktif;
+
+  if (
+    !aktif &&
+    select &&
+    select.value === 'lewat_periode'
+  ) {
+    select.value = 'semua';
+
+    if (
+      typeof simpanStateAdminReview ===
+      'function'
+    ) {
+      simpanStateAdminReview();
+    }
+  }
+}
+
     function adminGroupIdFromItem_(item) {
       if (item && item.idUser) return String(item.idUser);
       return 'fallback__' + String((item && item.nama) || '').toLowerCase().replace(/\s+/g, ' ').trim() + '__' + String((item && item.jabatan) || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -13611,6 +13734,16 @@
       var totalAll = Number(summary.totalLaporan || 0);
       var totalPending = Number(summary.totalMenunggu || 0);
       var totalDone = Number(summary.totalSelesai || 0);
+      var totalLate = Number(
+       summary.totalLewatPeriode ||
+       summary.totalLewatPeriodeLoaded ||
+       0
+      );
+
+      var lateCountLabel =
+        summary.totalLewatPeriode != null
+          ? 'Lewat periode'
+          : 'Lewat periode termuat';
 
       if (!summary || (!totalAll && groups && groups.length)) {
         totalPending = 0;
@@ -13635,6 +13768,15 @@
         '<span class="badge bg-gray">Total: ' + totalAll + '</span>' +
         '<span class="badge bg-yellow">Menunggu: ' + totalPending + '</span>' +
         '<span class="badge bg-green">Selesai: ' + totalDone + '</span>' +
+        (
+          totalLate > 0
+            ? '<span class="badge bg-yellow">' +
+              escapeHTML(lateCountLabel) +
+              ': ' +
+              totalLate +
+              '</span>'
+            : ''
+        ) +
         '<span class="badge bg-gray">Laporan tampil: ' + totalVisibleReports + '</span>' +
         '</div>';
     }
@@ -13869,6 +14011,7 @@
 
             html += '' +
               '<div class="admin-review-report" data-report-id="' + escapeHTML(r.idLaporan || '') + '">' +
+              adminReviewLatePeriodNoticeHtml3B04B1_(r) +
               '<div class="admin-review-report-grid">' +
               '<div>' +
               '<div class="admin-review-report-label">Waktu Lapor</div>' +
@@ -14548,11 +14691,29 @@
           wrap.innerHTML = '<div class="admin-review-empty">' + escapeHTML((res && res.pesan) || 'Gagal memuat laporan pegawai.') + '</div>';
           return;
         }
+        
+        updateAdminLatePeriodFilter3B04B1_(
+          res.patch3B04B1 || null
+        );
 
-        adminReviewAktifPegawai = res.pegawai || getSelectedAdminPegawai_();
-        adminReviewServerSummary = res.summary || null;
-        adminReviewServerSummary.totalFiltered = Number(res.totalFiltered || 0);
-        adminReviewServerSummary.loaded = (appendMode ? adminReviewItems.length : 0) + (Array.isArray(res.items) ? res.items.length : 0);
+        adminReviewAktifPegawai = 
+          res.pegawai || 
+          getSelectedAdminPegawai_();
+
+        adminReviewServerSummary = 
+          res.summary || {};
+        
+        adminReviewServerSummary.totalFiltered = 
+          Number(res.totalFiltered || 0);
+        
+        adminReviewServerSummary.loaded = 
+          (appendMode 
+            ? adminReviewItems.length 
+            : 0) + 
+          (
+            Array.isArray(res.items) 
+              ? res.items.length 
+              : 0);
         adminReviewNextOffset = Number(res.nextOffset || 0);
         adminReviewHasMore = !!res.hasMore;
 
@@ -14595,7 +14756,15 @@
         adminReviewActiveRequestKey = '';
         if (!appendMode) renderAdminReviewSummary_([], 0);
         wrap.innerHTML = '<div class="admin-review-empty">Gagal memuat laporan pegawai: ' + escapeHTML((err && err.message) ? err.message : err) + '</div>';
-      }).ambilLaporanAdminPerPegawai(selectedId, filterStatus, rentang.tanggalMulai, rentang.tanggalAkhir, offset, adminReviewPageSize, sToken);
+      }).ambilLaporanAdminPerPegawai3B04B1(
+        selectedId,
+        filterStatus,
+        rentang.tanggalMulai,
+        rentang.tanggalAkhir,
+        offset,
+        adminReviewPageSize,
+        sToken
+      );
     }
 
 
