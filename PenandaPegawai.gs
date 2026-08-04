@@ -588,8 +588,8 @@ function nonaktifkanPenandaLewatPeriodePegawai3B04C() {
 
 
 // ============================================================
-// PATCH 3B-0.4C1
-// PENANDA LEWAT PERIODE + PERIODE REVIEW PADA AKUN PEGAWAI
+// PATCH 3B-0.4C1a
+// PENANDA LEWAT PERIODE + SERIALISASI AMAN RESPONS PEGAWAI
 //
 // Menggunakan metadata dari SinkronisasiCutoffPeriode.gs.
 // Feature flag C1 terpisah dari flag 3B-0.4C agar rollback aman.
@@ -655,6 +655,45 @@ function tambahStatusPatchPegawai3B04C1_(response, options) {
 }
 
 
+
+
+function responsMinimumSerialisasiPegawai3B04C1a_(sourceEndpoint, errorValue) {
+  return {
+    sukses: false,
+    pesan: "Gagal menyiapkan respons Riwayat yang aman.",
+    items: [],
+    total: 0,
+    hasMore: false,
+    patch3B04C1: {
+      versi: SINKRONISASI_CUTOFF_PERIODE_3B04C1.VERSION,
+      aktif: false,
+      configuredAktif: sinkronisasiCutoffPeriodeAktif3B04C1_(),
+      fallback: true,
+      fallbackReason: errorValue && errorValue.message
+        ? String(errorValue.message)
+        : String(errorValue || "SERIALIZATION_FAILED"),
+      sourceEndpoint: String(sourceEndpoint || ""),
+      itemsDiperkaya: 0,
+      cutoffManual: true,
+      pengalihanPeriodeReview: true,
+      badgeRiwayatPegawai: true,
+      serialisasiAman: false,
+      dataDiubah: false,
+      poinDiubah: false,
+      statusReviewDiubah: false
+    }
+  };
+}
+
+
+function siapkanResponsPegawaiClient3B04C1a_(response, options) {
+  var withStatus = tambahStatusPatchPegawai3B04C1_(response, options);
+  withStatus.patch3B04C1.serialisasiAman = true;
+  withStatus.patch3B04C1.hotfix = "3B-0.4C1a";
+  return pastikanResponsClientAman3B04C1a_(withStatus);
+}
+
+
 function ambilRiwayatKuPaged3B04C1(params, token) {
   var configuredAktif = sinkronisasiCutoffPeriodeAktif3B04C1_();
   var baseResponse = null;
@@ -662,41 +701,56 @@ function ambilRiwayatKuPaged3B04C1(params, token) {
   try {
     baseResponse = ambilRiwayatKuPaged(params, token);
   } catch (baseError) {
-    return tambahStatusPatchPegawai3B04C1_(
-      {
-        sukses: false,
-        pesan: "Gagal memuat riwayat laporan.",
-        items: [],
-        total: 0,
-        hasMore: false
-      },
-      {
-        configuredAktif: configuredAktif,
-        fallbackReason: baseError && baseError.message
-          ? String(baseError.message)
-          : String(baseError),
-        sourceEndpoint: "ambilRiwayatKuPaged"
-      }
-    );
+    try {
+      return siapkanResponsPegawaiClient3B04C1a_(
+        {
+          sukses: false,
+          pesan: "Gagal memuat riwayat laporan.",
+          items: [],
+          total: 0,
+          hasMore: false
+        },
+        {
+          configuredAktif: configuredAktif,
+          fallback: true,
+          fallbackReason: baseError && baseError.message
+            ? String(baseError.message)
+            : String(baseError),
+          sourceEndpoint: "ambilRiwayatKuPaged"
+        }
+      );
+    } catch (serializationError) {
+      return responsMinimumSerialisasiPegawai3B04C1a_(
+        "ambilRiwayatKuPaged",
+        serializationError
+      );
+    }
   }
 
   if (!baseResponse || baseResponse.sukses === false || !configuredAktif) {
-    return tambahStatusPatchPegawai3B04C1_(baseResponse, {
-      aktif: false,
-      configuredAktif: configuredAktif,
-      fallback: false,
-      fallbackReason: baseResponse && baseResponse.sukses === false
-        ? "BASE_ENDPOINT_FAILED"
-        : "",
-      sourceEndpoint: "ambilRiwayatKuPaged"
-    });
+    try {
+      return siapkanResponsPegawaiClient3B04C1a_(baseResponse, {
+        aktif: false,
+        configuredAktif: configuredAktif,
+        fallback: false,
+        fallbackReason: baseResponse && baseResponse.sukses === false
+          ? "BASE_ENDPOINT_FAILED"
+          : "",
+        sourceEndpoint: "ambilRiwayatKuPaged"
+      });
+    } catch (serializationError) {
+      return responsMinimumSerialisasiPegawai3B04C1a_(
+        "ambilRiwayatKuPaged",
+        serializationError
+      );
+    }
   }
 
   try {
     var result = salinObject3B04C1_(baseResponse);
     result.items = perkayaDaftarRiwayatPegawai3B04C1_(baseResponse.items);
 
-    return tambahStatusPatchPegawai3B04C1_(result, {
+    return siapkanResponsPegawaiClient3B04C1a_(result, {
       aktif: true,
       configuredAktif: true,
       fallback: false,
@@ -704,15 +758,22 @@ function ambilRiwayatKuPaged3B04C1(params, token) {
       itemsDiperkaya: result.items.length
     });
   } catch (enrichmentError) {
-    return tambahStatusPatchPegawai3B04C1_(baseResponse, {
-      aktif: false,
-      configuredAktif: true,
-      fallback: true,
-      fallbackReason: enrichmentError && enrichmentError.message
-        ? String(enrichmentError.message)
-        : String(enrichmentError),
-      sourceEndpoint: "ambilRiwayatKuPaged"
-    });
+    try {
+      return siapkanResponsPegawaiClient3B04C1a_(baseResponse, {
+        aktif: false,
+        configuredAktif: true,
+        fallback: true,
+        fallbackReason: enrichmentError && enrichmentError.message
+          ? String(enrichmentError.message)
+          : String(enrichmentError),
+        sourceEndpoint: "ambilRiwayatKuPaged"
+      });
+    } catch (serializationFallbackError) {
+      return responsMinimumSerialisasiPegawai3B04C1a_(
+        "ambilRiwayatKuPaged",
+        serializationFallbackError
+      );
+    }
   }
 }
 
@@ -724,16 +785,24 @@ function ambilDetailRiwayatLaporan3B04C1(idLaporan, token) {
   try {
     baseResponse = ambilDetailRiwayatLaporan(idLaporan, token);
   } catch (baseError) {
-    return tambahStatusPatchPegawai3B04C1_(
-      { sukses: false, pesan: "Gagal memuat detail laporan." },
-      {
-        configuredAktif: configuredAktif,
-        fallbackReason: baseError && baseError.message
-          ? String(baseError.message)
-          : String(baseError),
-        sourceEndpoint: "ambilDetailRiwayatLaporan"
-      }
-    );
+    try {
+      return siapkanResponsPegawaiClient3B04C1a_(
+        { sukses: false, pesan: "Gagal memuat detail laporan." },
+        {
+          configuredAktif: configuredAktif,
+          fallback: true,
+          fallbackReason: baseError && baseError.message
+            ? String(baseError.message)
+            : String(baseError),
+          sourceEndpoint: "ambilDetailRiwayatLaporan"
+        }
+      );
+    } catch (serializationError) {
+      return responsMinimumSerialisasiPegawai3B04C1a_(
+        "ambilDetailRiwayatLaporan",
+        serializationError
+      );
+    }
   }
 
   if (
@@ -742,15 +811,22 @@ function ambilDetailRiwayatLaporan3B04C1(idLaporan, token) {
     !baseResponse.data ||
     !configuredAktif
   ) {
-    return tambahStatusPatchPegawai3B04C1_(baseResponse, {
-      aktif: false,
-      configuredAktif: configuredAktif,
-      fallback: false,
-      fallbackReason: baseResponse && baseResponse.sukses === false
-        ? "BASE_ENDPOINT_FAILED"
-        : "",
-      sourceEndpoint: "ambilDetailRiwayatLaporan"
-    });
+    try {
+      return siapkanResponsPegawaiClient3B04C1a_(baseResponse, {
+        aktif: false,
+        configuredAktif: configuredAktif,
+        fallback: false,
+        fallbackReason: baseResponse && baseResponse.sukses === false
+          ? "BASE_ENDPOINT_FAILED"
+          : "",
+        sourceEndpoint: "ambilDetailRiwayatLaporan"
+      });
+    } catch (serializationError) {
+      return responsMinimumSerialisasiPegawai3B04C1a_(
+        "ambilDetailRiwayatLaporan",
+        serializationError
+      );
+    }
   }
 
   try {
@@ -767,7 +843,7 @@ function ambilDetailRiwayatLaporan3B04C1(idLaporan, token) {
       metadataMap
     );
 
-    return tambahStatusPatchPegawai3B04C1_(result, {
+    return siapkanResponsPegawaiClient3B04C1a_(result, {
       aktif: true,
       configuredAktif: true,
       fallback: false,
@@ -775,15 +851,22 @@ function ambilDetailRiwayatLaporan3B04C1(idLaporan, token) {
       itemsDiperkaya: 1
     });
   } catch (enrichmentError) {
-    return tambahStatusPatchPegawai3B04C1_(baseResponse, {
-      aktif: false,
-      configuredAktif: true,
-      fallback: true,
-      fallbackReason: enrichmentError && enrichmentError.message
-        ? String(enrichmentError.message)
-        : String(enrichmentError),
-      sourceEndpoint: "ambilDetailRiwayatLaporan"
-    });
+    try {
+      return siapkanResponsPegawaiClient3B04C1a_(baseResponse, {
+        aktif: false,
+        configuredAktif: true,
+        fallback: true,
+        fallbackReason: enrichmentError && enrichmentError.message
+          ? String(enrichmentError.message)
+          : String(enrichmentError),
+        sourceEndpoint: "ambilDetailRiwayatLaporan"
+      });
+    } catch (serializationFallbackError) {
+      return responsMinimumSerialisasiPegawai3B04C1a_(
+        "ambilDetailRiwayatLaporan",
+        serializationFallbackError
+      );
+    }
   }
 }
 
@@ -819,10 +902,23 @@ function validasiPenandaLewatPeriodePegawai3B04C1() {
     sample.status === "Ditolak" &&
     Number(sample.poinFinal) === 7;
 
-  var valid = core.valid === true && mergeValid;
+  var safeSample = buatResponsClientAman3B04C1a_({
+    sukses: true,
+    items: [sample],
+    nestedDateForTest: new Date(2026, 6, 31, 16, 25, 0, 0)
+  });
+  var serializationValid =
+    safeSample.valid === true &&
+    safeSample.value &&
+    typeof safeSample.value.nestedDateForTest === "string";
+
+  var valid = core.valid === true && mergeValid && serializationValid;
   var issues = (core.issues || []).slice();
   if (!mergeValid) {
     issues.push("Penggabungan metadata mengubah status/poin atau kehilangan periode review.");
+  }
+  if (!serializationValid) {
+    issues.push("Respons penanda pegawai belum aman untuk google.script.run.");
   }
 
   var result = {
@@ -831,6 +927,7 @@ function validasiPenandaLewatPeriodePegawai3B04C1() {
     versi: SINKRONISASI_CUTOFF_PERIODE_3B04C1.VERSION,
     coreValid: core.valid === true,
     mergeMetadataValid: mergeValid,
+    serializationValid: serializationValid,
     endpointRiwayatC1Tersedia:
       typeof ambilRiwayatKuPaged3B04C1 === "function",
     endpointDetailC1Tersedia:
@@ -847,4 +944,4 @@ function validasiPenandaLewatPeriodePegawai3B04C1() {
   return result;
 }
 
-// ===== END PENANDA PEGAWAI 3B-0.4C1 =====
+// ===== END PENANDA PEGAWAI 3B-0.4C1a =====

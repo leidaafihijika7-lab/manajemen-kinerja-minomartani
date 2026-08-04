@@ -3,7 +3,7 @@
 // SINKRONISASI CUT-OFF DAN PENGINGAT TUTUP PERIODE
 //
 // Baseline aplikasi : APP_VERSION 2026.08.03.02
-// Target aplikasi   : APP_VERSION 2026.08.04.01
+// Target aplikasi   : APP_VERSION 2026.08.04.02
 //
 // Prinsip bisnis:
 // - tanggal/jam cut-off tidak ditentukan otomatis;
@@ -15,7 +15,7 @@
 // ============================================================
 
 var SINKRONISASI_CUTOFF_PERIODE_3B04C1 = {
-  VERSION: "3B04C1-2026.08.04.01",
+  VERSION: "3B04C1a-2026.08.04.02",
   PROPERTY: "SINKRONISASI_CUTOFF_PERIODE_3B04C1_ENABLED",
   MAX_FORWARD_MONTHS: 36
 };
@@ -102,6 +102,365 @@ function formatTanggal3B04C1_(value) {
   var d = parseTanggal3B04C1_(value);
   if (!d) return "";
   return Utilities.formatDate(d, "GMT+7", "dd/MM/yyyy HH:mm") + " WIB";
+}
+
+
+
+
+// ============================================================
+// HOTFIX 3B-0.4C1a — SERIALISASI AMAN GOOGLE.SCRIPT.RUN
+//
+// Respons endpoint HTML Service tidak boleh membawa Date mentah,
+// object layanan Apps Script, function, undefined, atau siklus object.
+// Hotfix mengonversi Date menjadi string dan menolak object non-plain.
+// ============================================================
+
+var SERIALISASI_CLIENT_3B04C1A = {
+  VERSION: "3B04C1a-2026.08.04.02",
+  MAX_DEPTH: 40
+};
+
+var OMIT_CLIENT_3B04C1A_ = {};
+
+
+function formatTanggalClient3B04C1a_(value) {
+  var d = parseTanggal3B04C1_(value);
+  if (!d) return "";
+
+  try {
+    if (typeof formatTanggalJamISO_ === "function") {
+      return String(formatTanggalJamISO_(d) || "");
+    }
+  } catch (eFormatExisting) {}
+
+  return Utilities.formatDate(
+    d,
+    "GMT+7",
+    "yyyy-MM-dd'T'HH:mm:ssXXX"
+  );
+}
+
+
+function tagObjectClient3B04C1a_(value) {
+  try {
+    return Object.prototype.toString.call(value);
+  } catch (eTag) {
+    return "[object Unknown]";
+  }
+}
+
+
+function serialisasiNilaiClient3B04C1a_(
+  value,
+  path,
+  stack,
+  depth,
+  issues,
+  conversions
+) {
+  if (value === null) return null;
+
+  var valueType = typeof value;
+
+  if (valueType === "string" || valueType === "boolean") {
+    return value;
+  }
+
+  if (valueType === "number") {
+    return isFinite(value) ? value : null;
+  }
+
+  if (
+    valueType === "undefined" ||
+    valueType === "function" ||
+    valueType === "symbol"
+  ) {
+    conversions.push({
+      path: path,
+      from: valueType,
+      to: "OMITTED"
+    });
+    return OMIT_CLIENT_3B04C1A_;
+  }
+
+  var objectTag = tagObjectClient3B04C1a_(value);
+  if (value instanceof Date || objectTag === "[object Date]") {
+    var formattedDate = formatTanggalClient3B04C1a_(value);
+    conversions.push({
+      path: path,
+      from: "Date",
+      to: "string"
+    });
+    return formattedDate;
+  }
+
+  if (depth > SERIALISASI_CLIENT_3B04C1A.MAX_DEPTH) {
+    issues.push({
+      path: path,
+      code: "MAX_DEPTH_EXCEEDED"
+    });
+    return null;
+  }
+
+  if (stack.indexOf(value) !== -1) {
+    issues.push({
+      path: path,
+      code: "CIRCULAR_REFERENCE"
+    });
+    return null;
+  }
+
+  stack.push(value);
+
+  if (Array.isArray(value)) {
+    var arr = [];
+    for (var i = 0; i < value.length; i++) {
+      var arrayValue = serialisasiNilaiClient3B04C1a_(
+        value[i],
+        path + "[" + i + "]",
+        stack,
+        depth + 1,
+        issues,
+        conversions
+      );
+      arr.push(arrayValue === OMIT_CLIENT_3B04C1A_ ? null : arrayValue);
+    }
+    stack.pop();
+    return arr;
+  }
+
+  var tag = objectTag;
+  if (tag !== "[object Object]") {
+    issues.push({
+      path: path,
+      code: "NON_PLAIN_OBJECT",
+      objectTag: tag
+    });
+    stack.pop();
+    return null;
+  }
+
+  var result = {};
+  var keys = Object.keys(value);
+  for (var k = 0; k < keys.length; k++) {
+    var key = keys[k];
+    var propertyValue;
+
+    try {
+      propertyValue = value[key];
+    } catch (eRead) {
+      issues.push({
+        path: path + "." + key,
+        code: "PROPERTY_READ_FAILED",
+        message: String(eRead && eRead.message ? eRead.message : eRead)
+      });
+      continue;
+    }
+
+    var safeValue = serialisasiNilaiClient3B04C1a_(
+      propertyValue,
+      path + "." + key,
+      stack,
+      depth + 1,
+      issues,
+      conversions
+    );
+
+    if (safeValue !== OMIT_CLIENT_3B04C1A_) {
+      result[key] = safeValue;
+    }
+  }
+
+  stack.pop();
+  return result;
+}
+
+
+function auditNilaiClient3B04C1a_(value, path, stack, depth, issues) {
+  if (value === null) return;
+
+  var valueType = typeof value;
+  if (
+    valueType === "string" ||
+    valueType === "boolean" ||
+    valueType === "number"
+  ) {
+    if (valueType === "number" && !isFinite(value)) {
+      issues.push({ path: path, code: "NON_FINITE_NUMBER" });
+    }
+    return;
+  }
+
+  if (
+    valueType === "undefined" ||
+    valueType === "function" ||
+    valueType === "symbol"
+  ) {
+    issues.push({ path: path, code: "FORBIDDEN_TYPE", type: valueType });
+    return;
+  }
+
+  var objectTag = tagObjectClient3B04C1a_(value);
+  if (value instanceof Date || objectTag === "[object Date]") {
+    issues.push({ path: path, code: "RAW_DATE" });
+    return;
+  }
+
+  if (depth > SERIALISASI_CLIENT_3B04C1A.MAX_DEPTH) {
+    issues.push({ path: path, code: "MAX_DEPTH_EXCEEDED" });
+    return;
+  }
+
+  if (stack.indexOf(value) !== -1) {
+    issues.push({ path: path, code: "CIRCULAR_REFERENCE" });
+    return;
+  }
+
+  stack.push(value);
+
+  if (Array.isArray(value)) {
+    for (var i = 0; i < value.length; i++) {
+      auditNilaiClient3B04C1a_(
+        value[i],
+        path + "[" + i + "]",
+        stack,
+        depth + 1,
+        issues
+      );
+    }
+    stack.pop();
+    return;
+  }
+
+  var tag = objectTag;
+  if (tag !== "[object Object]") {
+    issues.push({ path: path, code: "NON_PLAIN_OBJECT", objectTag: tag });
+    stack.pop();
+    return;
+  }
+
+  Object.keys(value).forEach(function (key) {
+    auditNilaiClient3B04C1a_(
+      value[key],
+      path + "." + key,
+      stack,
+      depth + 1,
+      issues
+    );
+  });
+
+  stack.pop();
+}
+
+
+function assertResponsClientSerializable3B04C1a_(value) {
+  var issues = [];
+  auditNilaiClient3B04C1a_(value, "$", [], 0, issues);
+  return {
+    valid: issues.length === 0,
+    issues: issues
+  };
+}
+
+
+function buatResponsClientAman3B04C1a_(value) {
+  var issues = [];
+  var conversions = [];
+  var safeValue = serialisasiNilaiClient3B04C1a_(
+    value,
+    "$",
+    [],
+    0,
+    issues,
+    conversions
+  );
+
+  if (safeValue === OMIT_CLIENT_3B04C1A_) safeValue = null;
+
+  var audit = assertResponsClientSerializable3B04C1a_(safeValue);
+  var allIssues = issues.concat(audit.issues || []);
+
+  return {
+    valid: allIssues.length === 0,
+    value: safeValue,
+    issues: allIssues,
+    conversions: conversions
+  };
+}
+
+
+function pastikanResponsClientAman3B04C1a_(value) {
+  var result = buatResponsClientAman3B04C1a_(value);
+  if (!result.valid) {
+    var first = result.issues && result.issues.length
+      ? JSON.stringify(result.issues[0])
+      : "UNKNOWN_SERIALIZATION_ERROR";
+    throw new Error("RESPONS_CLIENT_TIDAK_AMAN: " + first);
+  }
+  return result.value;
+}
+
+
+function ujiSerialisasiRespons3B04C1a_() {
+  var synthetic = {
+    sukses: true,
+    items: [
+      {
+        idLaporan: "TEST-SERIAL-3B04C1A",
+        riwayatPengalihan: [
+          {
+            periode: "2026-07",
+            cutoffDate: new Date(2026, 6, 29, 23, 59, 0, 0)
+          }
+        ],
+        nested: {
+          waktu: new Date(2026, 6, 31, 16, 25, 0, 0)
+        }
+      }
+    ]
+  };
+
+  var safe = buatResponsClientAman3B04C1a_(synthetic);
+  var dateHistory = safe.value && safe.value.items && safe.value.items[0]
+    ? safe.value.items[0].riwayatPengalihan[0].cutoffDate
+    : null;
+  var nestedDate = safe.value && safe.value.items && safe.value.items[0]
+    ? safe.value.items[0].nested.waktu
+    : null;
+
+  return {
+    valid:
+      safe.valid === true &&
+      typeof dateHistory === "string" &&
+      typeof nestedDate === "string" &&
+      safe.conversions.length >= 2,
+    auditValid: safe.valid === true,
+    dateHistoryType: typeof dateHistory,
+    nestedDateType: typeof nestedDate,
+    conversionCount: safe.conversions.length,
+    issues: safe.issues || []
+  };
+}
+
+
+function validasiSerialisasiRespons3B04C1a() {
+  pastikanMaintainerPortal3B0_("VALIDASI_SERIALISASI_RESPONS_3B04C1A");
+  var test = ujiSerialisasiRespons3B04C1a_();
+  var result = {
+    sukses: test.valid === true,
+    valid: test.valid === true,
+    versi: SERIALISASI_CLIENT_3B04C1A.VERSION,
+    nestedDateConverted: test.nestedDateType === "string",
+    historyDateConverted: test.dateHistoryType === "string",
+    conversionCount: test.conversionCount,
+    clientAuditValid: test.auditValid === true,
+    dataDiubah: false,
+    poinDiubah: false,
+    statusReviewDiubah: false,
+    issues: test.issues || []
+  };
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
 }
 
 
@@ -329,7 +688,7 @@ function hitungPeriodeReviewDenganResolver3B04C1_(
 
     history.push({
       periode: current,
-      cutoffDate: cutoffDate,
+      cutoffDate: formatTanggalClient3B04C1a_(cutoffDate),
       sumber: cutoff.sumber || ""
     });
     current = periodeBerikutnya3B04C1_(current);
@@ -704,11 +1063,15 @@ function validasiPatch3B04C1() {
     return dependencies[key] === true;
   });
 
-  var valid = lateValid && onTimeValid && dependencyValid;
+  var serializationTest = ujiSerialisasiRespons3B04C1a_();
+  var serializationValid = serializationTest.valid === true;
+
+  var valid = lateValid && onTimeValid && dependencyValid && serializationValid;
   var issues = [];
   if (!lateValid) issues.push("Skenario lewat cut-off Juli ke Agustus belum lulus.");
   if (!onTimeValid) issues.push("Skenario tepat waktu belum lulus.");
   if (!dependencyValid) issues.push("Satu atau lebih dependency produksi tidak tersedia.");
+  if (!serializationValid) issues.push("Respons C1 masih mengandung nilai yang tidak aman untuk google.script.run.");
 
   var result = {
     sukses: valid,
@@ -726,6 +1089,12 @@ function validasiPatch3B04C1() {
       valid: onTimeValid,
       periodeReview: onTime.periodeReview,
       dialihkan: onTime.dialihkan
+    },
+    serialisasiRespons: {
+      valid: serializationValid,
+      historyDateConverted: serializationTest.dateHistoryType === "string",
+      nestedDateConverted: serializationTest.nestedDateType === "string",
+      conversionCount: serializationTest.conversionCount
     },
     badgeKartuDiharuskan: true,
     badgeDetailDiharuskan: true,
@@ -746,9 +1115,11 @@ function validasiPatch3B04C1() {
 function aktifkanPatch3B04C1() {
   pastikanMaintainerPortal3B0_("AKTIFKAN_PATCH_3B04C1");
   var validation =
-    typeof validasiPenandaLewatPeriodePegawai3B04C1 === "function"
-      ? validasiPenandaLewatPeriodePegawai3B04C1()
-      : validasiPatch3B04C1();
+    typeof validasiHotfix3B04C1a === "function"
+      ? validasiHotfix3B04C1a()
+      : (typeof validasiPenandaLewatPeriodePegawai3B04C1 === "function"
+          ? validasiPenandaLewatPeriodePegawai3B04C1()
+          : validasiPatch3B04C1());
   if (!validation.valid) {
     return {
       sukses: false,
@@ -780,4 +1151,102 @@ function nonaktifkanPatch3B04C1() {
   return result;
 }
 
-// ===== END PATCH 3B-0.4C1 =====
+
+
+// ============================================================
+// ENTRY POINT HOTFIX 3B-0.4C1a
+// ============================================================
+
+function statusHotfix3B04C1a() {
+  pastikanMaintainerPortal3B0_("STATUS_HOTFIX_3B04C1A");
+  var base = statusPatch3B04C1();
+  base.hotfix = "3B-0.4C1a";
+  base.serialisasiClientVersion = SERIALISASI_CLIENT_3B04C1A.VERSION;
+  base.serialisasiAmanTersedia =
+    typeof pastikanResponsClientAman3B04C1a_ === "function";
+  return base;
+}
+
+
+function validasiHotfix3B04C1a() {
+  pastikanMaintainerPortal3B0_("VALIDASI_HOTFIX_3B04C1A");
+
+  var core = validasiPatch3B04C1();
+  var employee = typeof validasiPenandaLewatPeriodePegawai3B04C1 === "function"
+    ? validasiPenandaLewatPeriodePegawai3B04C1()
+    : { valid: false, issues: ["Validasi penanda pegawai tidak tersedia."] };
+  var serialization = validasiSerialisasiRespons3B04C1a();
+
+  var issues = [];
+  (core.issues || []).forEach(function (item) { issues.push(item); });
+  (employee.issues || []).forEach(function (item) { issues.push(item); });
+  (serialization.issues || []).forEach(function (item) {
+    issues.push(typeof item === "string" ? item : JSON.stringify(item));
+  });
+
+  var valid =
+    core.valid === true &&
+    employee.valid === true &&
+    serialization.valid === true &&
+    issues.length === 0;
+
+  var result = {
+    sukses: valid,
+    valid: valid,
+    versi: SERIALISASI_CLIENT_3B04C1A.VERSION,
+    appVersion: typeof APP_VERSION !== "undefined" ? String(APP_VERSION) : "",
+    coreValid: core.valid === true,
+    employeeMetadataValid: employee.valid === true,
+    serializationValid: serialization.valid === true,
+    endpointRiwayatTersedia:
+      typeof ambilRiwayatKuPaged3B04C1 === "function",
+    endpointDetailTersedia:
+      typeof ambilDetailRiwayatLaporan3B04C1 === "function",
+    dataDiubah: false,
+    poinDiubah: false,
+    statusReviewDiubah: false,
+    schemaDiubah: false,
+    issues: issues
+  };
+
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+
+function aktifkanHotfix3B04C1a() {
+  pastikanMaintainerPortal3B0_("AKTIFKAN_HOTFIX_3B04C1A");
+  var validation = validasiHotfix3B04C1a();
+  if (!validation.valid) {
+    return {
+      sukses: false,
+      aktif: false,
+      validation: validation,
+      pesan: "Hotfix tidak diaktifkan karena validasi belum lulus."
+    };
+  }
+
+  PropertiesService.getScriptProperties().setProperty(
+    SINKRONISASI_CUTOFF_PERIODE_3B04C1.PROPERTY,
+    "true"
+  );
+
+  var result = statusHotfix3B04C1a();
+  result.pesan = "Hotfix 3B-0.4C1a telah diaktifkan.";
+  return result;
+}
+
+
+function nonaktifkanHotfix3B04C1a() {
+  pastikanMaintainerPortal3B0_("NONAKTIFKAN_HOTFIX_3B04C1A");
+  PropertiesService.getScriptProperties().setProperty(
+    SINKRONISASI_CUTOFF_PERIODE_3B04C1.PROPERTY,
+    "false"
+  );
+  var result = statusHotfix3B04C1a();
+  result.pesan = "Hotfix 3B-0.4C1a dinonaktifkan; Riwayat memakai fallback produksi.";
+  return result;
+}
+
+
+// ===== END PATCH 3B-0.4C1a =====

@@ -5,11 +5,11 @@
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.04.01";
+  "3B1B1-2026.08.04.02";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.04.01",
+  baselineAppVersion: "2026.08.04.02",
 
   policy: {
     privateByDefault: true,
@@ -112,7 +112,10 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "nonaktifkanPenandaLewatPeriodePegawai3B04C",
       "statusPatch3B04C1",
       "aktifkanPatch3B04C1",
-      "nonaktifkanPatch3B04C1"
+      "nonaktifkanPatch3B04C1",
+      "statusHotfix3B04C1a",
+      "aktifkanHotfix3B04C1a",
+      "nonaktifkanHotfix3B04C1a"
     ],
 
     blockedCompatibilityStubs: [
@@ -160,7 +163,9 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiPenandaLewatPeriodeAdmin3B04B1",
       "validasiPenandaLewatPeriodePegawai3B04C",
       "validasiPatch3B04C1",
-      "validasiPenandaLewatPeriodePegawai3B04C1"
+      "validasiPenandaLewatPeriodePegawai3B04C1",
+      "validasiSerialisasiRespons3B04C1a",
+      "validasiHotfix3B04C1a"
     ],
 
     legacyPublicCompatibility: [
