@@ -7421,8 +7421,15 @@
 
             <div id="riwayatFilterToolbar" class="riwayat-filter-card">
               <div class="riwayat-filter-row">
+                <div class="riwayat-filter-field" style="max-width:240px;">
+                  <label for="fDasarRiwayat">Dasar Tampilan</label>
+                  <select id="fDasarRiwayat" onchange="ubahDasarRiwayat3B04C1b_(); muatRiwayat(true)">
+                    <option value="pengiriman">Bulan Pengiriman</option>
+                    <option value="periode_review">Periode Review</option>
+                  </select>
+                </div>
                 <div class="riwayat-filter-field">
-                  <label for="fBulanRiwayat">Bulan Pengiriman</label>
+                  <label id="labelBulanRiwayat3B04C1b" for="fBulanRiwayat">Bulan Pengiriman</label>
                   <div class="riwayat-filter-input-wrap">
                     <span class="material-symbols-outlined">calendar_month</span>
                     <input type="month" id="fBulanRiwayat" onchange="muatRiwayat(true)">
@@ -7612,7 +7619,7 @@
               <div>
                 <div class="stitch-page-hero-kicker">Review & Validasi</div>
                 <h2 class="stitch-page-hero-title">Review Bukti Laporan Pegawai</h2>
-                <div class="stitch-page-hero-subtitle">Pilih pegawai, rentang pelaksanaan, dan status review untuk memeriksa bukti serta memberi keputusan admin secara lebih fokus.</div>
+                <div class="stitch-page-hero-subtitle">Pilih pegawai, periode review atau rentang pengiriman, dan status review untuk memeriksa bukti serta memberi keputusan admin secara lebih fokus.</div>
               </div>
             </div>
             <div class="stitch-page-hero-pill"><span class="material-symbols-outlined" style="font-size:18px;">verified_user</span> Khusus Admin</div>
@@ -7620,13 +7627,31 @@
           <div class="table-container">
             <div class="toolbar-aksi">
               <select id="adminPegawaiSelect" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                style="min-width:320px; flex:1; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
+                style="min-width:280px; flex:1; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
                 <option value="">-- Pilih Pegawai --</option>
               </select>
-              <input type="date" id="adminTanggalMulai" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                style="max-width:180px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-              <input type="date" id="adminTanggalAkhir" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                style="max-width:180px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
+              <select id="adminDasarPeriode" onchange="ubahDasarPeriodeAdmin3B04C1b_(); simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
+                style="min-width:190px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
+                <option value="periode_review">Periode Review</option>
+                <option value="pengiriman">Rentang Pengiriman</option>
+              </select>
+              <div id="adminPeriodeReviewWrap" style="display:flex; flex-direction:column; gap:4px; min-width:175px;">
+                <label for="adminPeriodeReview" style="margin:0; font-size:10px; text-transform:uppercase; color:var(--text-muted);">Periode Review</label>
+                <input type="month" id="adminPeriodeReview" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
+                  style="padding:10px 12px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
+              </div>
+              <div id="adminRentangPengirimanWrap" style="display:none; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <label for="adminTanggalMulai" style="margin:0; font-size:10px; text-transform:uppercase; color:var(--text-muted);">Dikirim mulai</label>
+                  <input type="date" id="adminTanggalMulai" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
+                    style="max-width:180px; padding:10px 12px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <label for="adminTanggalAkhir" style="margin:0; font-size:10px; text-transform:uppercase; color:var(--text-muted);">Dikirim sampai</label>
+                  <input type="date" id="adminTanggalAkhir" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
+                    style="max-width:180px; padding:10px 12px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
+                </div>
+              </div>
               <select id="adminFilterStatus" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
                 style="max-width:220px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
                 <option value="semua">Semua Status</option>
@@ -7648,7 +7673,7 @@
             </div>
             <div id="adminReviewSummary"
               style="padding:14px 16px; background:#f8fafc; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-main);">
-              Pilih pegawai dan sesuaikan rentang tanggal untuk memuat laporan review.</div>
+              Pilih pegawai dan periode review untuk memuat antrean laporan.</div>
             <div id="tbAdmin" style="padding:16px;"></div>
           </div>
         </div>
@@ -10865,6 +10890,7 @@
     var RIWAYAT_PAGE_SIZE = 20;
     var riwayatState = {
       bulan: '',
+      dasarFilter: 'pengiriman',
       keyword: '',
       offset: 0,
       hasMore: false,
@@ -10880,6 +10906,28 @@
       return d.getFullYear() + '-' + m;
     }
 
+    function normalisasiDasarRiwayat3B04C1b_(value) {
+      return String(value || '').toLowerCase() === 'periode_review'
+        ? 'periode_review'
+        : 'pengiriman';
+    }
+
+    function labelPeriodeClient3B04C1b_(value) {
+      var m = String(value || '').match(/^(\d{4})-(\d{2})$/);
+      if (!m) return String(value || '-');
+      var nama = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      var idx = Number(m[2]) - 1;
+      return (nama[idx] || m[2]) + ' ' + m[1];
+    }
+
+    function ubahDasarRiwayat3B04C1b_() {
+      var select = document.getElementById('fDasarRiwayat');
+      var label = document.getElementById('labelBulanRiwayat3B04C1b');
+      var mode = normalisasiDasarRiwayat3B04C1b_(select ? select.value : 'pengiriman');
+      riwayatState.dasarFilter = mode;
+      if (label) label.textContent = mode === 'periode_review' ? 'Periode Review' : 'Bulan Pengiriman';
+    }
+
     function ensureRiwayatControls_() {
       var section = document.getElementById('halRiwayat');
       if (!section) return;
@@ -10893,7 +10941,9 @@
         toolbar.style.cssText = 'gap:10px; align-items:center; margin-bottom:10px;';
         toolbar.innerHTML = '' +
           '<div style="display:flex; gap:10px; flex-wrap:wrap; width:100%; align-items:center;">' +
-          '<label style="margin:0; font-size:12px; font-weight:800; color:var(--text-muted);">Bulan Pengiriman</label>' +
+          '<label style="margin:0; font-size:12px; font-weight:800; color:var(--text-muted);">Dasar</label>' +
+          '<select id="fDasarRiwayat" class="input-cari" style="max-width:190px;" onchange="ubahDasarRiwayat3B04C1b_(); muatRiwayat(true)"><option value="pengiriman">Bulan Pengiriman</option><option value="periode_review">Periode Review</option></select>' +
+          '<label id="labelBulanRiwayat3B04C1b" style="margin:0; font-size:12px; font-weight:800; color:var(--text-muted);">Bulan Pengiriman</label>' +
           '<input type="month" id="fBulanRiwayat" class="input-cari" style="max-width:190px;" onchange="muatRiwayat(true)">' +
           '<input type="text" id="fCariRiwayat" class="input-cari" style="max-width:320px;" placeholder="🔍 Cari riwayat bulan ini..." oninput="jadwalkanCariRiwayat_()">' +
           '<button type="button" class="btn-unduh" style="background:linear-gradient(135deg,#475569,#334155);" onclick="muatRiwayat(true)"><span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat</button>' +
@@ -10905,6 +10955,9 @@
 
       var bulanEl = document.getElementById('fBulanRiwayat');
       if (bulanEl && !bulanEl.value) bulanEl.value = riwayatState.bulan || getBulanBerjalanValue_();
+      var dasarEl = document.getElementById('fDasarRiwayat');
+      if (dasarEl && riwayatState.dasarFilter) dasarEl.value = riwayatState.dasarFilter;
+      ubahDasarRiwayat3B04C1b_();
 
       var oldSearch = section.querySelector('.toolbar-aksi input[onkeyup*="tbRiwayat"]');
       if (oldSearch && oldSearch.id !== 'fCariRiwayat') {
@@ -10928,10 +10981,13 @@
     }
 
     function resetRiwayatFilter_() {
+      var dasarEl = document.getElementById('fDasarRiwayat');
       var bulanEl = document.getElementById('fBulanRiwayat');
       var cariEl = document.getElementById('fCariRiwayat');
+      if (dasarEl) dasarEl.value = 'pengiriman';
       if (bulanEl) bulanEl.value = getBulanBerjalanValue_();
       if (cariEl) cariEl.value = '';
+      ubahDasarRiwayat3B04C1b_();
       muatRiwayat(true);
     }
 
@@ -10960,9 +11016,10 @@
       var periodeAsal = item.periodeAsalLabel || item.periodeLabel || item.periodeAsal || item.periode || '-';
       var periodeReview = item.periodeReviewLabel || item.periodeReview || '-';
       var pesan = item.pesanKetepatan || 'Laporan melewati cut-off periode asal dan dialihkan ke periode review berikutnya.';
-      var waktuEfektif = item.sumberWaktuEfektif === 'WAKTU_REVISI'
-        ? (item.waktuRevisi || item.waktuEfektifReview || '-')
-        : (item.waktuSubmitPertama || item.waktuEfektifReview || '-');
+      var waktuPengiriman = item.waktuPengirimanLabel || item.waktuSubmitPertama || item.waktu || '-';
+      var waktuRevisi = item.waktuRevisiTerakhirLabel || item.waktuRevisi || '';
+      var barisWaktu = '<b>Waktu pengiriman</b><span>' + escapeHTML(waktuPengiriman) + '</span>' +
+        (waktuRevisi ? '<b>Waktu revisi terakhir</b><span>' + escapeHTML(waktuRevisi) + '</span>' : '');
 
       return '' +
         '<div class="riwayat-late-period-3b04c' + (compact ? ' compact' : '') + '">' +
@@ -10974,7 +11031,7 @@
         '<div style="margin-top:7px; display:grid; grid-template-columns:minmax(110px,auto) 1fr; gap:3px 10px;">' +
         '<b>Periode asal</b><span>' + escapeHTML(periodeAsal) + '</span>' +
         '<b>Batas pelaporan</b><span>' + escapeHTML(item.batasAkhirPeriode || '-') + '</span>' +
-        '<b>Waktu efektif</b><span>' + escapeHTML(waktuEfektif) + '</span>' +
+        barisWaktu +
         '<b>Periode review</b><span>' + escapeHTML(periodeReview) + '</span>' +
         '</div>' +
         '<div class="riwayat-late-period-foot-3b04c">' +
@@ -11365,22 +11422,25 @@
       var tb = document.getElementById('tbRiwayat');
       if (!tb) return;
 
+      var dasarEl = document.getElementById('fDasarRiwayat');
       var bulanEl = document.getElementById('fBulanRiwayat');
       var cariEl = document.getElementById('fCariRiwayat');
+      var dasarFilter = normalisasiDasarRiwayat3B04C1b_(dasarEl ? dasarEl.value : 'pengiriman');
       var bulan = (bulanEl && bulanEl.value) ? bulanEl.value : getBulanBerjalanValue_();
       var keyword = (cariEl && cariEl.value) ? cariEl.value.trim() : '';
 
       if (reset !== false) {
         riwayatState.offset = 0;
         riwayatState.hasMore = false;
-        tb.innerHTML = '<div class="riwayat-loading">⏳ Memuat 20 laporan pertama untuk bulan yang dipilih...</div>';
+        tb.innerHTML = '<div class="riwayat-loading">⏳ Memuat 20 laporan pertama menurut ' + (dasarFilter === 'periode_review' ? 'periode review' : 'bulan pengiriman') + '...</div>';
         updateRiwayatLoadMore_(false);
       }
 
       riwayatState.loading = true;
       riwayatState.bulan = bulan;
+      riwayatState.dasarFilter = dasarFilter;
       riwayatState.keyword = keyword;
-      setRiwayatInfo_('Memuat riwayat ' + bulan + '...', false);
+      setRiwayatInfo_('Memuat ' + (dasarFilter === 'periode_review' ? 'periode review ' : 'bulan pengiriman ') + labelPeriodeClient3B04C1b_(bulan) + '...', false);
 
       var btnMore = document.getElementById('btnMuatLebihRiwayat');
       var oldMoreText = btnMore ? btnMore.innerHTML : '';
@@ -11476,7 +11536,10 @@
           riwayatState.offset += items.length;
           riwayatState.hasMore = !!res.hasMore;
           updateRiwayatLoadMore_(riwayatState.hasMore);
-          setRiwayatInfo_('Menampilkan ' + riwayatState.offset + ' dari ' + (Number(res.total) || riwayatState.offset) + ' laporan pada bulan ' + (res.bulan || bulan) + '.', false);
+          var modeEfektif = normalisasiDasarRiwayat3B04C1b_(res.dasarFilterEfektif || dasarFilter);
+          var labelDasar = modeEfektif === 'periode_review' ? 'periode review ' : 'bulan pengiriman ';
+          var infoTambahan = res.patch3B04C1b && res.patch3B04C1b.peringatan ? (' ' + res.patch3B04C1b.peringatan) : '';
+          setRiwayatInfo_('Menampilkan ' + riwayatState.offset + ' dari ' + (Number(res.total) || riwayatState.offset) + ' laporan pada ' + labelDasar + labelPeriodeClient3B04C1b_(res.bulan || bulan) + '.' + infoTambahan, false);
           observeLazyBuktiRiwayat_();
 
           if (highlightedRow && typeof highlightedRow.scrollIntoView === 'function') {
@@ -11493,7 +11556,9 @@
           setRiwayatInfo_('Koneksi/server lambat saat memuat riwayat. Silakan coba lagi.', true);
           console.error('ambilRiwayatKuPaged failed:', err);
         })
-        .ambilRiwayatKuPaged3B04C1({
+        .ambilRiwayatKuPaged3B04C1b({
+          dasarFilter: dasarFilter,
+          periodeReview: dasarFilter === 'periode_review' ? bulan : '',
           bulan: bulan,
           keyword: keyword,
           limit: RIWAYAT_PAGE_SIZE,
@@ -12611,6 +12676,28 @@
     let currentRevisiId = null;
     var adminReviewStateKey = 'ADMIN_REVIEW_STAGE3_V1';
 
+
+    function getBulanBerjalanAdmin3B04C1b_() {
+      return getBulanBerjalanValue_();
+    }
+
+    function getDasarPeriodeAdmin3B04C1b_() {
+      var el = document.getElementById('adminDasarPeriode');
+      return String(el && el.value || '').toLowerCase() === 'pengiriman'
+        ? 'pengiriman'
+        : 'periode_review';
+    }
+
+    function ubahDasarPeriodeAdmin3B04C1b_() {
+      var mode = getDasarPeriodeAdmin3B04C1b_();
+      var periodWrap = document.getElementById('adminPeriodeReviewWrap');
+      var rangeWrap = document.getElementById('adminRentangPengirimanWrap');
+      var periodEl = document.getElementById('adminPeriodeReview');
+      if (periodWrap) periodWrap.style.display = mode === 'periode_review' ? 'flex' : 'none';
+      if (rangeWrap) rangeWrap.style.display = mode === 'pengiriman' ? 'flex' : 'none';
+      if (periodEl && !periodEl.value) periodEl.value = getBulanBerjalanAdmin3B04C1b_();
+    }
+
     function dapatkanScrollerAdmin_() {
       return document.querySelector('.content-body');
     }
@@ -12668,79 +12755,32 @@
         '</div>';
     }
 
-    function adminReviewLatePeriodNoticeHtml3B04B1_(
-  item
-) {
-  if (!item || !item.lewatPeriode) {
-    return '';
-  }
+    function adminReviewLatePeriodNoticeHtml3B04B1_(item) {
+      if (!item || !item.lewatPeriode) return '';
 
-  var jenis = String(
-    item.jenisKetepatan || ''
-  );
+      var jenis = String(item.jenisKetepatan || '');
+      var title = jenis === 'REVISI_SETELAH_CUTOFF' ? 'Revisi Lewat Periode' : 'Lewat Periode';
+      var periodeAsal = item.periodeAsalLabel || item.periodeLabel || item.periodeAsal || item.periode || '-';
+      var periodeReview = item.periodeReviewLabel || item.periodeReview || '-';
+      var waktuPengiriman = item.waktuPengirimanLabel || item.waktuSubmitPertama || item.waktu || '-';
+      var waktuRevisi = item.waktuRevisiTerakhirLabel || item.waktuRevisi || '';
+      var pesan = item.pesanKetepatan || 'Laporan melewati cut-off periode asal dan masuk antrean periode review berikutnya.';
+      var rows = '' +
+        '<b>Periode asal</b><span>' + escapeHTML(periodeAsal) + '</span>' +
+        '<b>Batas pelaporan</b><span>' + escapeHTML(item.batasAkhirPeriode || '-') + '</span>' +
+        '<b>Waktu pengiriman</b><span>' + escapeHTML(waktuPengiriman) + '</span>' +
+        (waktuRevisi ? '<b>Waktu revisi terakhir</b><span>' + escapeHTML(waktuRevisi) + '</span>' : '') +
+        '<b>Periode review</b><span>' + escapeHTML(periodeReview) + '</span>';
 
-  var title =
-    jenis === 'REVISI_SETELAH_CUTOFF'
-      ? 'Revisi Setelah Batas Periode'
-      : jenis ===
-        'SUBMIT_DAN_REVISI_SETELAH_CUTOFF'
-        ? 'Submit dan Revisi Setelah Batas Periode'
-        : 'Lewat Batas Periode';
-
-  var periode =
-    item.periodeLabel ||
-    item.periode ||
-    '';
-
-  var pesan =
-    item.pesanKetepatan ||
-    'Laporan melewati batas akhir periode.';
-
-  return '' +
-    '<div class="admin-review-late-period-3b04b1" ' +
-    'style="' +
-      'margin:0 0 14px;' +
-      'padding:12px 14px;' +
-      'border-radius:14px;' +
-      'background:#fff7ed;' +
-      'border:1px solid #fb923c;' +
-      'color:#9a3412;' +
-      'font-size:12px;' +
-      'line-height:1.6;' +
-    '">' +
-      '<div style="' +
-        'display:flex;' +
-        'align-items:center;' +
-        'gap:7px;' +
-        'font-weight:800;' +
-        'font-size:13px;' +
-        'margin-bottom:4px;' +
-      '">' +
-        '<span class="material-symbols-outlined" ' +
-        'style="font-size:18px;">warning</span>' +
-        '<span>' +
-          escapeHTML(
-            title +
-            (periode
-              ? ' ' + periode
-              : '')
-          ) +
-        '</span>' +
-      '</div>' +
-      '<div>' +
-        escapeHTML(pesan)
-          .replace(/\n/g, '<br>') +
-      '</div>' +
-      '<div style="' +
-        'margin-top:6px;' +
-        'font-weight:700;' +
-        'color:#7c2d12;' +
-      '">' +
-        'Penanda ini hanya informasi. ' +
-        'Poin dan keputusan review tetap ditentukan Admin.' +
-      '</div>' +
-    '</div>';
-}
+      return '' +
+        '<div class="admin-review-late-period-3b04b1" style="margin:0 0 14px; padding:12px 14px; border-radius:14px; background:#fff7ed; border:1px solid #fb923c; color:#9a3412; font-size:12px; line-height:1.6;">' +
+        '<div style="display:flex; align-items:center; gap:7px; font-weight:800; font-size:13px; margin-bottom:4px;">' +
+        '<span class="material-symbols-outlined" style="font-size:18px;">warning</span><span>' + escapeHTML(title) + '</span></div>' +
+        '<div>' + escapeHTML(pesan).replace(/\n/g, '<br>') + '</div>' +
+        '<div style="margin-top:7px; display:grid; grid-template-columns:minmax(120px,auto) 1fr; gap:3px 10px;">' + rows + '</div>' +
+        '<div style="margin-top:7px; font-weight:700; color:#7c2d12;">Penanda ini bersifat informasi. Keputusan review, alasan penolakan, dan poin tetap ditentukan Admin.</div>' +
+        '</div>';
+    }
 
 
 function updateAdminLatePeriodFilter3B04B1_(
@@ -12925,6 +12965,8 @@ function updateAdminLatePeriodFilter3B04B1_(
       var input = document.getElementById('adminSearchInput');
       var filter = document.getElementById('adminFilterStatus');
       var pegawaiSelect = document.getElementById('adminPegawaiSelect');
+      var dasarPeriode = document.getElementById('adminDasarPeriode');
+      var periodeReview = document.getElementById('adminPeriodeReview');
       var tanggalMulai = document.getElementById('adminTanggalMulai');
       var tanggalAkhir = document.getElementById('adminTanggalAkhir');
       var scroller = dapatkanScrollerAdmin_();
@@ -12937,6 +12979,8 @@ function updateAdminLatePeriodFilter3B04B1_(
       state.keyword = input ? (input.value || '') : (state.keyword || '');
       state.filter = filter ? (filter.value || 'semua') : (state.filter || 'semua');
       state.selectedPegawai = pegawaiSelect ? (pegawaiSelect.value || '') : (state.selectedPegawai || '');
+      state.dasarPeriode = dasarPeriode ? (dasarPeriode.value || 'periode_review') : (state.dasarPeriode || 'periode_review');
+      state.periodeReview = periodeReview ? (periodeReview.value || getBulanBerjalanAdmin3B04C1b_()) : (state.periodeReview || getBulanBerjalanAdmin3B04C1b_());
       state.tanggalMulai = tanggalMulai ? (tanggalMulai.value || '') : (state.tanggalMulai || '');
       state.tanggalAkhir = tanggalAkhir ? (tanggalAkhir.value || '') : (state.tanggalAkhir || '');
       state.scrollTop = scroller ? scroller.scrollTop : (state.scrollTop || 0);
@@ -12951,14 +12995,19 @@ function updateAdminLatePeriodFilter3B04B1_(
       var input = document.getElementById('adminSearchInput');
       var filter = document.getElementById('adminFilterStatus');
       var pegawaiSelect = document.getElementById('adminPegawaiSelect');
+      var dasarPeriode = document.getElementById('adminDasarPeriode');
+      var periodeReview = document.getElementById('adminPeriodeReview');
       var tanggalMulai = document.getElementById('adminTanggalMulai');
       var tanggalAkhir = document.getElementById('adminTanggalAkhir');
       var defaults = hitungDefaultRentangAdminReview_();
       if (input && typeof state.keyword === 'string') input.value = state.keyword;
       if (filter && typeof state.filter === 'string' && state.filter) filter.value = state.filter;
       if (pegawaiSelect && typeof state.selectedPegawai === 'string' && state.selectedPegawai) pegawaiSelect.value = state.selectedPegawai;
+      if (dasarPeriode) dasarPeriode.value = (typeof state.dasarPeriode === 'string' && state.dasarPeriode) ? state.dasarPeriode : 'periode_review';
+      if (periodeReview) periodeReview.value = (typeof state.periodeReview === 'string' && state.periodeReview) ? state.periodeReview : getBulanBerjalanAdmin3B04C1b_();
       if (tanggalMulai) tanggalMulai.value = (typeof state.tanggalMulai === 'string' && state.tanggalMulai) ? state.tanggalMulai : defaults.tanggalMulai;
       if (tanggalAkhir) tanggalAkhir.value = (typeof state.tanggalAkhir === 'string' && state.tanggalAkhir) ? state.tanggalAkhir : defaults.tanggalAkhir;
+      ubahDasarPeriodeAdmin3B04C1b_();
     }
 
     function refreshCacheDataPegawai() {
@@ -13080,7 +13129,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         }
 
         renderAdminReviewSummary_([], 0);
-        if (wrap) wrap.innerHTML = '<div class="admin-review-empty">Pilih pegawai dan sesuaikan rentang tanggal untuk menampilkan laporan review.</div>';
+        if (wrap) wrap.innerHTML = '<div class="admin-review-empty">Pilih pegawai dan periode review untuk menampilkan antrean laporan.</div>';
       }).withFailureHandler(function (err) {
         adminReviewPegawaiList = [];
         selectEl.innerHTML = '<option value="">Gagal memuat daftar pegawai</option>';
@@ -13823,7 +13872,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       if (!el) return;
 
       if (!adminReviewAktifPegawai) {
-        el.innerHTML = 'Pilih pegawai dan sesuaikan rentang tanggal untuk memuat laporan review.';
+        el.innerHTML = 'Pilih pegawai dan periode review untuk memuat antrean laporan.';
         return;
       }
 
@@ -13852,16 +13901,21 @@ function updateAdminLatePeriodFilter3B04B1_(
         totalAll = totalPending + totalDone;
       }
 
+      var dasarPeriode = getDasarPeriodeAdmin3B04C1b_();
       var rentang = getAdminReviewDateRange_();
-      var labelRentang = (rentang.tanggalMulai && rentang.tanggalAkhir)
-        ? (formatTanggalInputAdmin_(rentang.tanggalMulai) + ' - ' + formatTanggalInputAdmin_(rentang.tanggalAkhir))
-        : '-';
+      var periodeReviewValue = ((document.getElementById('adminPeriodeReview') || {}).value || '');
+      var labelRentang = dasarPeriode === 'periode_review'
+        ? labelPeriodeClient3B04C1b_(periodeReviewValue)
+        : ((rentang.tanggalMulai && rentang.tanggalAkhir)
+          ? (formatTanggalInputAdmin_(rentang.tanggalMulai) + ' - ' + formatTanggalInputAdmin_(rentang.tanggalAkhir))
+          : '-');
+      var labelDasarRingkasan = dasarPeriode === 'periode_review' ? 'Periode review' : 'Pengiriman';
 
       el.innerHTML = '' +
         '<div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">' +
         '<span class="badge bg-gray">Pegawai: ' + escapeHTML(adminReviewAktifPegawai.nama || '-') + '</span>' +
         '<span class="badge bg-gray">Jabatan: ' + escapeHTML(adminReviewAktifPegawai.jabatan || '-') + '</span>' +
-        '<span class="badge bg-gray">Pelaksanaan: ' + escapeHTML(labelRentang) + '</span>' +
+        '<span class="badge bg-gray">' + escapeHTML(labelDasarRingkasan) + ': ' + escapeHTML(labelRentang) + '</span>' +
         '<span class="badge bg-gray">Total: ' + totalAll + '</span>' +
         '<span class="badge bg-yellow">Menunggu: ' + totalPending + '</span>' +
         '<span class="badge bg-green">Selesai: ' + totalDone + '</span>' +
@@ -13929,9 +13983,13 @@ function updateAdminLatePeriodFilter3B04B1_(
 
     function buatAdminReviewRequestKey_(selectedId, filterStatus, rentang, offset, appendMode) {
       rentang = rentang || {};
+      var dasar = getDasarPeriodeAdmin3B04C1b_();
+      var periodeReview = ((document.getElementById('adminPeriodeReview') || {}).value || '');
       return [
         String(selectedId || ''),
         String(filterStatus || 'semua'),
+        String(dasar),
+        String(periodeReview),
         String(rentang.tanggalMulai || ''),
         String(rentang.tanggalAkhir || ''),
         String(Number(offset || 0)),
@@ -13990,7 +14048,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       if (!wrap) return;
 
       if (!adminReviewAktifPegawai) {
-        wrap.innerHTML = '<div class="admin-review-empty">Pilih pegawai dan sesuaikan rentang tanggal untuk menampilkan laporan review.</div>';
+        wrap.innerHTML = '<div class="admin-review-empty">Pilih pegawai dan periode review untuk menampilkan antrean laporan.</div>';
         renderAdminReviewSummary_([], 0);
         return;
       }
@@ -14739,6 +14797,8 @@ function updateAdminLatePeriodFilter3B04B1_(
       }
 
       var filterStatus = ((document.getElementById('adminFilterStatus') || {}).value || 'semua').toLowerCase();
+      var dasarPeriode = getDasarPeriodeAdmin3B04C1b_();
+      var periodeReview = ((document.getElementById('adminPeriodeReview') || {}).value || getBulanBerjalanAdmin3B04C1b_());
       var rentang = getAdminReviewDateRange_();
       var offset = appendMode ? adminReviewNextOffset : 0;
       var requestKey = buatAdminReviewRequestKey_(selectedId, filterStatus, rentang, offset, appendMode);
@@ -14791,7 +14851,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         }
         
         updateAdminLatePeriodFilter3B04B1_(
-          res.patch3B04B1 || null
+          res.patch3B04C1b || res.patch3B04B1 || null
         );
 
         adminReviewAktifPegawai = 
@@ -14854,9 +14914,11 @@ function updateAdminLatePeriodFilter3B04B1_(
         adminReviewActiveRequestKey = '';
         if (!appendMode) renderAdminReviewSummary_([], 0);
         wrap.innerHTML = '<div class="admin-review-empty">Gagal memuat laporan pegawai: ' + escapeHTML((err && err.message) ? err.message : err) + '</div>';
-      }).ambilLaporanAdminPerPegawai3B04B1(
+      }).ambilLaporanAdminPerPegawai3B04C1b(
         selectedId,
         filterStatus,
+        dasarPeriode,
+        periodeReview,
         rentang.tanggalMulai,
         rentang.tanggalAkhir,
         offset,

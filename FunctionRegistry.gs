@@ -5,11 +5,11 @@
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.04.02";
+  "3B1B1-2026.08.04.03";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.04.02",
+  baselineAppVersion: "2026.08.04.03",
 
   policy: {
     privateByDefault: true,
@@ -46,6 +46,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilLaporanAdminPerPegawai",
       "ambilLaporanAdminPerPegawai3B04B",
       "ambilLaporanAdminPerPegawai3B04B1",
+      "ambilLaporanAdminPerPegawai3B04C1b",
       "ambilLaporanDitolakUntukRevisi",
       "ambilMetadataLampiranAdminLazy",
       "ambilRekapTunjanganBulanan",
@@ -53,6 +54,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilRiwayatKuPaged",
       "ambilRiwayatKuPaged3B04C",
       "ambilRiwayatKuPaged3B04C1",
+      "ambilRiwayatKuPaged3B04C1b",
       "ambilPengingatTutupPeriode3B04C1",
       "ambilStatusInputLaporanCutoff",
       "ambilStatusTutupPeriodeLaporan",
@@ -115,7 +117,10 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "nonaktifkanPatch3B04C1",
       "statusHotfix3B04C1a",
       "aktifkanHotfix3B04C1a",
-      "nonaktifkanHotfix3B04C1a"
+      "nonaktifkanHotfix3B04C1a",
+      "statusPenyempurnaanPeriodeReview3B04C1b",
+      "aktifkanPenyempurnaanPeriodeReview3B04C1b",
+      "nonaktifkanPenyempurnaanPeriodeReview3B04C1b"
     ],
 
     blockedCompatibilityStubs: [
@@ -165,7 +170,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiPatch3B04C1",
       "validasiPenandaLewatPeriodePegawai3B04C1",
       "validasiSerialisasiRespons3B04C1a",
-      "validasiHotfix3B04C1a"
+      "validasiHotfix3B04C1a",
+      "validasiPenyempurnaanPeriodeReview3B04C1b"
     ],
 
     legacyPublicCompatibility: [
