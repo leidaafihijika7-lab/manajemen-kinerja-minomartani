@@ -5,11 +5,11 @@
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.03.01";
+  "3B1B1-2026.08.04.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.03.01",
+  baselineAppVersion: "2026.08.04.01",
 
   policy: {
     privateByDefault: true,
@@ -40,6 +40,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilDataRekapPaged",
       "ambilDetailPegawaiAdminKinerja",
       "ambilDetailRiwayatLaporan",
+      "ambilDetailRiwayatLaporan3B04C",
+      "ambilDetailRiwayatLaporan3B04C1",
       "ambilDisposisiUntukLaporan",
       "ambilLaporanAdminPerPegawai",
       "ambilLaporanAdminPerPegawai3B04B",
@@ -49,6 +51,9 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilRekapTunjanganBulanan",
       "ambilRingkasanDisposisiBaru",
       "ambilRiwayatKuPaged",
+      "ambilRiwayatKuPaged3B04C",
+      "ambilRiwayatKuPaged3B04C1",
+      "ambilPengingatTutupPeriode3B04C1",
       "ambilStatusInputLaporanCutoff",
       "ambilStatusTutupPeriodeLaporan",
       "ambilTimelinePublik",
@@ -101,7 +106,13 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiRegistryFungsi3B1B1",
       "statusPenandaLewatPeriodeAdmin3B04B1",
       "aktifkanPenandaLewatPeriodeAdmin3B04B1",
-      "nonaktifkanPenandaLewatPeriodeAdmin3B04B1"
+      "nonaktifkanPenandaLewatPeriodeAdmin3B04B1",
+      "statusPenandaLewatPeriodePegawai3B04C",
+      "aktifkanPenandaLewatPeriodePegawai3B04C",
+      "nonaktifkanPenandaLewatPeriodePegawai3B04C",
+      "statusPatch3B04C1",
+      "aktifkanPatch3B04C1",
+      "nonaktifkanPatch3B04C1"
     ],
 
     blockedCompatibilityStubs: [
@@ -146,7 +157,10 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
 
       "statusPenandaLewatPeriodeAdmin3B04B",
       "validasiPenandaLewatPeriodeAdmin3B04B",
-      "validasiPenandaLewatPeriodeAdmin3B04B1"
+      "validasiPenandaLewatPeriodeAdmin3B04B1",
+      "validasiPenandaLewatPeriodePegawai3B04C",
+      "validasiPatch3B04C1",
+      "validasiPenandaLewatPeriodePegawai3B04C1"
     ],
 
     legacyPublicCompatibility: [

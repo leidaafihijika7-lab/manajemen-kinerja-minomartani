@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.03.01";
+var APP_VERSION = "2026.08.04.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -12353,6 +12353,14 @@ function simpanCutoffInputLaporanPeriode(periode, tanggalMulai, tanggalAkhir, ja
     var bukaLabel = (buka instanceof Date && !isNaN(buka.getTime())) ? formatTanggalJamClient_(buka) : (lock.bukaKembali || '-');
 
     logAudit_(idUser, 'SIMPAN_CUTOFF_INPUT_LAPORAN', normalizePeriode_(periode) + ' | Cut-off: ' + meta.tanggalCutoff + ' | Input dibekukan sampai: ' + bukaLabel);
+
+    // PATCH 3B-0.4C1: cut-off Tunjangan menjadi pemicu pengingat,
+    // bukan tindakan otomatis untuk menutup periode laporan.
+    var pengingatTutupPeriode =
+      typeof buatPengingatTutupPeriodeSetelahCutoff3B04C1_ === 'function'
+        ? buatPengingatTutupPeriodeSetelahCutoff3B04C1_(periode)
+        : null;
+
     return {
       sukses: true,
       pesan: 'Cut-off input laporan berhasil disimpan. Input laporan akan dibekukan setelah ' + meta.tanggalCutoff + ' dan dibuka kembali pada ' + bukaLabel + '.',
@@ -12360,7 +12368,8 @@ function simpanCutoffInputLaporanPeriode(periode, tanggalMulai, tanggalAkhir, ja
       labelPembayaran: meta.labelPembayaran,
       tanggalCutoff: meta.tanggalCutoff,
       bukaKembali: bukaLabel,
-      lockInput: lock
+      lockInput: lock,
+      pengingatTutupPeriode: pengingatTutupPeriode
     };
   } catch (e) {
     return handleError('simpanCutoffInputLaporanPeriode', e, { sukses: false, pesan: '' });

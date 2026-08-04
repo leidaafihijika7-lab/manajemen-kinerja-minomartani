@@ -5006,6 +5006,44 @@
       padding: 8px 0 4px;
     }
 
+
+    /* ===== PATCH 3B-0.4C: Penanda lewat periode pada akun pegawai ===== */
+    .riwayat-late-period-3b04c {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #fff7ed;
+      border: 1px solid #fb923c;
+      color: #9a3412;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .riwayat-late-period-3b04c.compact {
+      margin-top: 12px;
+    }
+
+    .riwayat-late-period-title-3b04c {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 4px;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .riwayat-late-period-title-3b04c .material-symbols-outlined {
+      flex: 0 0 auto;
+      font-size: 18px;
+    }
+
+    .riwayat-late-period-foot-3b04c {
+      margin-top: 6px;
+      color: #7c2d12;
+      font-weight: 750;
+    }
+    /* ===== END PATCH 3B-0.4C ===== */
+
     #btnMuatLebihRiwayat {
       width: auto;
       min-width: 220px;
@@ -7384,7 +7422,7 @@
             <div id="riwayatFilterToolbar" class="riwayat-filter-card">
               <div class="riwayat-filter-row">
                 <div class="riwayat-filter-field">
-                  <label for="fBulanRiwayat">Periode / Bulan</label>
+                  <label for="fBulanRiwayat">Bulan Pengiriman</label>
                   <div class="riwayat-filter-input-wrap">
                     <span class="material-symbols-outlined">calendar_month</span>
                     <input type="month" id="fBulanRiwayat" onchange="muatRiwayat(true)">
@@ -7628,6 +7666,9 @@
             </div>
             <div class="stitch-page-hero-pill"><span class="material-symbols-outlined" style="font-size:18px;">admin_panel_settings</span> Mode Pengelola</div>
           </div>
+
+          <!-- PATCH 3B-0.4C1: pengingat persisten tutup periode -->
+          <div id="pengingatTutupPeriode3B04C1" style="display:none; margin-bottom:18px;"></div>
           
           <div id="accordionAlatAdminKinerja" class="form-card" style="max-width:none; margin-bottom:18px; border-left:5px solid #334155;">
             <button type="button" onclick="toggleAlatAdminKinerja()" style="width:100%; border:0; background:transparent; padding:0; cursor:pointer; text-align:left;">
@@ -10852,7 +10893,7 @@
         toolbar.style.cssText = 'gap:10px; align-items:center; margin-bottom:10px;';
         toolbar.innerHTML = '' +
           '<div style="display:flex; gap:10px; flex-wrap:wrap; width:100%; align-items:center;">' +
-          '<label style="margin:0; font-size:12px; font-weight:800; color:var(--text-muted);">Filter Bulan Riwayat</label>' +
+          '<label style="margin:0; font-size:12px; font-weight:800; color:var(--text-muted);">Bulan Pengiriman</label>' +
           '<input type="month" id="fBulanRiwayat" class="input-cari" style="max-width:190px;" onchange="muatRiwayat(true)">' +
           '<input type="text" id="fCariRiwayat" class="input-cari" style="max-width:320px;" placeholder="🔍 Cari riwayat bulan ini..." oninput="jadwalkanCariRiwayat_()">' +
           '<button type="button" class="btn-unduh" style="background:linear-gradient(135deg,#475569,#334155);" onclick="muatRiwayat(true)"><span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat</button>' +
@@ -10906,6 +10947,40 @@
       var s = String(status || '').toLowerCase();
       if (s.indexOf('revisi') >= 0 || s.indexOf('menunggu') >= 0) return 'Poin Estimasi';
       return 'Poin Kinerja';
+    }
+
+
+    function riwayatLatePeriodNoticeHtml3B04C1_(item, compact) {
+      if (!item || !item.lewatPeriode) return '';
+
+      var jenis = String(item.jenisKetepatan || '');
+      var title = jenis === 'REVISI_SETELAH_CUTOFF'
+        ? 'Revisi Lewat Periode'
+        : 'Lewat Periode';
+      var periodeAsal = item.periodeAsalLabel || item.periodeLabel || item.periodeAsal || item.periode || '-';
+      var periodeReview = item.periodeReviewLabel || item.periodeReview || '-';
+      var pesan = item.pesanKetepatan || 'Laporan melewati cut-off periode asal dan dialihkan ke periode review berikutnya.';
+      var waktuEfektif = item.sumberWaktuEfektif === 'WAKTU_REVISI'
+        ? (item.waktuRevisi || item.waktuEfektifReview || '-')
+        : (item.waktuSubmitPertama || item.waktuEfektifReview || '-');
+
+      return '' +
+        '<div class="riwayat-late-period-3b04c' + (compact ? ' compact' : '') + '">' +
+        '<div class="riwayat-late-period-title-3b04c">' +
+        '<span class="material-symbols-outlined">warning</span>' +
+        '<span>' + escapeHTML(title) + '</span>' +
+        '</div>' +
+        '<div>' + escapeHTML(pesan).replace(/\n/g, '<br>') + '</div>' +
+        '<div style="margin-top:7px; display:grid; grid-template-columns:minmax(110px,auto) 1fr; gap:3px 10px;">' +
+        '<b>Periode asal</b><span>' + escapeHTML(periodeAsal) + '</span>' +
+        '<b>Batas pelaporan</b><span>' + escapeHTML(item.batasAkhirPeriode || '-') + '</span>' +
+        '<b>Waktu efektif</b><span>' + escapeHTML(waktuEfektif) + '</span>' +
+        '<b>Periode review</b><span>' + escapeHTML(periodeReview) + '</span>' +
+        '</div>' +
+        '<div class="riwayat-late-period-foot-3b04c">' +
+        'Laporan tetap tersimpan sebagai arsip. Status review dan poin hanya berubah melalui keputusan Admin.' +
+        '</div>' +
+        '</div>';
     }
 
     function adaBuktiRiwayatRingkas_(r) {
@@ -11386,6 +11461,7 @@
               '</div>' +
               '<div class="riwayat-poin"><span class="riwayat-poin-value">' + escapeHTML(poinText) + '</span><span class="riwayat-poin-label">' + labelPoinRiwayat_(stat) + '</span></div>' +
               '</div>' +
+              riwayatLatePeriodNoticeHtml3B04C1_(r, true) +
               '<div class="riwayat-desc">' + escapeHTML(deskripsi).replace(/\n/g, '<br>') + '</div>' +
               catatan + alasanRevisi + buktiLabel +
               '</div>' +
@@ -11417,7 +11493,7 @@
           setRiwayatInfo_('Koneksi/server lambat saat memuat riwayat. Silakan coba lagi.', true);
           console.error('ambilRiwayatKuPaged failed:', err);
         })
-        .ambilRiwayatKuPaged({
+        .ambilRiwayatKuPaged3B04C1({
           bulan: bulan,
           keyword: keyword,
           limit: RIWAYAT_PAGE_SIZE,
@@ -11550,6 +11626,7 @@
             '<div class="admin-detail-head"><div class="admin-detail-head-main"><b>Detail Laporan</b><div class="admin-detail-head-note">' + escapeHTML(d.waktu || '-') + ' • ' + escapeHTML(d.kategori || '-') + '</div></div>' +
             '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;"><button type="button" class="btn-action btn-reject" style="width:auto; margin-top:0;" onclick="toggleDetailRiwayat_(\'' + escapeJsSingleQuote_(idLaporan) + '\')">Tutup Detail</button>' +
             (d.bisaRevisi ? '<button type="button" class="btn-action btn-acc" style="width:auto; margin-top:0;" onclick="mulaiRevisiLaporan_(\'' + escapeJsSingleQuote_(idLaporan) + '\')">Revisi Laporan</button>' : '') + '</div></div>' +
+            riwayatLatePeriodNoticeHtml3B04C1_(d, false) +
             '<div class="admin-detail-grid">' +
             '<div class="admin-detail-item"><div class="admin-detail-key">Status</div><div class="admin-detail-value"><span class="badge ' + bg + '">' + escapeHTML(d.status || '-') + '</span></div></div>' +
             '<div class="admin-detail-item"><div class="admin-detail-key">Poin Final</div><div class="admin-detail-value">' + (Number(d.poinFinal) || 0) + ' Poin</div></div>' +
@@ -11563,7 +11640,7 @@
           detailPanel.innerHTML = '<div class="riwayat-error">Gagal memuat detail laporan. Silakan coba lagi.</div>';
           console.error('ambilDetailRiwayatLaporan failed:', err);
         })
-        .ambilDetailRiwayatLaporan(idLaporan, sToken);
+        .ambilDetailRiwayatLaporan3B04C1(idLaporan, sToken);
     }
 
     var klasemenState = {
@@ -12216,9 +12293,29 @@
           alert('Gagal menyimpan cut-off: ' + ((res && res.pesan) || 'Terjadi kesalahan.'));
           return;
         }
-        alert(res.pesan || 'Cut-off berhasil disimpan.');
+
         cekStatusInputCutoff();
         muatTunjangan();
+
+        var reminder = res.pengingatTutupPeriode || null;
+        if (reminder && reminder.perluTindakan) {
+          var lanjut = confirm(
+            (res.pesan || 'Cut-off berhasil disimpan.') +
+            '\n\n⚠ PENGINGAT TUTUP PERIODE LAPORAN\n' +
+            (reminder.pesan || 'Periode laporan belum ditutup secara administratif.') +
+            '\n\nBuka Dashboard Admin Kinerja untuk menutup periode sekarang?'
+          );
+          if (lanjut) {
+            bukaPengaturanTutupPeriode3B04C1_(
+              reminder.periode,
+              reminder.cutoffTanggalInput,
+              reminder.cutoffJamInput
+            );
+          }
+          return;
+        }
+
+        alert(res.pesan || 'Cut-off berhasil disimpan.');
       }).withFailureHandler(function (err) {
         alert('Gagal menyimpan cut-off: ' + ((err && err.message) || err));
       }).simpanCutoffInputLaporanPeriode(periode, range.tanggalMulaiPeriode, range.tanggalAkhirPeriode, range.jamCutoff || '18:00', sToken);
@@ -14285,6 +14382,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       if (userBolehKelolaTutupPeriodeLaporan_()) {
         sinkronkanFormTutupPeriodeLaporan_(false);
         muatStatusTutupPeriodeLaporanUI();
+        muatPengingatTutupPeriode3B04C1_();
       }
       muatDaftarPegawaiPin();
       if (!tb) return;
@@ -17437,6 +17535,83 @@ function updateAdminLatePeriodFilter3B04B1_(
     }
 
 
+
+    // ===== PATCH 3B-0.4C1: Pengingat tutup periode =====
+    function bukaPengaturanTutupPeriode3B04C1_(periode, tanggal, jam) {
+      var menu = document.getElementById('menuAdminKinerja');
+      if (_halamanAktif !== 'halAdminKinerja') {
+        bukaHalaman({ currentTarget: menu }, 'halAdminKinerja', 'Dashboard Admin Kinerja');
+      }
+
+      setTimeout(function () {
+        toggleAlatAdminKinerja(true);
+        var periodeEl = document.getElementById('fTutupPeriodeLaporan');
+        var tanggalEl = document.getElementById('fTanggalTutupPeriodeLaporan');
+        var jamEl = document.getElementById('fJamTutupPeriodeLaporan');
+        var alasanEl = document.getElementById('fAlasanTutupPeriodeLaporan');
+        if (periodeEl && periode) periodeEl.value = periode;
+        if (tanggalEl && tanggal) tanggalEl.value = tanggal;
+        if (jamEl && jam) jamEl.value = String(jam).slice(0, 8);
+        if (alasanEl && periode) {
+          alasanEl.value = 'Penutupan periode laporan setelah cut-off ditetapkan pada menu Tunjangan untuk periode ' + periode + '.';
+        }
+        muatStatusTutupPeriodeLaporanUI();
+        var panel = document.getElementById('panelTutupPeriodeLaporanAdmin');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    }
+
+    function renderPengingatTutupPeriode3B04C1_(res) {
+      var box = document.getElementById('pengingatTutupPeriode3B04C1');
+      if (!box) return;
+
+      var items = res && Array.isArray(res.items) ? res.items : [];
+      if (!res || res.sukses === false || res.aktif === false || !items.length) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+
+      var html = '' +
+        '<div style="padding:16px 18px; border-radius:16px; background:#fff7ed; border:1px solid #fb923c; color:#9a3412; box-shadow:var(--shadow-sm);">' +
+        '<div style="display:flex; gap:11px; align-items:flex-start;">' +
+        '<span class="material-symbols-outlined" style="font-size:28px; flex:0 0 auto;">notification_important</span>' +
+        '<div style="flex:1; min-width:0;">' +
+        '<div style="font-family:var(--font-heading); font-size:17px; font-weight:900;">Periode laporan perlu ditutup</div>' +
+        '<div style="margin-top:3px; font-size:12.5px; line-height:1.55;">Cut-off sudah disimpan pada menu Tunjangan, tetapi tindakan Tutup Periode Laporan belum sinkron.</div>';
+
+      items.slice(0, 6).forEach(function (item) {
+        html += '' +
+          '<div style="margin-top:11px; padding:11px 12px; border-radius:13px; background:#ffffff; border:1px solid #fed7aa; color:#7c2d12;">' +
+          '<div style="font-weight:850;">' + escapeHTML(item.periodeLabel || item.periode || '-') + '</div>' +
+          '<div style="font-size:12px; margin-top:3px;">Cut-off: ' + escapeHTML(item.cutoffLabel || '-') + '</div>' +
+          '<div style="display:flex; gap:8px; margin-top:9px; flex-wrap:wrap;">' +
+          '<button type="button" class="btn-unduh" style="padding:8px 11px; font-size:12px;" onclick="bukaPengaturanTutupPeriode3B04C1_(\'' + escapeJsSingleQuote_(item.periode || '') + '\',\'' + escapeJsSingleQuote_(item.cutoffTanggalInput || '') + '\',\'' + escapeJsSingleQuote_(item.cutoffJamInput || '') + '\')">Tutup Periode Sekarang</button>' +
+          '</div>' +
+          '</div>';
+      });
+
+      html += '</div></div></div>';
+      box.innerHTML = html;
+      box.style.display = 'block';
+    }
+
+    function muatPengingatTutupPeriode3B04C1_() {
+      var box = document.getElementById('pengingatTutupPeriode3B04C1');
+      if (!box) return;
+      if (!sToken || !userBolehKelolaTutupPeriodeLaporan_()) {
+        box.style.display = 'none';
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(renderPengingatTutupPeriode3B04C1_)
+        .withFailureHandler(function () {
+          if (box) box.style.display = 'none';
+        })
+        .ambilPengingatTutupPeriode3B04C1(sToken, '');
+    }
+    // ===== END PATCH 3B-0.4C1 =====
 
     function toggleAlatAdminKinerja(forceOpen) {
       var box = document.getElementById('isiAlatAdminKinerja');
