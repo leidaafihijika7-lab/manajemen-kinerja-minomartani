@@ -10898,6 +10898,7 @@
       initialized: false
     };
     var riwayatSearchTimer = null;
+    var riwayatRequestSeq3B04C1c = 0;
     var riwayatBuktiObserver = null;
 
     function getBulanBerjalanValue_() {
@@ -11417,7 +11418,8 @@
 
     function muatRiwayat(reset) {
       ensureRiwayatControls_();
-      if (riwayatState.loading) return;
+      if (riwayatState.loading && reset === false) return;
+      var requestSeq3B04C1c = ++riwayatRequestSeq3B04C1c;
 
       var tb = document.getElementById('tbRiwayat');
       if (!tb) return;
@@ -11451,6 +11453,7 @@
 
       google.script.run
         .withSuccessHandler(function (res) {
+          if (requestSeq3B04C1c !== riwayatRequestSeq3B04C1c) return;
           riwayatState.loading = false;
           if (btnMore) {
             btnMore.disabled = false;
@@ -11538,7 +11541,8 @@
           updateRiwayatLoadMore_(riwayatState.hasMore);
           var modeEfektif = normalisasiDasarRiwayat3B04C1b_(res.dasarFilterEfektif || dasarFilter);
           var labelDasar = modeEfektif === 'periode_review' ? 'periode review ' : 'bulan pengiriman ';
-          var infoTambahan = res.patch3B04C1b && res.patch3B04C1b.peringatan ? (' ' + res.patch3B04C1b.peringatan) : '';
+          var patchInfoRiwayat = (res.patch3B04C1c && res.patch3B04C1c.aktif) ? res.patch3B04C1c : (res.patch3B04C1b || res.patch3B04C1c || null);
+          var infoTambahan = patchInfoRiwayat && patchInfoRiwayat.peringatan ? (' ' + patchInfoRiwayat.peringatan) : '';
           setRiwayatInfo_('Menampilkan ' + riwayatState.offset + ' dari ' + (Number(res.total) || riwayatState.offset) + ' laporan pada ' + labelDasar + labelPeriodeClient3B04C1b_(res.bulan || bulan) + '.' + infoTambahan, false);
           observeLazyBuktiRiwayat_();
 
@@ -11547,6 +11551,7 @@
           }
         })
         .withFailureHandler(function (err) {
+          if (requestSeq3B04C1c !== riwayatRequestSeq3B04C1c) return;
           riwayatState.loading = false;
           if (btnMore) {
             btnMore.disabled = false;
@@ -11556,7 +11561,7 @@
           setRiwayatInfo_('Koneksi/server lambat saat memuat riwayat. Silakan coba lagi.', true);
           console.error('ambilRiwayatKuPaged failed:', err);
         })
-        .ambilRiwayatKuPaged3B04C1b({
+        .ambilRiwayatKuPaged3B04C1c({
           dasarFilter: dasarFilter,
           periodeReview: dasarFilter === 'periode_review' ? bulan : '',
           bulan: bulan,
@@ -11705,7 +11710,7 @@
           detailPanel.innerHTML = '<div class="riwayat-error">Gagal memuat detail laporan. Silakan coba lagi.</div>';
           console.error('ambilDetailRiwayatLaporan failed:', err);
         })
-        .ambilDetailRiwayatLaporan3B04C1(idLaporan, sToken);
+        .ambilDetailRiwayatLaporan3B04C1c(idLaporan, sToken);
     }
 
     var klasemenState = {
@@ -14851,7 +14856,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         }
         
         updateAdminLatePeriodFilter3B04B1_(
-          res.patch3B04C1b || res.patch3B04B1 || null
+          (res.patch3B04C1c && res.patch3B04C1c.aktif) ? res.patch3B04C1c : (res.patch3B04C1b || res.patch3B04B1 || res.patch3B04C1c || null)
         );
 
         adminReviewAktifPegawai = 
@@ -14914,7 +14919,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         adminReviewActiveRequestKey = '';
         if (!appendMode) renderAdminReviewSummary_([], 0);
         wrap.innerHTML = '<div class="admin-review-empty">Gagal memuat laporan pegawai: ' + escapeHTML((err && err.message) ? err.message : err) + '</div>';
-      }).ambilLaporanAdminPerPegawai3B04C1b(
+      }).ambilLaporanAdminPerPegawai3B04C1c(
         selectedId,
         filterStatus,
         dasarPeriode,

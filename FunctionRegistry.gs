@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
-// Baseline produksi: APP_VERSION 2026.06.29.02
+// Baseline produksi terintegrasi: APP_VERSION 2026.08.06.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.04.03";
+  "3B1B1-2026.08.06.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.04.03",
+  baselineAppVersion: "2026.08.06.01",
 
   policy: {
     privateByDefault: true,
@@ -42,11 +42,13 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilDetailRiwayatLaporan",
       "ambilDetailRiwayatLaporan3B04C",
       "ambilDetailRiwayatLaporan3B04C1",
+      "ambilDetailRiwayatLaporan3B04C1c",
       "ambilDisposisiUntukLaporan",
       "ambilLaporanAdminPerPegawai",
       "ambilLaporanAdminPerPegawai3B04B",
       "ambilLaporanAdminPerPegawai3B04B1",
       "ambilLaporanAdminPerPegawai3B04C1b",
+      "ambilLaporanAdminPerPegawai3B04C1c",
       "ambilLaporanDitolakUntukRevisi",
       "ambilMetadataLampiranAdminLazy",
       "ambilRekapTunjanganBulanan",
@@ -55,6 +57,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilRiwayatKuPaged3B04C",
       "ambilRiwayatKuPaged3B04C1",
       "ambilRiwayatKuPaged3B04C1b",
+      "ambilRiwayatKuPaged3B04C1c",
       "ambilPengingatTutupPeriode3B04C1",
       "ambilStatusInputLaporanCutoff",
       "ambilStatusTutupPeriodeLaporan",
@@ -120,7 +123,10 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "nonaktifkanHotfix3B04C1a",
       "statusPenyempurnaanPeriodeReview3B04C1b",
       "aktifkanPenyempurnaanPeriodeReview3B04C1b",
-      "nonaktifkanPenyempurnaanPeriodeReview3B04C1b"
+      "nonaktifkanPenyempurnaanPeriodeReview3B04C1b",
+      "statusHotfixPeriodeReview3B04C1c",
+      "aktifkanHotfixPeriodeReview3B04C1c",
+      "nonaktifkanHotfixPeriodeReview3B04C1c"
     ],
 
     blockedCompatibilityStubs: [
@@ -171,7 +177,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiPenandaLewatPeriodePegawai3B04C1",
       "validasiSerialisasiRespons3B04C1a",
       "validasiHotfix3B04C1a",
-      "validasiPenyempurnaanPeriodeReview3B04C1b"
+      "validasiPenyempurnaanPeriodeReview3B04C1b",
+      "validasiHotfixPeriodeReview3B04C1c"
     ],
 
     legacyPublicCompatibility: [
