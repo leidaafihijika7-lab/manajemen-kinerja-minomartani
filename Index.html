@@ -7724,7 +7724,7 @@
             <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;">
               <div class="form-group">
                 <label>Periode Laporan</label>
-                <input type="month" id="fTutupPeriodeLaporan" onchange="muatStatusTutupPeriodeLaporanUI()">
+                <input type="month" id="fTutupPeriodeLaporan" onchange="muatKonfigurasiTutupPeriode3B04C1d1_({ muatStatus: true })">
               </div>
               <div class="form-group">
                 <label>Tanggal Batas Akhir</label>
@@ -14458,8 +14458,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       defaultPeriodeAuditCutoffLama_();
       restoreAlatAdminKinerjaState_();
       if (userBolehKelolaTutupPeriodeLaporan_()) {
-        sinkronkanFormTutupPeriodeLaporan_(false);
-        muatStatusTutupPeriodeLaporanUI();
+        muatKonfigurasiTutupPeriode3B04C1d1_({ muatStatus: true });
         muatPengingatTutupPeriode3B04C1_();
       }
       muatDaftarPegawaiPin();
@@ -17618,6 +17617,83 @@ function updateAdminLatePeriodFilter3B04B1_(
 
 
 
+    // ===== HOTFIX 3B-0.4C1d1: sinkronisasi form periode =====
+    var tutupPeriodeFormState3B04C1d1_ = {
+      periode: '',
+      loading: false,
+      requestId: 0
+    };
+
+    function setTutupPeriodeSubmitEnabled3B04C1d1_(enabled) {
+      var btn = document.getElementById('btnTutupPeriodeLaporan');
+      if (btn) btn.disabled = !enabled;
+    }
+
+    function muatKonfigurasiTutupPeriode3B04C1d1_(opsi) {
+      opsi = opsi || {};
+      var periodeEl = document.getElementById('fTutupPeriodeLaporan');
+      var tanggalEl = document.getElementById('fTanggalTutupPeriodeLaporan');
+      var jamEl = document.getElementById('fJamTutupPeriodeLaporan');
+      var alasanEl = document.getElementById('fAlasanTutupPeriodeLaporan');
+      if (!periodeEl) return;
+
+      if (!periodeEl.value) periodeEl.value = admPeriodeAktif();
+      var periode = String(periodeEl.value || '').trim();
+      if (!periode) return;
+
+      var requestId = ++tutupPeriodeFormState3B04C1d1_.requestId;
+      tutupPeriodeFormState3B04C1d1_.periode = '';
+      tutupPeriodeFormState3B04C1d1_.loading = true;
+      setTutupPeriodeSubmitEnabled3B04C1d1_(false);
+
+      // Jangan pernah mempertahankan tanggal/jam/alasan milik periode sebelumnya.
+      if (tanggalEl) tanggalEl.value = '';
+      if (jamEl) jamEl.value = '';
+      if (alasanEl) alasanEl.value = '';
+
+      if (!sToken) {
+        tutupPeriodeFormState3B04C1d1_.loading = false;
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (requestId !== tutupPeriodeFormState3B04C1d1_.requestId) return;
+          if (!periodeEl || String(periodeEl.value || '').trim() !== periode) return;
+
+          tutupPeriodeFormState3B04C1d1_.loading = false;
+          if (!res || res.sukses === false) {
+            tutupPeriodeFormState3B04C1d1_.periode = '';
+            setTutupPeriodeSubmitEnabled3B04C1d1_(false);
+            alert((res && res.pesan) || 'Gagal memuat konfigurasi cut-off periode.');
+            return;
+          }
+
+          if (res.cutoffTersedia) {
+            if (tanggalEl) tanggalEl.value = res.cutoffTanggalInput || '';
+            if (jamEl) jamEl.value = res.cutoffJamInput || '';
+            if (alasanEl) alasanEl.value =
+              'Penutupan periode laporan setelah cut-off ditetapkan pada menu Tunjangan untuk periode ' + periode + '.';
+          } else {
+            // Tanpa cut-off resmi, biarkan kosong agar Admin mengisi secara sadar.
+            if (alasanEl) alasanEl.value = 'Penutupan input laporan baru periode ' + periode + '.';
+          }
+
+          tutupPeriodeFormState3B04C1d1_.periode = periode;
+          setTutupPeriodeSubmitEnabled3B04C1d1_(true);
+          if (opsi.muatStatus !== false) muatStatusTutupPeriodeLaporanUI();
+        })
+        .withFailureHandler(function (err) {
+          if (requestId !== tutupPeriodeFormState3B04C1d1_.requestId) return;
+          tutupPeriodeFormState3B04C1d1_.loading = false;
+          tutupPeriodeFormState3B04C1d1_.periode = '';
+          setTutupPeriodeSubmitEnabled3B04C1d1_(false);
+          alert('Gagal memuat konfigurasi cut-off periode: ' + ((err && err.message) ? err.message : err));
+        })
+        .ambilKonfigurasiTutupPeriode3B04C1d1(periode, sToken);
+    }
+    // ===== END HOTFIX 3B-0.4C1d1 =====
+
     // ===== PATCH 3B-0.4C1: Pengingat tutup periode =====
     function bukaPengaturanTutupPeriode3B04C1_(periode, tanggal, jam) {
       var menu = document.getElementById('menuAdminKinerja');
@@ -17637,6 +17713,10 @@ function updateAdminLatePeriodFilter3B04B1_(
         if (alasanEl && periode) {
           alasanEl.value = 'Penutupan periode laporan setelah cut-off ditetapkan pada menu Tunjangan untuk periode ' + periode + '.';
         }
+        tutupPeriodeFormState3B04C1d1_.requestId++;
+        tutupPeriodeFormState3B04C1d1_.periode = String(periode || '');
+        tutupPeriodeFormState3B04C1d1_.loading = false;
+        setTutupPeriodeSubmitEnabled3B04C1d1_(true);
         muatStatusTutupPeriodeLaporanUI();
         var panel = document.getElementById('panelTutupPeriodeLaporanAdmin');
         if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -17764,7 +17844,6 @@ function updateAdminLatePeriodFilter3B04B1_(
 
     function muatStatusTutupPeriodeLaporanUI() {
       if (!aturVisibilitasPanelTutupPeriodeLaporan_()) return;
-      sinkronkanFormTutupPeriodeLaporan_(false);
       var periode = (document.getElementById('fTutupPeriodeLaporan') || {}).value || admPeriodeAktif();
       var box = document.getElementById('statusTutupPeriodeLaporan');
       if (box) box.innerHTML = 'Memuat status periode...';
@@ -17787,9 +17866,13 @@ function updateAdminLatePeriodFilter3B04B1_(
         alert('Akses ditolak. Fitur ini hanya untuk Admin Kinerja (Lurah/Carik).');
         return;
       }
-      sinkronkanFormTutupPeriodeLaporan_(false);
 
       var periode = (document.getElementById('fTutupPeriodeLaporan') || {}).value || '';
+      if (tutupPeriodeFormState3B04C1d1_.loading || tutupPeriodeFormState3B04C1d1_.periode !== String(periode || '')) {
+        alert('Form periode belum sinkron. Sistem akan memuat ulang cut-off untuk periode yang dipilih. Silakan periksa tanggal dan jam sebelum menutup periode.');
+        muatKonfigurasiTutupPeriode3B04C1d1_({ muatStatus: true });
+        return;
+      }
       var tanggal = (document.getElementById('fTanggalTutupPeriodeLaporan') || {}).value || '';
       var jam = (document.getElementById('fJamTutupPeriodeLaporan') || {}).value || '18:00';
       var alasan = (document.getElementById('fAlasanTutupPeriodeLaporan') || {}).value || '';

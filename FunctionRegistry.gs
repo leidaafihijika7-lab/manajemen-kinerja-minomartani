@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
-// Baseline produksi terintegrasi: APP_VERSION 2026.08.07.01
+// Baseline produksi terintegrasi: APP_VERSION 2026.08.07.02
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.07.01";
+  "3B1B1-2026.08.07.02";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.07.01",
+  baselineAppVersion: "2026.08.07.02",
 
   policy: {
     privateByDefault: true,
@@ -59,6 +59,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilRiwayatKuPaged3B04C1b",
       "ambilRiwayatKuPaged3B04C1c",
       "ambilPengingatTutupPeriode3B04C1",
+      "ambilKonfigurasiTutupPeriode3B04C1d1",
       "ambilStatusInputLaporanCutoff",
       "ambilStatusTutupPeriodeLaporan",
       "ambilTimelinePublik",
@@ -127,7 +128,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "statusHotfixPeriodeReview3B04C1c",
       "aktifkanHotfixPeriodeReview3B04C1c",
       "nonaktifkanHotfixPeriodeReview3B04C1c",
-      "statusPresisiCutoff3B04C1d"
+      "statusPresisiCutoff3B04C1d",
+      "statusSinkronisasiFormPeriode3B04C1d1"
     ],
 
     blockedCompatibilityStubs: [
@@ -180,7 +182,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiHotfix3B04C1a",
       "validasiPenyempurnaanPeriodeReview3B04C1b",
       "validasiHotfixPeriodeReview3B04C1c",
-      "validasiPresisiCutoff3B04C1d"
+      "validasiPresisiCutoff3B04C1d",
+      "validasiSinkronisasiFormPeriode3B04C1d1"
     ],
 
     legacyPublicCompatibility: [
