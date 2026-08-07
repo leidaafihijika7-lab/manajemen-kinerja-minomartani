@@ -5,7 +5,7 @@
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.07.03";
+  "3B1B1-2026.08.07.04";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
@@ -20,7 +20,9 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "DOCUMENTATION_ONLY",
     behaviorChanged: false,
     functionRemoved: false,
-    featureFlagsChanged: false
+    featureFlagsChanged: false,
+    governanceBaselineExclusion:
+      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 155 binding Batch 2a."
   },
 
   categories: {
@@ -133,6 +135,13 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "statusPosisiScrollReview3B04C1d2",
       "statusBindingAktif3B1B2",
       "snapshotKontrakFungsi3B1B2"
+    ],
+
+    governanceToolsExcludedFromBaseline: [
+      "statusGuardKontrakPraDeploy3B1B3",
+      "validasiGuardKontrakPraDeploy3B1B3",
+      "laporanGuardKontrakPraDeploy3B1B3",
+      "evaluasiPerubahanTerencanaPraDeploy3B1B3"
     ],
 
     blockedCompatibilityStubs: [
