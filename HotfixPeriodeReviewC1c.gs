@@ -94,6 +94,17 @@ function formatTanggal3B04C1c_(value) {
   return Utilities.formatDate(d, HOTFIX_PERIODE_REVIEW_3B04C1C.TIMEZONE, "dd/MM/yyyy HH:mm") + " WIB";
 }
 
+// PATCH 3B-0.4C1d — hanya metadata cut-off yang memakai presisi detik adaptif.
+function formatCutoff3B04C1c_(value) {
+  if (typeof formatCutoffPresisi3B04C1d_ === "function") {
+    return formatCutoffPresisi3B04C1d_(value);
+  }
+  var d = parseTanggal3B04C1c_(value);
+  if (!d) return "";
+  var sec = Number(Utilities.formatDate(d, HOTFIX_PERIODE_REVIEW_3B04C1C.TIMEZONE, "ss"));
+  return Utilities.formatDate(d, HOTFIX_PERIODE_REVIEW_3B04C1C.TIMEZONE, sec !== 0 ? "dd/MM/yyyy HH:mm:ss" : "dd/MM/yyyy HH:mm") + " WIB";
+}
+
 
 function periodeKalender3B04C1c_(value) {
   var d = parseTanggal3B04C1c_(value);
@@ -475,7 +486,7 @@ function buatMetadataRow3B04C1c_(row, columns, context) {
     waktuRevisi: formatTanggal3B04C1c_(timing.revisionDate),
     waktuEfektifReview: formatTanggal3B04C1c_(timing.effectiveDate),
     sumberWaktuEfektif: timing.sumber,
-    batasAkhirPeriode: originRange ? formatTanggal3B04C1c_(originRange.cutoffDate) : "",
+    batasAkhirPeriode: originRange ? formatCutoff3B04C1c_(originRange.cutoffDate) : "",
     tanggalMulaiPeriodeAsal: originRange
       ? Utilities.formatDate(originRange.start, HOTFIX_PERIODE_REVIEW_3B04C1C.TIMEZONE, "dd/MM/yyyy HH:mm") + " WIB"
       : "",

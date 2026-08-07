@@ -104,6 +104,17 @@ function formatTanggal3B04C1_(value) {
   return Utilities.formatDate(d, "GMT+7", "dd/MM/yyyy HH:mm") + " WIB";
 }
 
+// PATCH 3B-0.4C1d — formatter khusus cut-off, presisi detik adaptif.
+function formatCutoff3B04C1_(value) {
+  if (typeof formatCutoffPresisi3B04C1d_ === "function") {
+    return formatCutoffPresisi3B04C1d_(value);
+  }
+  var d = parseTanggal3B04C1_(value);
+  if (!d) return "";
+  var sec = Number(Utilities.formatDate(d, "GMT+7", "ss"));
+  return Utilities.formatDate(d, "GMT+7", sec !== 0 ? "dd/MM/yyyy HH:mm:ss" : "dd/MM/yyyy HH:mm") + " WIB";
+}
+
 
 
 
@@ -604,7 +615,7 @@ function statusPenutupanAdmin3B04C1_(periode) {
     periode: p,
     ditutup: !!lock,
     tanggalTutup: lock && lock.cutoffDate
-      ? formatTanggal3B04C1_(lock.cutoffDate)
+      ? formatCutoff3B04C1_(lock.cutoffDate)
       : "",
     lock: lock || null
   };
@@ -825,7 +836,7 @@ function buatMetadataPengalihanById3B04C1_(idList) {
       waktuEfektifReview: formatTanggal3B04C1_(timing.effectiveDate),
       sumberWaktuEfektif: timing.sumber,
       batasAkhirPeriode: originCutoff
-        ? formatTanggal3B04C1_(originCutoff.cutoffDate)
+        ? formatCutoff3B04C1_(originCutoff.cutoffDate)
         : "",
       sumberCutoff: originCutoff ? String(originCutoff.sumber || "") : "",
       periodeAsalDitutupAdmin: closeStatus.ditutup,
@@ -860,9 +871,12 @@ function pengingatTutupPeriodeUntukPeriode3B04C1_(periode, nowValue) {
   var closedCutoff = closeStatus.lock && closeStatus.lock.cutoffDate
     ? parseTanggal3B04C1_(closeStatus.lock.cutoffDate)
     : null;
+  // C1d: sinkron berarti sama sampai detik. Tidak ada toleransi 60 detik.
   var mismatch = !!(
     closedCutoff &&
-    Math.abs(closedCutoff.getTime() - cutoff.cutoffDate.getTime()) > 60000
+    (typeof cutoffSamaSampaiDetik3B04C1d_ === "function"
+      ? !cutoffSamaSampaiDetik3B04C1d_(closedCutoff, cutoff.cutoffDate)
+      : Math.floor(closedCutoff.getTime() / 1000) !== Math.floor(cutoff.cutoffDate.getTime() / 1000))
   );
   var inputParts = tanggalDanJamInput3B04C1_(cutoff.cutoffDate);
   var reached = now.getTime() > cutoff.cutoffDate.getTime();
@@ -881,7 +895,7 @@ function pengingatTutupPeriodeUntukPeriode3B04C1_(periode, nowValue) {
     periode: p,
     periodeLabel: labelPeriode3B04C1_(p),
     cutoffAt: formatTanggalJamISO_(cutoff.cutoffDate),
-    cutoffLabel: formatTanggal3B04C1_(cutoff.cutoffDate),
+    cutoffLabel: formatCutoff3B04C1_(cutoff.cutoffDate),
     cutoffTanggalInput: inputParts.tanggal,
     cutoffJamInput: inputParts.jam,
     sumberCutoff: cutoff.sumber,
@@ -893,7 +907,7 @@ function pengingatTutupPeriodeUntukPeriode3B04C1_(periode, nowValue) {
     status: status,
     pesan: actionNeeded
       ? ("Cut-off " + labelPeriode3B04C1_(p) + " telah ditetapkan pada " +
-          formatTanggal3B04C1_(cutoff.cutoffDate) +
+          formatCutoff3B04C1_(cutoff.cutoffDate) +
           ", tetapi periode laporan belum ditutup dengan konfigurasi yang sama.")
       : ("Cut-off dan penutupan periode " + labelPeriode3B04C1_(p) + " sudah sinkron.")
   };

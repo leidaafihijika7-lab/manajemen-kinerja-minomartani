@@ -11958,6 +11958,21 @@
       return s;
     }
 
+    // PATCH 3B-0.4C1d — cut-off: tampilkan detik hanya bila bukan 00.
+    function formatTanggalJamCutoffAdaptif3B04C1d_(value) {
+      if (!value) return '-';
+      var s = value.toString().trim();
+      var m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+      if (m) {
+        var tanggal = m[3] + '/' + m[2] + '/' + m[1];
+        if (!m[4]) return tanggal;
+        var jam = m[4] + ':' + m[5];
+        if (m[6] && m[6] !== '00') jam += ':' + m[6];
+        return tanggal + ' ' + jam;
+      }
+      return s;
+    }
+
 
     function pecahWaktuLaporAdmin_(value) {
       var s = (value || '').toString().trim();
@@ -12302,7 +12317,7 @@
       var labelPembayaran = summary.labelPembayaran || (summary.periode || periodeTunjanganAktif());
       var rentang = '';
       if (summary.tanggalMulaiPeriode && summary.tanggalAkhirPeriode) {
-        var cutoffLabel = summary.tanggalCutoff ? formatTanggalJamIndonesiaShort(summary.tanggalCutoff) : (formatTanggalIndonesiaShort(summary.tanggalAkhirPeriode) + ' ' + (summary.jamCutoff || '18:00'));
+        var cutoffLabel = summary.tanggalCutoff ? formatTanggalJamCutoffAdaptif3B04C1d_(summary.tanggalCutoff) : (formatTanggalIndonesiaShort(summary.tanggalAkhirPeriode) + ' ' + (summary.jamCutoff || '18:00'));
         rentang = '<div><b>Periode hitung:</b> ' + escapeHTML(formatTanggalIndonesiaShort(summary.tanggalMulaiPeriode)) + ' s.d. ' + escapeHTML(formatTanggalIndonesiaShort(summary.tanggalAkhirPeriode)) + '</div>' +
           '<div><b>Cut-off laporan:</b> ' + escapeHTML(cutoffLabel) + '</div>';
       }
@@ -12504,7 +12519,7 @@
       if (tanggalMulai && tanggalAkhir) {
         rentangLabel = formatTanggalIndonesiaPanjang(tanggalMulai) + ' s.d. ' + formatTanggalIndonesiaPanjang(tanggalAkhir);
       }
-      var cutoffLabel = summary.tanggalCutoff ? formatTanggalJamIndonesiaShort(summary.tanggalCutoff) : (formatTanggalIndonesiaShort(tanggalAkhir) + ' ' + (summary.jamCutoff || '18:00'));
+      var cutoffLabel = summary.tanggalCutoff ? formatTanggalJamCutoffAdaptif3B04C1d_(summary.tanggalCutoff) : (formatTanggalIndonesiaShort(tanggalAkhir) + ' ' + (summary.jamCutoff || '18:00'));
 
       var tableHTML = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body>';
       tableHTML += '<table border="0">';

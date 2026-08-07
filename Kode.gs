@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.06.01";
+var APP_VERSION = "2026.08.07.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -12411,9 +12411,25 @@ function parseTanggalJamTutupPeriode_(tanggal, jam) {
   return d;
 }
 
+// ===== PATCH 3B-0.4C1d: Presisi cut-off sampai detik =====
+// Detik ditampilkan hanya bila nilainya bukan 00 agar UI tetap ringkas.
+function formatCutoffPresisi3B04C1d_(value) {
+  var d = value instanceof Date ? new Date(value.getTime()) : parseTanggal(value);
+  if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+  var second = Number(Utilities.formatDate(d, 'GMT+7', 'ss'));
+  var pattern = second !== 0 ? 'dd/MM/yyyy HH:mm:ss' : 'dd/MM/yyyy HH:mm';
+  return Utilities.formatDate(d, 'GMT+7', pattern) + ' WIB';
+}
+
+function cutoffSamaSampaiDetik3B04C1d_(a, b) {
+  var da = a instanceof Date ? a : parseTanggal(a);
+  var db = b instanceof Date ? b : parseTanggal(b);
+  if (!(da instanceof Date) || isNaN(da.getTime()) || !(db instanceof Date) || isNaN(db.getTime())) return false;
+  return Math.floor(da.getTime() / 1000) === Math.floor(db.getTime() / 1000);
+}
+
 function formatTutupPeriodeClient_(dateObj) {
-  if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) return '';
-  return Utilities.formatDate(dateObj, 'GMT+7', 'dd/MM/yyyy HH:mm') + ' WIB';
+  return formatCutoffPresisi3B04C1d_(dateObj);
 }
 
 function bacaTutupPeriodeLaporan_(periode) {
