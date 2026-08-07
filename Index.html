@@ -12722,6 +12722,89 @@
       return document.querySelector('.content-body');
     }
 
+    // ===== HOTFIX 3B-0.4C1d2: pertahankan posisi saat memuat batch Review Admin =====
+    function ambilKonteksReviewAdmin3B04C1d2_() {
+      var pegawai = document.getElementById('adminPegawaiSelect');
+      var status = document.getElementById('adminFilterStatus');
+      var dasar = document.getElementById('adminDasarPeriode');
+      var periode = document.getElementById('adminPeriodeReview');
+      var mulai = document.getElementById('adminTanggalMulai');
+      var akhir = document.getElementById('adminTanggalAkhir');
+      var cari = document.getElementById('adminSearchInput');
+      return [
+        pegawai ? (pegawai.value || '') : '',
+        status ? (status.value || '') : '',
+        dasar ? (dasar.value || '') : '',
+        periode ? (periode.value || '') : '',
+        mulai ? (mulai.value || '') : '',
+        akhir ? (akhir.value || '') : '',
+        cari ? (cari.value || '') : ''
+      ].join('|');
+    }
+
+    function tangkapPosisiMuatBerikutnyaAdmin3B04C1d2_() {
+      var scroller = dapatkanScrollerAdmin_();
+      var btn = document.getElementById('btnAdminReviewLoadMore');
+      var reports = document.querySelectorAll('#tbAdmin .admin-review-report');
+      var anchor = reports.length ? reports[reports.length - 1] : null;
+      var buttonRect = btn && btn.getBoundingClientRect ? btn.getBoundingClientRect() : null;
+      var anchorRect = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
+      return {
+        konteks: ambilKonteksReviewAdmin3B04C1d2_(),
+        scrollTop: scroller ? Number(scroller.scrollTop || 0) : 0,
+        visibleCount: reports.length,
+        buttonTop: buttonRect ? Number(buttonRect.top) : null,
+        anchorReportId: anchor ? String(anchor.getAttribute('data-report-id') || '') : '',
+        anchorTop: anchorRect ? Number(anchorRect.top) : null
+      };
+    }
+
+    function angkaFiniteReviewAdmin3B04C1d2_(value) {
+      return typeof value === 'number' && isFinite(value);
+    }
+
+    function pulihkanPosisiMuatBerikutnyaAdmin3B04C1d2_(snapshot) {
+      if (!snapshot || snapshot.konteks !== ambilKonteksReviewAdmin3B04C1d2_()) return false;
+      var scroller = dapatkanScrollerAdmin_();
+      if (!scroller) return false;
+
+      var reports = document.querySelectorAll('#tbAdmin .admin-review-report');
+      var target = reports.length > Number(snapshot.visibleCount || 0)
+        ? reports[Number(snapshot.visibleCount || 0)]
+        : null;
+
+      // UX utama: tempatkan laporan pertama batch baru di posisi tombol lama.
+      if (target && angkaFiniteReviewAdmin3B04C1d2_(snapshot.buttonTop) && target.getBoundingClientRect) {
+        var targetTop = Number(target.getBoundingClientRect().top);
+        if (angkaFiniteReviewAdmin3B04C1d2_(targetTop)) {
+          scroller.scrollTop = Math.max(0, Number(scroller.scrollTop || 0) + (targetTop - snapshot.buttonTop));
+          return true;
+        }
+      }
+
+      // Fallback: pertahankan kartu terakhir batch lama pada posisi visual yang sama.
+      if (snapshot.anchorReportId) {
+        var anchor = null;
+        for (var i = 0; i < reports.length; i++) {
+          if (String(reports[i].getAttribute('data-report-id') || '') === String(snapshot.anchorReportId)) {
+            anchor = reports[i];
+            break;
+          }
+        }
+        if (anchor && angkaFiniteReviewAdmin3B04C1d2_(snapshot.anchorTop) && anchor.getBoundingClientRect) {
+          var anchorTopNow = Number(anchor.getBoundingClientRect().top);
+          if (angkaFiniteReviewAdmin3B04C1d2_(anchorTopNow)) {
+            scroller.scrollTop = Math.max(0, Number(scroller.scrollTop || 0) + (anchorTopNow - snapshot.anchorTop));
+            return true;
+          }
+        }
+      }
+
+      scroller.scrollTop = Math.max(0, Number(snapshot.scrollTop || 0));
+      return true;
+    }
+    // ===== END HOTFIX 3B-0.4C1d2 =====
+
     function bacaStateAdminReview_() {
       try {
         var raw = sessionStorage.getItem(adminReviewStateKey);
@@ -14821,6 +14904,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       var rentang = getAdminReviewDateRange_();
       var offset = appendMode ? adminReviewNextOffset : 0;
       var requestKey = buatAdminReviewRequestKey_(selectedId, filterStatus, rentang, offset, appendMode);
+      var viewportSnapshot3B04C1d2 = null;
 
       // Jangan kirim request identik yang masih berjalan.
       if (adminReviewActiveRequestKey === requestKey) return;
@@ -14924,7 +15008,19 @@ function updateAdminLatePeriodFilter3B04B1_(
           return;
         }
 
+        if (appendMode) {
+          // Ambil posisi TERBARU tepat sebelum DOM dirender ulang. Jika admin
+          // sempat menggulir selama request berjalan, posisi terbaru itulah yang dipertahankan.
+          viewportSnapshot3B04C1d2 = tangkapPosisiMuatBerikutnyaAdmin3B04C1d2_();
+        }
         renderAdminReviewView();
+        if (appendMode && viewportSnapshot3B04C1d2) {
+          // renderAdminReviewView() memiliki pemulihan state lama pada 30 ms.
+          // Jalankan koreksi khusus load-more setelahnya agar posisi final tetap di batch baru.
+          setTimeout(function () {
+            pulihkanPosisiMuatBerikutnyaAdmin3B04C1d2_(viewportSnapshot3B04C1d2);
+          }, 70);
+        }
       }).withFailureHandler(function (err) {
         if (requestId !== adminReviewRequestSeq) return;
 
