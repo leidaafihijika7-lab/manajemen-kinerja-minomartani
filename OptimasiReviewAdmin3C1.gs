@@ -1,7 +1,7 @@
 /**
  * ============================================================================
  * OPTIMASI 3C-1 — FAST PATH REVIEW ADMIN BERBASIS INDEX + CACHE METADATA SCOPE
- * APP_VERSION: 2026.08.08.01
+ * APP_VERSION: 2026.08.08.02
  *
  * Tujuan:
  * - mempertahankan kontrak respons Review Bukti Admin C1c;
@@ -24,7 +24,7 @@
 
 var OPTIMASI_REVIEW_ADMIN_3C1 = {
   VERSION: '3C1-2026.08.08.01',
-  APP_VERSION_EXPECTED: '2026.08.08.01',
+  APP_VERSION_EXPECTED: '2026.08.08.02',
   ENABLED_PROPERTY: 'OPTIMASI_REVIEW_ADMIN_3C1_ENABLED',
   ENABLED_AT_PROPERTY: 'OPTIMASI_REVIEW_ADMIN_3C1_ENABLED_AT',
   SHADOW_PERCENT_PROPERTY: 'OPTIMASI_REVIEW_ADMIN_3C1_SHADOW_PERCENT',
@@ -523,23 +523,36 @@ function fastPathReviewAdmin3C1_(args, idUser) {
   var fullRowsMs = Date.now() - tFull;
 
   var tBuild = Date.now();
-  var lampiranCache = {};
   var items = [];
-  for (var s = 0; s < selected.length; s++) {
-    var record = selected[s];
-    var fullRow = fullRows[record.r] || [];
-    if (!fullRow.length) throw new Error('BARIS_LENGKAP_TIDAK_DITEMUKAN_' + record.r);
-    var actualId = normalizeId_(fullRow[SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
-    var actualUser = normalizeId_(fullRow[SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
-    if (!idsEqual_(actualId, record.i) || !idsEqual_(actualUser, targetId)) throw new Error('INDEX_ROW_STALE_PAGE_' + record.r);
+  var build3C2 = null;
 
-    if (!pegawaiInfo.nama) pegawaiInfo.nama = String(fullRow[SHEET_COLUMNS.REKAP_KINERJA.NAMA] || '');
-    if (!pegawaiInfo.jabatan) pegawaiInfo.jabatan = String(fullRow[SHEET_COLUMNS.REKAP_KINERJA.JABATAN] || '');
+  // OPTIMASI 3C-2: builder halaman baru bersifat optional/feature-flagged.
+  // Bila 3C-2 OFF, circuit terbuka, atau helper tidak tersedia, jalur persis 3C-1 dipakai.
+  if (typeof bangunPageItemsReviewAdmin3C2_ === 'function') {
+    build3C2 = bangunPageItemsReviewAdmin3C2_(selected, fullRows, targetId, pegawaiInfo, context);
+  }
 
-    var metadata = buatMetadataRow3B04C1c_(fullRow, SHEET_COLUMNS.REKAP_KINERJA, context);
-    var item = buildAdminReviewItemFromRow_(fullRow, lampiranCache);
-    if (typeof injectKolomKQKeItemReview_ === 'function') item = injectKolomKQKeItemReview_(item, fullRow);
-    items.push(gabungkanMetadata3B04C1c_(item, metadata));
+  if (build3C2 && build3C2.digunakan === true) {
+    items = build3C2.items || [];
+    pegawaiInfo = build3C2.pegawaiInfo || pegawaiInfo;
+  } else {
+    var lampiranCache = {};
+    for (var s = 0; s < selected.length; s++) {
+      var record = selected[s];
+      var fullRow = fullRows[record.r] || [];
+      if (!fullRow.length) throw new Error('BARIS_LENGKAP_TIDAK_DITEMUKAN_' + record.r);
+      var actualId = normalizeId_(fullRow[SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
+      var actualUser = normalizeId_(fullRow[SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
+      if (!idsEqual_(actualId, record.i) || !idsEqual_(actualUser, targetId)) throw new Error('INDEX_ROW_STALE_PAGE_' + record.r);
+
+      if (!pegawaiInfo.nama) pegawaiInfo.nama = String(fullRow[SHEET_COLUMNS.REKAP_KINERJA.NAMA] || '');
+      if (!pegawaiInfo.jabatan) pegawaiInfo.jabatan = String(fullRow[SHEET_COLUMNS.REKAP_KINERJA.JABATAN] || '');
+
+      var metadata = buatMetadataRow3B04C1c_(fullRow, SHEET_COLUMNS.REKAP_KINERJA, context);
+      var item = buildAdminReviewItemFromRow_(fullRow, lampiranCache);
+      if (typeof injectKolomKQKeItemReview_ === 'function') item = injectKolomKQKeItemReview_(item, fullRow);
+      items.push(gabungkanMetadata3B04C1c_(item, metadata));
+    }
   }
   var buildMs = Date.now() - tBuild;
 
@@ -560,6 +573,7 @@ function fastPathReviewAdmin3C1_(args, idUser) {
     cacheBytes: Number(scope.cacheBytes || 0),
     fullRowsMs: fullRowsMs,
     buildPageItemsMs: buildMs,
+    build3C2: build3C2 && build3C2.digunakan === true ? (build3C2.metrics || null) : null,
     pageRows: rowNumbers.length,
     totalMs: totalMs
   };
@@ -602,6 +616,26 @@ function fastPathReviewAdmin3C1_(args, idUser) {
       route: fastMetrics.route,
       cacheHit: fastMetrics.cacheHit,
       fastMetrics: fastMetrics,
+      dataDiubah: false,
+      poinDiubah: false,
+      statusReviewDiubah: false,
+      schemaDiubah: false
+    },
+    patch3C2: build3C2 && build3C2.digunakan === true ? {
+      versi: typeof OPTIMASI_BUILD_REVIEW_ADMIN_3C2 !== 'undefined' ? OPTIMASI_BUILD_REVIEW_ADMIN_3C2.VERSION : '3C2',
+      aktif: true,
+      fallback: !!build3C2.fallback,
+      route: String(build3C2.route || ''),
+      metrics: build3C2.metrics || null,
+      dataDiubah: false,
+      poinDiubah: false,
+      statusReviewDiubah: false,
+      schemaDiubah: false
+    } : {
+      versi: typeof OPTIMASI_BUILD_REVIEW_ADMIN_3C2 !== 'undefined' ? OPTIMASI_BUILD_REVIEW_ADMIN_3C2.VERSION : '3C2',
+      aktif: false,
+      fallback: true,
+      route: build3C2 && build3C2.route ? String(build3C2.route) : 'LEGACY_BUILD_3C1',
       dataDiubah: false,
       poinDiubah: false,
       statusReviewDiubah: false,
