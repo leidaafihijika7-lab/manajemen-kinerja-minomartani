@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
-// Baseline produksi terintegrasi: APP_VERSION 2026.08.07.03
+// Baseline produksi terintegrasi: APP_VERSION 2026.08.08.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.07.04";
+  "3B1B1-2026.08.08.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.07.03",
+  baselineAppVersion: "2026.08.08.01",
 
   policy: {
     privateByDefault: true,
@@ -51,6 +51,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilLaporanAdminPerPegawai3B04B1",
       "ambilLaporanAdminPerPegawai3B04C1b",
       "ambilLaporanAdminPerPegawai3B04C1c",
+      "ambilLaporanAdminPerPegawai3C1",
       "ambilLaporanDitolakUntukRevisi",
       "ambilMetadataLampiranAdminLazy",
       "ambilRekapTunjanganBulanan",
@@ -134,7 +135,13 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "statusSinkronisasiFormPeriode3B04C1d1",
       "statusPosisiScrollReview3B04C1d2",
       "statusBindingAktif3B1B2",
-      "snapshotKontrakFungsi3B1B2"
+      "snapshotKontrakFungsi3B1B2",
+      "statusOptimasiReviewAdmin3C1",
+      "aktifkanOptimasiReviewAdmin3C1",
+      "nonaktifkanOptimasiReviewAdmin3C1",
+      "aturPersentaseShadowOptimasiReviewAdmin3C1",
+      "resetMetrikOptimasiReviewAdmin3C1",
+      "guardTerencanaOptimasiReviewAdmin3C1"
     ],
 
     governanceToolsExcludedFromBaseline: [
@@ -197,6 +204,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiPresisiCutoff3B04C1d",
       "validasiSinkronisasiFormPeriode3B04C1d1",
       "validasiPosisiScrollReview3B04C1d2",
+      "validasiOptimasiReviewAdmin3C1",
       "validasiBindingAktif3B1B2",
       "cekKontrakFungsi3B1B2"
     ],
