@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.08.02";
+var APP_VERSION = "2026.08.13.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -38,7 +38,11 @@ var CONFIG = {
     PASSWORD_HASH_ALGO: 'SHA_256',
     PIN_HASH_VERSION_LEGACY: 'v1',
     PIN_HASH_VERSION_SALTED: 'v2',
-    PIN_PEPPER_PROPERTY: 'PIN_PEPPER'
+    PIN_PEPPER_PROPERTY: 'PIN_PEPPER',
+    SESSION_ACCOUNT_STATUS_TTL_SECONDS: 60,
+    TEMP_UPLOAD_TTL_SECONDS: 3600,
+    TEMP_UPLOAD_MAX_FILES: 50,
+    FILE_SHARING_MODE_PROPERTY: 'PORTAL_FILE_SHARING_MODE'
   },
   TUNJANGAN: {
     DEFAULT_CUTOFF_DAY: 25,
@@ -49,7 +53,10 @@ var CONFIG = {
   FILE_LIMITS: {
     MAX_FILE_B64: 4500000,
     MAX_PDF_B64: Math.ceil((3 * 1024 * 1024) * 4 / 3) + 2048,
-    MAX_TOTAL_B64: 12000000
+    MAX_TOTAL_B64: 12000000,
+    MAX_BLOB_FILES: 12,
+    MAX_BLOB_FILE_BYTES: 10 * 1024 * 1024,
+    MAX_BLOB_TOTAL_BYTES: 25 * 1024 * 1024
   }
 };
 
@@ -838,7 +845,8 @@ function getPegawaiByUsername_(username) {
         nama: data[i][SHEET_COLUMNS.DATA_PEGAWAI.NAMA],
         jabatan: data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN],
         akses: data[i][SHEET_COLUMNS.DATA_PEGAWAI.AKSES],
-        wa: data[i][SHEET_COLUMNS.DATA_PEGAWAI.WA]
+        wa: data[i][SHEET_COLUMNS.DATA_PEGAWAI.WA],
+        status: data[i][SHEET_COLUMNS.DATA_PEGAWAI.STATUS]
       };
     }
   }
@@ -847,19 +855,88 @@ function getPegawaiByUsername_(username) {
 
 function buatToken() { return Utilities.getUuid(); }
 
+function statusPegawaiAktif_(status) {
+  var normalized = String(status || '').trim().toLowerCase();
+  // Kompatibilitas data lama: status kosong tetap dianggap aktif. Nilai selain
+  // AKTIF/ACTIVE ditolak agar status seperti NONAKTIF, DISABLED, atau BLOKIR
+  // tidak dapat memperoleh maupun mempertahankan sesi.
+  return !normalized || normalized === 'aktif' || normalized === 'active';
+}
+
+function statusSessionPegawaiCacheKey_(idUser) {
+  return 'SESSION_ACCOUNT_ACTIVE_' + sha256Hex(normalizeId_(idUser)).substring(0, 32);
+}
+
+function simpanStatusSessionPegawaiCache_(idUser, aktif) {
+  var ttl = Number(CONFIG.SECURITY.SESSION_ACCOUNT_STATUS_TTL_SECONDS || 60);
+  try {
+    CacheService.getScriptCache().put(statusSessionPegawaiCacheKey_(idUser), aktif ? '1' : '0', ttl);
+  } catch (e) { }
+}
+
+function pegawaiAktifUntukSession_(idUser) {
+  var targetId = normalizeId_(idUser);
+  if (!targetId) return false;
+
+  var cache = CacheService.getScriptCache();
+  var key = statusSessionPegawaiCacheKey_(targetId);
+  try {
+    var cached = cache.get(key);
+    if (cached === '1') return true;
+    if (cached === '0') return false;
+  } catch (eCache) { }
+
+  try {
+    var sh = getSheet_('Data_Pegawai');
+    var rowCount = Math.max(0, sh.getLastRow() - 1);
+    if (!rowCount) {
+      simpanStatusSessionPegawaiCache_(targetId, false);
+      return false;
+    }
+
+    var ids = sh.getRange(2, SHEET_COLUMNS.DATA_PEGAWAI.ID + 1, rowCount, 1).getValues();
+    var statuses = sh.getRange(2, SHEET_COLUMNS.DATA_PEGAWAI.STATUS + 1, rowCount, 1).getValues();
+    for (var i = 0; i < rowCount; i++) {
+      if (!idsEqual_(ids[i][0], targetId)) continue;
+      var aktif = statusPegawaiAktif_(statuses[i][0]);
+      simpanStatusSessionPegawaiCache_(targetId, aktif);
+      return aktif;
+    }
+  } catch (e) {
+    Logger.log('Gagal memvalidasi status akun sesi: ' + getInternalErrorMessage_(e));
+  }
+
+  // Fail closed bila akun tidak ditemukan atau status tidak dapat diverifikasi.
+  simpanStatusSessionPegawaiCache_(targetId, false);
+  return false;
+}
+
 function validasiSession(token) {
   token = String(token || '').trim();
   if (!token) return null;
 
+  var idUser = null;
   if (Object.prototype.hasOwnProperty.call(PORTAL_RUNTIME_CACHE_.sessionByToken, token)) {
-    return PORTAL_RUNTIME_CACHE_.sessionByToken[token];
+    idUser = PORTAL_RUNTIME_CACHE_.sessionByToken[token];
   }
 
   var cache = CacheService.getScriptCache();
-  var idUser = cache.get(token);
-  if (idUser) cache.put(token, idUser, CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+  if (!idUser) idUser = cache.get(token);
+  if (!idUser) {
+    PORTAL_RUNTIME_CACHE_.sessionByToken[token] = null;
+    return null;
+  }
 
-  PORTAL_RUNTIME_CACHE_.sessionByToken[token] = idUser || null;
+  if (!pegawaiAktifUntukSession_(idUser)) {
+    delete PORTAL_RUNTIME_CACHE_.sessionByToken[token];
+    try { cache.remove(token); } catch (eRemove) { }
+    try { logAudit_(idUser, 'SESSION_REVOKED_INACTIVE', 'Sesi dicabut karena akun tidak aktif atau tidak ditemukan.'); } catch (eAudit) { }
+    return null;
+  }
+
+  cache.put(token, idUser, CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+
+  PORTAL_RUNTIME_CACHE_.sessionByToken[token] = idUser;
   return idUser;
 }
 
@@ -879,6 +956,7 @@ function cekHakAksesAdmin(idUser) {
   try {
     var pegawai = getPegawaiById_(idUser);
     if (!pegawai) return false;
+    if (!statusPegawaiAktif_(pegawai.status)) return false;
     // Izinkan jika jabatan Carik/Lurah ATAU kolom akses = "Admin" di database
     if (isAdminUtamaPegawai_(pegawai)) return true;
     var akses = (pegawai.akses || "").toString().trim();
@@ -899,7 +977,8 @@ function getPegawaiById_(idUser) {
         nama: data[i][SHEET_COLUMNS.DATA_PEGAWAI.NAMA],
         jabatan: data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN],
         akses: data[i][SHEET_COLUMNS.DATA_PEGAWAI.AKSES],
-        wa: data[i][SHEET_COLUMNS.DATA_PEGAWAI.WA]
+        wa: data[i][SHEET_COLUMNS.DATA_PEGAWAI.WA],
+        status: data[i][SHEET_COLUMNS.DATA_PEGAWAI.STATUS]
       };
     }
   }
@@ -2597,6 +2676,7 @@ function gabungCatatanCutoff_(catatanLama, meta) {
  */
 
 function aturCutoffTunjanganApril2026() {
+  pastikanMaintainerPortal3B0_('ATUR_CUTOFF_TUNJANGAN_APRIL_2026');
   var meta = simpanCutoffTunjanganPeriode_("2026-04", "2026-04-01", "2026-04-27", "18:13:40");
   Logger.log("Cut-off April 2026 disimpan: " + JSON.stringify({
     tanggalMulaiPeriode: meta.tanggalMulaiPeriode,
@@ -3316,7 +3396,16 @@ function hashPinV2_(pin, salt) {
 }
 
 function constantTimeEquals_(a, b) {
-  return String(a || "").trim() === String(b || "").trim();
+  var left = String(a || '').trim();
+  var right = String(b || '').trim();
+  var maxLength = Math.max(left.length, right.length);
+  var diff = left.length ^ right.length;
+  for (var i = 0; i < maxLength; i++) {
+    var leftCode = i < left.length ? left.charCodeAt(i) : 0;
+    var rightCode = i < right.length ? right.charCodeAt(i) : 0;
+    diff |= leftCode ^ rightCode;
+  }
+  return diff === 0;
 }
 
 function verifikasiPinPegawai_(pinInput, hashTersimpan, salt, hashVersion) {
@@ -3486,6 +3575,26 @@ function tambahCounterLoginGagal_(cache, key, ttl) {
   return n;
 }
 
+function tambahCounterLoginGagalAtomik_(cache, keys, ttl) {
+  keys = keys || {};
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return null;
+
+  try {
+    var result = {
+      user: ambilCounterLogin_(cache, keys.user) + 1,
+      client: ambilCounterLogin_(cache, keys.client) + 1,
+      global: ambilCounterLogin_(cache, keys.global) + 1
+    };
+    cache.put(keys.user, String(result.user), ttl);
+    cache.put(keys.client, String(result.client), ttl);
+    cache.put(keys.global, String(result.global), ttl);
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function clearLoginUserFailures_(username) {
   try {
     var user = String(username || '').trim().toLowerCase();
@@ -3538,16 +3647,15 @@ function adminGantiPinPegawai(username, pinBaru6Digit, token) {
 
 function cekLogin(username, pin, clientId) {
   try {
-    var sheet = SpreadsheetApp.openById("1MpHIgbn66sbTdu8Mj1voqjuvI1UT5vDhbHo3BTdzkOE")
-      .getSheetByName("Data_Pegawai");
-    var data = sheet.getDataRange().getValues();
-    if (!data) return { sukses: false, pesan: "Database Pegawai tidak dapat diakses!" };
-
     var inputUserBersih = String(username || '').trim().toLowerCase();
     var inputPinMentah = String(pin || '').trim();
     if (!inputUserBersih || !inputPinMentah) {
       return { sukses: false, pesan: "Username dan PIN wajib diisi." };
     }
+
+    var sheet = getSheet_('Data_Pegawai');
+    var data = sheet.getDataRange().getValues();
+    if (!data || !data.length) return { sukses: false, pesan: "Database Pegawai tidak dapat diakses!" };
 
     var cache = CacheService.getScriptCache();
     var ttl = loginFailureTtl_();
@@ -3578,6 +3686,7 @@ function cekLogin(username, pin, clientId) {
 
     var usernameDitemukan = false;
     var statusPinSalah = false;
+    var statusAkunNonaktif = false;
 
     for (var i = 1; i < data.length; i++) {
       var dbUser = data[i][SHEET_COLUMNS.DATA_PEGAWAI.USERNAME] ? data[i][SHEET_COLUMNS.DATA_PEGAWAI.USERNAME].toString().trim().toLowerCase() : "";
@@ -3587,6 +3696,11 @@ function cekLogin(username, pin, clientId) {
 
       if (dbUser === inputUserBersih) {
         usernameDitemukan = true;
+
+        if (!statusPegawaiAktif_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.STATUS])) {
+          statusAkunNonaktif = true;
+          break;
+        }
           
         var verifikasi = verifikasiPinPegawai_(inputPinMentah, dbPin, dbSalt, dbHashVersion);
         if (verifikasi.valid) {
@@ -3602,6 +3716,7 @@ function cekLogin(username, pin, clientId) {
 
           var token = buatToken();
           CacheService.getScriptCache().put(token, idUserLogin, CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+          simpanStatusSessionPegawaiCache_(idUserLogin, true);
 
           // PATCH 2A-1: sertakan hak Disposisi pada respons login agar frontend
           // tidak perlu memanggil getStatusAksesDisposisiModul() sesudah login.
@@ -3637,11 +3752,22 @@ function cekLogin(username, pin, clientId) {
       }
     }
 
-    var userAfter = tambahCounterLoginGagal_(cache, keyUser, ttl);
-    var clientAfter = tambahCounterLoginGagal_(cache, keyClient, ttl);
-    var globalAfter = tambahCounterLoginGagal_(cache, keyGlobal, ttl);
+    var counterAfter = tambahCounterLoginGagalAtomik_(cache, {
+      user: keyUser,
+      client: keyClient,
+      global: keyGlobal
+    }, ttl);
+    if (!counterAfter) {
+      logAudit_('SYSTEM', 'LOGIN_RATE_LOCK_BUSY', 'Login ditolak karena lock rate-limit tidak tersedia.');
+      return { sukses: false, pesan: loginThrottleMessage_() };
+    }
+    var userAfter = counterAfter.user;
+    var clientAfter = counterAfter.client;
+    var globalAfter = counterAfter.global;
 
-    var alasan = usernameDitemukan
+    var alasan = statusAkunNonaktif
+      ? 'Akun nonaktif'
+      : usernameDitemukan
       ? (statusPinSalah ? 'PIN salah' : 'Verifikasi PIN gagal')
       : 'Username tidak ditemukan';
     logAudit_(
@@ -4267,7 +4393,137 @@ function buatFinalNameBuktiKinerja_(pegawai, meta, timestamp, originalName, mime
   return safeUploadFileName_(base + '.' + ext);
 }
 
+function modeSharingFilePortal_() {
+  var propertyName = CONFIG.SECURITY.FILE_SHARING_MODE_PROPERTY || 'PORTAL_FILE_SHARING_MODE';
+  var mode = String(portalScriptProperties_().getProperty(propertyName) || 'PRIVATE').trim().toUpperCase();
+  if (mode !== 'PRIVATE' && mode !== 'DOMAIN_WITH_LINK' && mode !== 'ANYONE_WITH_LINK') return 'PRIVATE';
+  return mode;
+}
+
+function terapkanKebijakanSharingFilePortal_(file) {
+  if (!file) throw new Error('File Drive tidak tersedia untuk penerapan kebijakan akses.');
+  var mode = modeSharingFilePortal_();
+
+  if (mode === 'ANYONE_WITH_LINK') {
+    // Mode publik harus dipilih eksplisit melalui Script Property. Default tetap PRIVATE.
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return mode;
+  }
+  if (mode === 'DOMAIN_WITH_LINK') {
+    file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+    return mode;
+  }
+
+  try {
+    var currentAccess = file.getSharingAccess();
+    if (currentAccess !== DriveApp.Access.PRIVATE) {
+      file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    }
+  } catch (e) {
+    // Fail closed: upload tidak boleh dianggap berhasil bila akses publik tidak
+    // dapat diverifikasi/dinonaktifkan.
+    throw new Error('Kebijakan akses file PRIVATE tidak dapat diterapkan. ' + getInternalErrorMessage_(e));
+  }
+  return mode;
+}
+
+function normalisasiTujuanUploadSementara_(purpose) {
+  var p = String(purpose || '').trim().toUpperCase();
+  return /^[A-Z0-9_]{3,40}$/.test(p) ? p : 'UNKNOWN';
+}
+
+function uploadSementaraCacheKey_(purpose, token, idUser) {
+  var raw = [normalisasiTujuanUploadSementara_(purpose), normalizeId_(idUser), String(token || '').trim()].join('|');
+  return 'TEMP_UPLOAD_' + normalisasiTujuanUploadSementara_(purpose) + '_' + sha256Hex(raw).substring(0, 40);
+}
+
+function bacaUploadSementaraTerdaftar_(purpose, token, idUser) {
+  try {
+    var raw = CacheService.getScriptCache().get(uploadSementaraCacheKey_(purpose, token, idUser));
+    var parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(function (id) {
+      return /^[A-Za-z0-9_-]{10,}$/.test(String(id || ''));
+    }) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function mutasiUploadSementaraTerdaftar_(purpose, token, idUser, tambahIds, hapusIds) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error('Registry upload sementara sedang sibuk. Silakan coba lagi.');
+
+  try {
+    var cache = CacheService.getScriptCache();
+    var key = uploadSementaraCacheKey_(purpose, token, idUser);
+    var current = [];
+    try {
+      var raw = cache.get(key);
+      current = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(current)) current = [];
+    } catch (eParse) { current = []; }
+
+    var removeMap = {};
+    (Array.isArray(hapusIds) ? hapusIds : []).forEach(function (id) {
+      removeMap[String(id || '').trim()] = true;
+    });
+    var resultMap = {};
+    current.forEach(function (id) {
+      id = String(id || '').trim();
+      if (/^[A-Za-z0-9_-]{10,}$/.test(id) && !removeMap[id]) resultMap[id] = true;
+    });
+    (Array.isArray(tambahIds) ? tambahIds : []).forEach(function (id) {
+      id = String(id || '').trim();
+      if (/^[A-Za-z0-9_-]{10,}$/.test(id) && !removeMap[id]) resultMap[id] = true;
+    });
+
+    var maxFiles = Number(CONFIG.SECURITY.TEMP_UPLOAD_MAX_FILES || 50);
+    var result = Object.keys(resultMap).slice(-maxFiles);
+    if (result.length) {
+      cache.put(key, JSON.stringify(result), Number(CONFIG.SECURITY.TEMP_UPLOAD_TTL_SECONDS || 3600));
+    } else {
+      cache.remove(key);
+    }
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function daftarkanUploadSementara_(purpose, token, idUser, fileIds) {
+  return mutasiUploadSementaraTerdaftar_(purpose, token, idUser, fileIds, []);
+}
+
+function konsumsiUploadSementara_(purpose, token, idUser, fileIds) {
+  return mutasiUploadSementaraTerdaftar_(purpose, token, idUser, [], fileIds);
+}
+
+function fileBeradaDiBawahFolder_(file, rootFolderId) {
+  var rootId = String(rootFolderId || '').trim();
+  if (!file || !rootId) return false;
+
+  var queue = [];
+  var parents = file.getParents();
+  while (parents.hasNext()) queue.push({ folder: parents.next(), depth: 0 });
+  var visited = {};
+  var checked = 0;
+
+  while (queue.length && checked < 60) {
+    var item = queue.shift();
+    var folder = item.folder;
+    var folderId = String(folder.getId() || '');
+    checked++;
+    if (folderId === rootId) return true;
+    if (visited[folderId] || item.depth >= 8) continue;
+    visited[folderId] = true;
+    var nextParents = folder.getParents();
+    while (nextParents.hasNext()) queue.push({ folder: nextParents.next(), depth: item.depth + 1 });
+  }
+  return false;
+}
+
 function uploadBuktiKinerjaBlob(formObj) {
+  var createdFileIds = [];
   try {
     var token = formObj && formObj.uploadToken ? String(formObj.uploadToken) : '';
     var idUser = validasiSession(token);
@@ -4275,10 +4531,17 @@ function uploadBuktiKinerjaBlob(formObj) {
 
     var pegawai = getPegawaiById_(idUser) || {};
     var metaRaw = formObj && formObj.uploadMetaJson ? String(formObj.uploadMetaJson) : '[]';
+    if (metaRaw.length > 100000) {
+      return { sukses: false, pesan: 'Metadata upload terlalu besar.' };
+    }
     var metaList = [];
     try { metaList = JSON.parse(metaRaw); } catch (jsonErr) { metaList = []; }
     if (!Array.isArray(metaList) || !metaList.length) {
       return { sukses: false, pesan: 'Tidak ada file yang dikirim untuk diunggah.' };
+    }
+    var maxFiles = Number(CONFIG.FILE_LIMITS.MAX_BLOB_FILES || 12);
+    if (metaList.length > maxFiles) {
+      return { sukses: false, pesan: 'Jumlah file melebihi batas ' + maxFiles + ' file per upload.' };
     }
 
     var props = PropertiesService.getScriptProperties();
@@ -4294,7 +4557,10 @@ function uploadBuktiKinerjaBlob(formObj) {
     var folderPDFUtama = dapatkanAtauBuatFolder_(folderTahun, 'PDF');
 
     var results = [];
-    var MAX_FILE_BYTES = 10 * 1024 * 1024;
+    var prepared = [];
+    var totalBytes = 0;
+    var maxFileBytes = Number(CONFIG.FILE_LIMITS.MAX_BLOB_FILE_BYTES || (10 * 1024 * 1024));
+    var maxTotalBytes = Number(CONFIG.FILE_LIMITS.MAX_BLOB_TOTAL_BYTES || (25 * 1024 * 1024));
 
     for (var i = 0; i < metaList.length; i++) {
       var meta = metaList[i] || {};
@@ -4308,8 +4574,12 @@ function uploadBuktiKinerjaBlob(formObj) {
       var originalName = blob.getName ? (blob.getName() || meta.originalName || ('file' + (i + 1))) : (meta.originalName || ('file' + (i + 1)));
       var mimeType = blob.getContentType ? (blob.getContentType() || meta.mime || '') : (meta.mime || '');
       var bytes = blob.getBytes();
-      if (bytes.length > MAX_FILE_BYTES) {
+      if (bytes.length > maxFileBytes) {
         return { sukses: false, pesan: 'File "' + originalName + '" melebihi batas 10 MB.' };
+      }
+      totalBytes += bytes.length;
+      if (totalBytes > maxTotalBytes) {
+        return { sukses: false, pesan: 'Ukuran gabungan file melebihi batas ' + Math.floor(maxTotalBytes / (1024 * 1024)) + ' MB.' };
       }
 
       var validasiFile = validasiBuktiUploadBytes_(bytes, mimeType, originalName);
@@ -4317,30 +4587,46 @@ function uploadBuktiKinerjaBlob(formObj) {
         return { sukses: false, pesan: 'File "' + originalName + '" ditolak. ' + validasiFile.pesan };
       }
 
-      var isPdf = validasiFile.mime === 'application/pdf';
+      prepared.push({
+        meta: meta,
+        originalName: originalName,
+        bytes: bytes,
+        validasiFile: validasiFile,
+        index: i
+      });
+    }
+
+    for (var p = 0; p < prepared.length; p++) {
+      var item = prepared[p];
+      var isPdf = item.validasiFile.mime === 'application/pdf';
       var targetFolder = isPdf ? folderPDFUtama : folderFotoUtama;
-      var finalName = buatFinalNameBuktiKinerja_(pegawai, meta, timestamp, originalName, validasiFile.mime, validasiFile);
-      var uploadBlob = Utilities.newBlob(bytes, validasiFile.mime, finalName);
+      var finalName = buatFinalNameBuktiKinerja_(pegawai, item.meta, timestamp, item.originalName, item.validasiFile.mime, item.validasiFile);
+      var uploadBlob = Utilities.newBlob(item.bytes, item.validasiFile.mime, finalName);
       var createdFile = targetFolder.createFile(uploadBlob);
-      createdFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      createdFileIds.push(createdFile.getId());
+      terapkanKebijakanSharingFilePortal_(createdFile);
 
       results.push({
-        role: meta.role || '',
-        index: typeof meta.index === 'number' ? meta.index : i,
-        label: meta.label || '',
+        role: item.meta.role || '',
+        index: typeof item.meta.index === 'number' ? item.meta.index : item.index,
+        label: item.meta.label || '',
         url: createdFile.getUrl(),
         fileId: createdFile.getId(),
-        mime: validasiFile.mime,
-        detectedMime: validasiFile.mime,
+        mime: item.validasiFile.mime,
+        detectedMime: item.validasiFile.mime,
         name: finalName,
-        originalName: originalName,
-        sizeBytes: bytes.length,
+        originalName: item.originalName,
+        sizeBytes: item.bytes.length,
         isPdf: isPdf
       });
     }
 
+    daftarkanUploadSementara_('BUKTI_KINERJA', token, idUser, createdFileIds);
     return { sukses: true, files: results, uploadSelesaiPada: Utilities.formatDate(now, 'GMT+7', 'dd/MM/yyyy HH:mm:ss') };
   } catch (e) {
+    for (var c = 0; c < createdFileIds.length; c++) {
+      try { DriveApp.getFileById(createdFileIds[c]).setTrashed(true); } catch (cleanupError) { }
+    }
     return handleError('uploadBuktiKinerjaBlob', e, { sukses: false, pesan: 'Gagal mengunggah bukti. ' + (e && e.message ? e.message : e) });
   }
 }
@@ -4350,20 +4636,41 @@ function hapusUploadBuktiKinerjaSementara(fileIds, token) {
   try {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, sessionExpired: true, pesan: 'Sesi habis. Silakan login ulang.' };
-    fileIds = Array.isArray(fileIds) ? fileIds : [];
+    fileIds = (Array.isArray(fileIds) ? fileIds : []).slice(0, Number(CONFIG.FILE_LIMITS.MAX_BLOB_FILES || 12));
+    var allowedIds = bacaUploadSementaraTerdaftar_('BUKTI_KINERJA', token, idUser);
+    var allowedMap = {};
+    allowedIds.forEach(function (id) { allowedMap[String(id)] = true; });
+    var props = portalScriptProperties_();
+    var folderRootId = String(props.getProperty('FOLDER_ID_BUKTI_KINERJA') || props.getProperty('FOLDER_ID_BUKTI') || '').trim();
     var ok = 0;
     var gagal = 0;
+    var ditolak = 0;
+    var consumed = [];
     for (var i = 0; i < fileIds.length; i++) {
       var fid = String(fileIds[i] || '').trim();
       if (!fid || !/^[A-Za-z0-9_-]{10,}$/.test(fid)) continue;
+      if (!allowedMap[fid]) {
+        ditolak++;
+        continue;
+      }
       try {
-        DriveApp.getFileById(fid).setTrashed(true);
+        var file = DriveApp.getFileById(fid);
+        if (!fileBeradaDiBawahFolder_(file, folderRootId)) {
+          ditolak++;
+          continue;
+        }
+        if (!file.isTrashed()) file.setTrashed(true);
         ok++;
+        consumed.push(fid);
       } catch (e) {
         gagal++;
       }
     }
-    return { sukses: true, dihapus: ok, gagal: gagal };
+    if (consumed.length) konsumsiUploadSementara_('BUKTI_KINERJA', token, idUser, consumed);
+    if (ditolak > 0) {
+      try { logAudit_(idUser, 'TEMP_UPLOAD_DELETE_REJECTED', 'Permintaan hapus ditolak: ' + ditolak + ' file tidak terdaftar atau di luar folder bukti.'); } catch (eAudit) { }
+    }
+    return { sukses: true, dihapus: ok, gagal: gagal, ditolak: ditolak };
   } catch (e) {
     return handleError('hapusUploadBuktiKinerjaSementara', e, { sukses: false, pesan: 'Gagal membersihkan upload sementara.' });
   }
@@ -4473,8 +4780,11 @@ function simpanDataKinerja(paket, token) {
   }
 }
 
+var INTERNAL_SUBMIT_CONTEXT_MARKER_ = {};
+
 function buatKonteksSubmitKinerja_() {
   return {
+    internalMarker: INTERNAL_SUBMIT_CONTEXT_MARKER_,
     submitCache: CacheService.getScriptCache(),
     nonceKey: "",
     pertahankanNonce: false,
@@ -4690,7 +5000,7 @@ function buatUploaderBuktiSubmitKinerja_(ctx) {
     var fileBlob = Utilities.newBlob(bytesUpload, validasiFile.mime, finalSafeName);
     var createdFile = targetFolder.createFile(fileBlob);
     ctx.uploadedFileIdsSubmit.push(createdFile.getId());
-    createdFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    terapkanKebijakanSharingFilePortal_(createdFile);
     return createdFile.getUrl();
   };
 }
@@ -5000,6 +5310,15 @@ function buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi) {
 }
 
 function simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, barisBaru) {
+  // Fungsi ini memiliki binding cadangan historis tanpa suffix privat. Marker
+  // berbasis identitas objek memastikan hanya konteks yang dibuat server dalam
+  // alur simpanDataKinerja() yang dapat mencapai operasi appendRow.
+  if (!ctx || ctx.internalMarker !== INTERNAL_SUBMIT_CONTEXT_MARKER_ ||
+      !ctx.submitCache || typeof ctx.submitCache.put !== 'function' ||
+      !Array.isArray(barisBaru)) {
+    return { sukses: false, pesan: 'Permintaan simpan internal tidak valid.' };
+  }
+
   // Siapkan schema sebelum lock simpan final. Fungsi ini sudah memakai guard
   // sehingga pada kondisi normal tidak menulis header berulang kali.
   siapkanKolomDetailFormRekapKinerja_();
@@ -6460,7 +6779,7 @@ function ambilRiwayatKu(token, fokusIdLaporan) {
   var res = ambilRiwayatKuPaged({ limit: 50, offset: 0, fokusIdLaporan: fokusIdLaporan || '' }, token);
   return (res && res.sukses && Array.isArray(res.items)) ? res.items : [];
 }
-function ambilDataRekap() {
+function ambilDataRekap_() {
   try {
     var data = getRekapKinerjaValuesReadOnly_();
     var mapRekap = {};
@@ -9097,6 +9416,10 @@ function getTargetFolderLampiranDisposisi_(tanggalDisposisi, isPdf) {
 
 function simpanLampiranDisposisiBytes_(bytesUpload, mimeType, fileName, nomorDisposisi, tanggalDisposisi, perihal) {
   var oriName = (fileName || "lampiran").toString();
+  var maxFileBytes = Number(CONFIG.FILE_LIMITS.MAX_BLOB_FILE_BYTES || (10 * 1024 * 1024));
+  if (!bytesUpload || bytesUpload.length > maxFileBytes) {
+    throw new Error('Lampiran disposisi melebihi batas ' + Math.floor(maxFileBytes / (1024 * 1024)) + ' MB.');
+  }
   var validasiFile = validasiBuktiUploadBytes_(bytesUpload, mimeType, oriName);
   if (!validasiFile.sukses) throw new Error('Lampiran disposisi ditolak. ' + validasiFile.pesan);
   var isPdf = validasiFile.mime === "application/pdf";
@@ -9104,7 +9427,12 @@ function simpanLampiranDisposisiBytes_(bytesUpload, mimeType, fileName, nomorDis
   var namaFinal = buildNamaFinalLampiranDisposisi_(tanggalDisposisi, nomorDisposisi, perihal, validasiFile.ext);
   var blob = Utilities.newBlob(bytesUpload, validasiFile.mime, namaFinal);
   var f = targetFolder.createFile(blob);
-  f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  try {
+    terapkanKebijakanSharingFilePortal_(f);
+  } catch (sharingError) {
+    try { f.setTrashed(true); } catch (cleanupError) { }
+    throw sharingError;
+  }
   return { url: f.getUrl(), nama: f.getName() || namaFinal, fileId: f.getId(), mime: validasiFile.mime, sizeBytes: bytesUpload.length, isPdf: isPdf };
 }
 
@@ -9140,6 +9468,12 @@ function uploadLampiranDisposisiBlob(formObj) {
     var perihal = formObj && formObj.perihal ? String(formObj.perihal) : '';
 
     var lampiran = simpanLampiranDisposisiBytes_(bytes, mimeType, originalName, 'UPLOAD', tanggalDisposisi, perihal);
+    try {
+      daftarkanUploadSementara_('DISPOSISI', token, idUser, [lampiran.fileId]);
+    } catch (registryError) {
+      try { DriveApp.getFileById(lampiran.fileId).setTrashed(true); } catch (cleanupError) { }
+      throw registryError;
+    }
     return {
       sukses: true,
       pesan: 'Dokumen surat berhasil diunggah.',
@@ -9155,7 +9489,7 @@ function uploadLampiranDisposisiBlob(formObj) {
   }
 }
 
-function normalisasiLampiranDisposisiDariPayload_(payload, nomorDisposisi, tanggalDisposisi, perihal) {
+function normalisasiLampiranDisposisiDariPayload_(payload, nomorDisposisi, tanggalDisposisi, perihal, token, idUser) {
   payload = payload || {};
   if (payload.fileData) {
     return simpanLampiranDisposisi_(payload.fileData, payload.mimeType, payload.fileName, nomorDisposisi, tanggalDisposisi, perihal);
@@ -9163,15 +9497,25 @@ function normalisasiLampiranDisposisiDariPayload_(payload, nomorDisposisi, tangg
 
   var fileId = (payload.lampiranFileId || payload.fileId || '').toString().trim();
   if (fileId) {
+    var registered = bacaUploadSementaraTerdaftar_('DISPOSISI', token, idUser);
+    if (registered.indexOf(fileId) < 0) {
+      throw new Error('Lampiran disposisi tidak terdaftar sebagai upload sementara milik sesi ini.');
+    }
     var file = DriveApp.getFileById(fileId);
+    var rootDisposisi = getFolderRootDisposisi_();
+    if (!fileBeradaDiBawahFolder_(file, rootDisposisi.getId())) {
+      throw new Error('Lampiran disposisi berada di luar folder portal yang diizinkan.');
+    }
     var bytes = file.getBlob().getBytes();
+    var maxFileBytes = Number(CONFIG.FILE_LIMITS.MAX_BLOB_FILE_BYTES || (10 * 1024 * 1024));
+    if (bytes.length > maxFileBytes) throw new Error('Lampiran disposisi melebihi batas ukuran file.');
     var mime = file.getMimeType ? file.getMimeType() : '';
     var validasiFile = validasiBuktiUploadBytes_(bytes, mime, file.getName());
     if (!validasiFile.sukses) throw new Error('Lampiran disposisi ditolak. ' + validasiFile.pesan);
     var namaFinal = buildNamaFinalLampiranDisposisi_(tanggalDisposisi, nomorDisposisi, perihal, validasiFile.ext);
     try { file.setName(namaFinal); } catch (renameErr) {}
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return { url: file.getUrl(), nama: file.getName() || namaFinal, fileId: file.getId(), mime: validasiFile.mime, sizeBytes: bytes.length, isPdf: validasiFile.mime === 'application/pdf' };
+    terapkanKebijakanSharingFilePortal_(file);
+    return { url: file.getUrl(), nama: file.getName() || namaFinal, fileId: file.getId(), mime: validasiFile.mime, sizeBytes: bytes.length, isPdf: validasiFile.mime === 'application/pdf', uploadSementaraPurpose: 'DISPOSISI' };
   }
 
   var url = safeHttpUrlServer_(payload.lampiranUrl || payload.fileUrl || '');
@@ -9593,7 +9937,7 @@ function simpanDisposisiSurat(payload, token) {
     }
 
     var nomor = buatNomorReferensiDisposisi_(tglDisposisi);
-    var lampiran = normalisasiLampiranDisposisiDariPayload_(payload, nomor, tglDisposisi, perihal);
+    var lampiran = normalisasiLampiranDisposisiDariPayload_(payload, nomor, tglDisposisi, perihal, token, idUser);
     if (!lampiran || !lampiran.url) {
       return { sukses: false, pesan: "Dokumen surat yang didisposisikan wajib diunggah." };
     }
@@ -9660,6 +10004,9 @@ function simpanDisposisiSurat(payload, token) {
       targetNama: perihal,
       detailJson: { nomor: nomor, jenis: jenis, perihal: perihal, pemberi_nama: pemberi.nama, jumlah_penerima: rows.length, mode_input: modeInput }
     });
+    if (lampiran.uploadSementaraPurpose && lampiran.fileId) {
+      try { konsumsiUploadSementara_(lampiran.uploadSementaraPurpose, token, idUser, [lampiran.fileId]); } catch (eRegistry) { }
+    }
     var infoWhatsApp = {
       pemberiNama: pemberi.nama,
       jenis: jenis,
@@ -11333,6 +11680,7 @@ function evaluasiCutoffLaporan_(tanggalLaporan) {
 }
 
 function aturCutoffTunjanganApril2026() {
+  pastikanMaintainerPortal3B0_('ATUR_CUTOFF_TUNJANGAN_APRIL_2026');
   var meta = simpanCutoffTunjanganPeriode_("2026-04", "2026-04-01", "2026-04-27", "18:13:40");
   Logger.log("Cut-off April 2026 disimpan: " + JSON.stringify({
     tanggalMulaiPeriode: meta.tanggalMulaiPeriode,
@@ -13185,7 +13533,7 @@ if (typeof buildAdminReviewItemFromRow__SEBELUM_NONAKTIF_CUTOFF_2026051212 !== '
 
 
 // ===== PATCH v2026.05.12.14: Optimasi Klasemen Kinerja dengan filter backend + paginasi =====
-// Tidak mengubah rumus bisnis ambilDataRekap(); fungsi ini tetap menjadi sumber perhitungan.
+// Tidak mengubah rumus bisnis ambilDataRekap_(); fungsi privat ini tetap menjadi sumber perhitungan.
 // Patch hanya membungkus hasilnya dengan filter, offset, dan limit agar frontend tidak harus
 // merender semua data sekaligus. Cache singkat dipakai untuk mengurangi hitung ulang saat klik "Muat Lagi".
 
@@ -13200,7 +13548,7 @@ function ambilDataRekapKlasemenCached_() {
       try { return JSON.parse(raw); } catch (eParse) { }
     }
 
-    var rows = ambilDataRekap() || [];
+    var rows = ambilDataRekap_() || [];
     try {
       var json = JSON.stringify(rows);
       // CacheService limit aman sekitar 100KB per item; jika terlalu besar, abaikan cache.
@@ -19187,4 +19535,3 @@ statusIndexLaporan2B0 = function () {
 };
 
 // ===== END PATCH PERFORMA 2B-2A =====
-
