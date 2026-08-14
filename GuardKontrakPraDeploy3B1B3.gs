@@ -1,7 +1,7 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
-// Baseline kontrak: 3B-1B Batch 2a — 155 binding aktif
+// Baseline kontrak: 3B-1B Batch 2b — 155 binding aktif
 // Baseline produksi: APP_VERSION 2026.08.07.03 (Versi 628)
 //
 // READ-ONLY:
@@ -11,12 +11,12 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3-2026.08.07.01";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3-2026.08.14.01";
 var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.08.07.03";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 155;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "f48c67dd3a615521828649cd167451b3c88f42be8a7bb897ab653205f48a4352";
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "9bea89798a198d52224de806f953430bd836f34c7f75a5b8395c6f7e71c9008a";
 
-// Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 155 Batch 2a.
+// Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 155 Batch 2b.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.
 var PORTAL_PREDEPLOY_SELF_NAMES_3B1B3_ = [
   "statusGuardKontrakPraDeploy3B1B3",
