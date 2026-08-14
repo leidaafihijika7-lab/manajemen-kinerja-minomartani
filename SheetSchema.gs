@@ -1,5 +1,7 @@
 // SheetSchema.gs adalah sumber kebenaran tunggal untuk SHEET_COLUMNS.
 // Jangan mendefinisikan SHEET_COLUMNS lagi di Kode.gs; cukup pastikan file ini ada di project Apps Script.
+var PORTAL_SHEET_SCHEMA_VERSION_ = "2026.08.14.01";
+
 var SHEET_COLUMNS = {
   DATA_PEGAWAI: {
     ID: 0, USERNAME: 1, NAMA: 2, JABATAN: 3, PIN_HASH: 4, AKSES: 5,
@@ -95,6 +97,8 @@ var SHEET_COLUMNS = {
     PERIODE_RESMI: 4, KATEGORI: 5, STATUS_REVIEW: 6, POIN_FINAL: 7,
     ID_DISPOSISI: 8, NONCE: 9, TERAKHIR_DIUBAH: 10, INDEX_VERSION: 11
   },
+  // Tab antrean bersifat opsional dan dibuat otomatis ketika kegagalan
+  // sinkronisasi Index_Laporan pertama kali perlu dicatat.
   INDEX_LAPORAN_SYNC_QUEUE: {
     QUEUE_ID: 0, WAKTU: 1, OPERATION: 2, ROW_REKAP: 3,
     ID_LAPORAN: 4, ID_USER: 5, NONCE: 6, CONTEXT: 7,
@@ -128,3 +132,42 @@ var SHEET_COLUMNS = {
   // (findHeaderIndex_) karena struktur kolomnya fleksibel dan tidak
   // bergantung pada posisi tetap. Tidak perlu didaftarkan di sini.
 };
+
+// Gagal lebih awal bila ada indeks schema yang tidak valid. Setelah lolos,
+// kunci setiap peta kolom agar posisi tidak dapat diubah saat runtime.
+(function validasiDanKunciSheetColumns_() {
+  Object.keys(SHEET_COLUMNS).forEach(function (sheetKey) {
+    var columns = SHEET_COLUMNS[sheetKey];
+    var seen = {};
+    var maxIndex = -1;
+
+    Object.keys(columns).forEach(function (columnKey) {
+      var index = columns[columnKey];
+      if (typeof index !== "number" || index < 0 || index % 1 !== 0) {
+        throw new Error(
+          "Indeks SHEET_COLUMNS tidak valid: " + sheetKey + "." + columnKey
+        );
+      }
+      if (Object.prototype.hasOwnProperty.call(seen, index)) {
+        throw new Error(
+          "Indeks SHEET_COLUMNS duplikat: " + sheetKey + "[" + index + "]"
+        );
+      }
+      seen[index] = columnKey;
+      if (index > maxIndex) maxIndex = index;
+    });
+
+    for (var expected = 0; expected <= maxIndex; expected++) {
+      if (!Object.prototype.hasOwnProperty.call(seen, expected)) {
+        throw new Error(
+          "Urutan SHEET_COLUMNS tidak berkelanjutan: " +
+          sheetKey + " kehilangan indeks " + expected
+        );
+      }
+    }
+
+    Object.freeze(columns);
+  });
+
+  Object.freeze(SHEET_COLUMNS);
+})();
