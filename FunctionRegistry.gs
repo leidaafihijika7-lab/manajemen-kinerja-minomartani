@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
-// Baseline produksi terintegrasi: APP_VERSION 2026.08.08.02
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.13.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.08.02";
+  "3B1B1-2026.08.14.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.08.02",
+  baselineAppVersion: "2026.08.13.01",
 
   policy: {
     privateByDefault: true,
@@ -17,12 +17,12 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
     publicRule:
       "Hanya nama yang tercantum dalam kategori public yang dianggap kontrak public resmi.",
     enforcement:
-      "DOCUMENTATION_ONLY",
+      "STRUCTURE_VALIDATION_AND_PREDEPLOY_GUARD",
     behaviorChanged: false,
     functionRemoved: false,
     featureFlagsChanged: false,
     governanceBaselineExclusion:
-      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 155 binding Batch 2a."
+      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 155 binding Batch 2b."
   },
 
   categories: {
