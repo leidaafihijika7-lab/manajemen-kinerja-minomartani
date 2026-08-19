@@ -4,10 +4,10 @@
 // ============================================================
 
 var REVIEW_LEWAT_PERIODE_3B04B = {
-  VERSION: "3B04B-2026.08.02.02",
-  PAGE_FETCH_SIZE: 200,
+  VERSION: "3B04B-2026.08.19.01",
+  PAGE_FETCH_SIZE: 30,
   MAX_FETCH_LOOPS: 30,
-  MAX_FETCH_ROWS: 5000
+  MAX_FETCH_ROWS: 900
 };
 
 
@@ -23,13 +23,143 @@ function salinObject3B04B_(source) {
 }
 
 
+function normalisasiBilanganBulat3B04B_(value, fallback, min, max) {
+  var parsed = Number(value);
+  if (!isFinite(parsed)) parsed = Number(fallback) || 0;
+  parsed = Math.floor(parsed);
+  if (typeof min === "number") parsed = Math.max(min, parsed);
+  if (typeof max === "number") parsed = Math.min(max, parsed);
+  return parsed;
+}
+
+
+function metadataDefault3B04B_(overrides) {
+  var result = {
+    lewatPeriode: false,
+    dialihkan: false,
+    jenisKetepatan: "TEPAT_WAKTU",
+    periode: "",
+    periodeLabel: "",
+    periodeAsal: "",
+    periodeAsalLabel: "",
+    periodeReview: "",
+    periodeReviewLabel: "",
+    sumberPeriode: "",
+    sumberPeriodeReview: "",
+    sumberWaktuEfektif: "",
+    waktuSubmitPertama: "",
+    waktuRevisi: "",
+    waktuEfektifReview: "",
+    waktuPengirimanLabel: "",
+    batasAkhirPeriode: "",
+    terlambatMilidetikSubmit: 0,
+    terlambatDetikSubmit: 0,
+    terlambatMenitSubmit: 0,
+    terlambatLabelSubmit: "",
+    terlambatMilidetikRevisi: 0,
+    terlambatDetikRevisi: 0,
+    terlambatMenitRevisi: 0,
+    terlambatLabelRevisi: "",
+    terlambatMilidetikEfektif: 0,
+    terlambatDetikEfektif: 0,
+    terlambatMenitEfektif: 0,
+    terlambatLabelEfektif: "",
+    pesanKetepatan: "",
+    masalah: "",
+    peringatan: [],
+    hanyaInformasi: true,
+    operasiTulisDijalankan: false,
+    dataDiubah: false,
+    poinDiubah: false,
+    statusReviewDiubah: false,
+    schemaDiubah: false
+  };
+
+  Object.keys(overrides || {}).forEach(function (key) {
+    result[key] = overrides[key];
+  });
+
+  return result;
+}
+
+
+function validasiKolomReview3B04B_(columns) {
+  var required = [
+    "TANGGAL_LAPORAN",
+    "TANGGAL_KEGIATAN",
+    "ID_LAPORAN",
+    "REVISI_KE",
+    "TERAKHIR_DIREVISI_PADA"
+  ];
+  var missing = [];
+  var indexes = [];
+
+  required.forEach(function (name) {
+    var index = columns && columns[name];
+    if (typeof index !== "number" || index < 0 || !isFinite(index)) {
+      missing.push(name);
+      return;
+    }
+    indexes.push(index);
+  });
+
+  ["PAYLOAD_JSON", "PAYLOAD_DETAIL_JSON"].forEach(function (name) {
+    var index = columns && columns[name];
+    if (typeof index === "number" && index >= 0 && isFinite(index)) {
+      indexes.push(index);
+    }
+  });
+
+  return {
+    valid: missing.length === 0,
+    missing: missing,
+    requiredWidth: indexes.length
+      ? Math.max.apply(null, indexes) + 1
+      : 0
+  };
+}
+
+
+function bacaRowsMetadataReview3B04B_(requiredWidth) {
+  if (typeof getRekapKinerjaValuesReadOnly_ === "function") {
+    try {
+      var cached = getRekapKinerjaValuesReadOnly_();
+      if (Array.isArray(cached)) {
+        return {
+          rows: cached.length > 1 ? cached.slice(1) : [],
+          sumber: "REKAP_READ_ONLY_CACHE"
+        };
+      }
+    } catch (eCache) {}
+  }
+
+  var sheet = getSheet_("Rekap_Kinerja");
+  if (!sheet) throw new Error("SHEET_REKAP_TIDAK_DITEMUKAN");
+
+  var lastRow = sheet.getLastRow();
+  return {
+    rows: lastRow > 1
+      ? sheet.getRange(2, 1, lastRow - 1, requiredWidth).getValues()
+      : [],
+    sumber: "REKAP_RANGE_LANGSUNG"
+  };
+}
+
+
 function buatPesanKetepatan3B04B_(metadata) {
   metadata = metadata || {};
 
-  var periode =
+  var periodeAsal =
+    metadata.periodeAsalLabel ||
     metadata.periodeLabel ||
+    metadata.periodeAsal ||
     metadata.periode ||
     "laporan";
+
+  var periodeReview =
+    metadata.periodeReviewLabel ||
+    metadata.periodeReview ||
+    periodeAsal;
 
   var submit =
     metadata.waktuSubmitPertama || "-";
@@ -52,7 +182,7 @@ function buatPesanKetepatan3B04B_(metadata) {
   ) {
     return (
       "Submit awal dan revisi laporan melewati batas periode " +
-      periode +
+      periodeAsal +
       ".\nDikirim: " +
       submit +
       ".\nDirevisi: " +
@@ -63,6 +193,8 @@ function buatPesanKetepatan3B04B_(metadata) {
       terlambatSubmit +
       ".\nKeterlambatan revisi: " +
       terlambatRevisi +
+      ".\nDireview pada periode " +
+      periodeReview +
       "."
     );
   }
@@ -74,28 +206,156 @@ function buatPesanKetepatan3B04B_(metadata) {
     return (
       "Submit awal dilakukan tepat waktu, tetapi revisi melewati " +
       "batas periode " +
-      periode +
+      periodeAsal +
       ".\nDirevisi: " +
       revisi +
       ".\nBatas akhir: " +
       cutoff +
       ".\nKeterlambatan revisi: " +
       terlambatRevisi +
+      ".\nDireview pada periode " +
+      periodeReview +
       "."
     );
   }
 
   return (
     "Laporan dikirim setelah batas akhir periode " +
-    periode +
+    periodeAsal +
     ".\nDikirim: " +
     submit +
     ".\nBatas akhir: " +
     cutoff +
     ".\nKeterlambatan: " +
     terlambatSubmit +
+    ".\nDireview pada periode " +
+    periodeReview +
     "."
   );
+}
+
+
+function buatMetadataKetepatanRow3B04B_(
+  row,
+  columns,
+  periodeInfo,
+  lock
+) {
+  row = row || [];
+  periodeInfo = periodeInfo || {};
+
+  var periode = normalisasiPeriodeAudit3B04A_(
+    periodeInfo.periode
+  );
+
+  if (!periode) {
+    return metadataDefault3B04B_({
+      jenisKetepatan: "TIDAK_DAPAT_DIKLASIFIKASIKAN",
+      masalah: "PERIODE_TIDAK_VALID",
+      sumberPeriode: periodeInfo.sumber || ""
+    });
+  }
+
+  var lockValid = !!(
+    lock &&
+    lock.cutoffDate instanceof Date &&
+    !isNaN(lock.cutoffDate.getTime()) &&
+    String(lock.status || "").toUpperCase() === "DITUTUP"
+  );
+
+  if (!lockValid) {
+    return metadataDefault3B04B_({
+      jenisKetepatan: "BATAS_AKHIR_TIDAK_TERSEDIA",
+      periode: periode,
+      periodeLabel: labelPeriodeAudit3B04A_(periode),
+      periodeAsal: periode,
+      periodeAsalLabel: labelPeriodeAudit3B04A_(periode),
+      periodeReview: periode,
+      periodeReviewLabel: labelPeriodeAudit3B04A_(periode),
+      sumberPeriode: periodeInfo.sumber || "",
+      masalah: "Batas akhir resmi Admin untuk periode tidak tersedia."
+    });
+  }
+
+  var klasifikasi = klasifikasiTanggal3B04A_(
+    row[columns.TANGGAL_LAPORAN],
+    row[columns.TERAKHIR_DIREVISI_PADA],
+    row[columns.REVISI_KE],
+    lock.cutoffDate
+  );
+
+  var reviewInfo = tentukanPeriodeReviewAudit3B04A_(
+    klasifikasi.waktuEfektif,
+    periode
+  );
+  var periodeReview = normalisasiPeriodeAudit3B04A_(
+    reviewInfo.periode
+  ) || periode;
+  var lewatPeriode =
+    klasifikasi.klasifikasi !== "TIDAK_DAPAT_DIKLASIFIKASIKAN" &&
+    klasifikasi.efektifSetelahCutoff === true;
+  var waktuSubmit = formatTanggalAudit3B04A_(klasifikasi.submitDate);
+  var waktuEfektif = formatTanggalAudit3B04A_(klasifikasi.waktuEfektif);
+
+  var metadata = metadataDefault3B04B_({
+    lewatPeriode: lewatPeriode,
+    dialihkan: lewatPeriode && periodeReview !== periode,
+    jenisKetepatan: klasifikasi.klasifikasi,
+    periode: periode,
+    periodeLabel:
+      lock.labelPeriode || labelPeriodeAudit3B04A_(periode),
+    periodeAsal: periode,
+    periodeAsalLabel:
+      lock.labelPeriode || labelPeriodeAudit3B04A_(periode),
+    periodeReview: periodeReview,
+    periodeReviewLabel: labelPeriodeAudit3B04A_(periodeReview),
+    sumberPeriode: periodeInfo.sumber || "",
+    sumberPeriodeReview: reviewInfo.sumber || "",
+    sumberWaktuEfektif: klasifikasi.sumberWaktuEfektif || "",
+    waktuSubmitPertama: waktuSubmit,
+    waktuRevisi: formatTanggalAudit3B04A_(klasifikasi.revisiDate),
+    waktuEfektifReview: waktuEfektif,
+    waktuPengirimanLabel: waktuEfektif || waktuSubmit,
+    batasAkhirPeriode: formatTanggalAudit3B04A_(lock.cutoffDate),
+    terlambatMilidetikSubmit:
+      Number(klasifikasi.terlambatMilidetikSubmit || 0),
+    terlambatDetikSubmit:
+      Number(klasifikasi.terlambatDetikSubmit || 0),
+    terlambatMenitSubmit:
+      Number(klasifikasi.terlambatMenitSubmit || 0),
+    terlambatLabelSubmit: klasifikasi.submitSetelahCutoff
+      ? formatDurasiTerlambat3B04A_(
+          klasifikasi.terlambatMilidetikSubmit
+        )
+      : "",
+    terlambatMilidetikRevisi:
+      Number(klasifikasi.terlambatMilidetikRevisi || 0),
+    terlambatDetikRevisi:
+      Number(klasifikasi.terlambatDetikRevisi || 0),
+    terlambatMenitRevisi:
+      Number(klasifikasi.terlambatMenitRevisi || 0),
+    terlambatLabelRevisi: klasifikasi.revisiSetelahCutoff
+      ? formatDurasiTerlambat3B04A_(
+          klasifikasi.terlambatMilidetikRevisi
+        )
+      : "",
+    terlambatMilidetikEfektif:
+      Number(klasifikasi.terlambatMilidetikEfektif || 0),
+    terlambatDetikEfektif:
+      Number(klasifikasi.terlambatDetikEfektif || 0),
+    terlambatMenitEfektif:
+      Number(klasifikasi.terlambatMenitEfektif || 0),
+    terlambatLabelEfektif:
+      String(klasifikasi.terlambatLabelEfektif || ""),
+    masalah: klasifikasi.masalah || "",
+    peringatan: klasifikasi.peringatan || []
+  });
+
+  metadata.pesanKetepatan = lewatPeriode
+    ? buatPesanKetepatan3B04B_(metadata)
+    : "";
+
+  return metadata;
 }
 
 
@@ -110,32 +370,27 @@ function buatMetadataKetepatanById3B04B_(idList) {
   var requestedKeys = Object.keys(requested);
   if (!requestedKeys.length) return {};
 
-  var sheet = getSheet_("Rekap_Kinerja");
-  var columns = SHEET_COLUMNS.REKAP_KINERJA;
+  var columns =
+    typeof SHEET_COLUMNS !== "undefined" &&
+    SHEET_COLUMNS.REKAP_KINERJA
+      ? SHEET_COLUMNS.REKAP_KINERJA
+      : null;
+  var columnValidation = validasiKolomReview3B04B_(columns);
 
-  var requiredWidth =
-    Math.max(
-      columns.TANGGAL_LAPORAN,
-      columns.TANGGAL_KEGIATAN,
-      columns.ID_LAPORAN,
-      columns.REVISI_KE,
-      columns.TERAKHIR_DIREVISI_PADA,
-      columns.PAYLOAD_JSON,
-      typeof columns.PAYLOAD_DETAIL_JSON === "number"
-        ? columns.PAYLOAD_DETAIL_JSON
-        : 0
-    ) + 1;
+  if (!columnValidation.valid) {
+    throw new Error(
+      "KOLOM_REKAP_TIDAK_LENGKAP: " +
+      columnValidation.missing.join(", ")
+    );
+  }
 
-  var lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return {};
-
-  var rows = sheet
-    .getRange(2, 1, lastRow - 1, requiredWidth)
-    .getValues();
+  var rowSource = bacaRowsMetadataReview3B04B_(
+    columnValidation.requiredWidth
+  );
+  var rows = rowSource.rows;
 
   var cutoffCache = {};
   var result = {};
-  var remaining = requestedKeys.length;
 
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i] || [];
@@ -152,129 +407,38 @@ function buatMetadataKetepatanById3B04B_(idList) {
         columns
       );
 
-    var periode = String(
-      periodeInfo.periode || ""
+    var periode = normalisasiPeriodeAudit3B04A_(
+      periodeInfo.periode
     );
 
-    if (!periode) {
-      result[idLaporan] = {
-        lewatPeriode: false,
-        jenisKetepatan:
-          "TIDAK_DAPAT_DIKLASIFIKASIKAN",
-        periode: "",
-        periodeLabel: "",
-        masalah: "PERIODE_TIDAK_VALID"
-      };
-
-      remaining--;
-      if (remaining <= 0) break;
-      continue;
-    }
-
-    if (
-      !Object.prototype.hasOwnProperty.call(
-        cutoffCache,
-        periode
-      )
-    ) {
+    if (periode && !Object.prototype.hasOwnProperty.call(
+      cutoffCache,
+      periode
+    )) {
       cutoffCache[periode] =
         bacaTutupPeriodeLaporan_(periode) ||
         null;
     }
 
-    var lock = cutoffCache[periode];
+    result[idLaporan] = buatMetadataKetepatanRow3B04B_(
+      row,
+      columns,
+      periodeInfo,
+      periode ? cutoffCache[periode] : null
+    );
+    result[idLaporan].sumberData = rowSource.sumber;
 
-    if (
-      !lock ||
-      !(lock.cutoffDate instanceof Date) ||
-      isNaN(lock.cutoffDate.getTime())
-    ) {
-      result[idLaporan] = {
-        lewatPeriode: false,
-        jenisKetepatan:
-          "BATAS_AKHIR_TIDAK_TERSEDIA",
-        periode: periode,
-        periodeLabel:
-          labelPeriodeAudit3B04A_(periode),
-        masalah:
-          "Batas akhir periode tidak tersedia."
-      };
-
-      remaining--;
-      if (remaining <= 0) break;
-      continue;
-    }
-
-    var klasifikasi =
-      klasifikasiTanggal3B04A_(
-        row[columns.TANGGAL_LAPORAN],
-        row[columns.TERAKHIR_DIREVISI_PADA],
-        row[columns.REVISI_KE],
-        lock.cutoffDate
-      );
-
-    var lewatPeriode =
-      klasifikasi.submitSetelahCutoff ||
-      klasifikasi.revisiSetelahCutoff;
-
-    var metadata = {
-      lewatPeriode: lewatPeriode,
-      jenisKetepatan:
-        klasifikasi.klasifikasi,
-
-      periode: periode,
-      periodeLabel:
-        lock.labelPeriode ||
-        labelPeriodeAudit3B04A_(periode),
-
-      waktuSubmitPertama:
-        formatTanggalAudit3B04A_(
-          klasifikasi.submitDate
-        ),
-
-      waktuRevisi:
-        formatTanggalAudit3B04A_(
-          klasifikasi.revisiDate
-        ),
-
-      batasAkhirPeriode:
-        formatTanggalAudit3B04A_(
-          lock.cutoffDate
-        ),
-
-      terlambatMenitSubmit:
-        klasifikasi.terlambatMenitSubmit,
-
-      terlambatLabelSubmit:
-        klasifikasi.submitSetelahCutoff
-          ? formatDurasiTerlambat3B04A_(
-              klasifikasi.terlambatMenitSubmit
-            )
-          : "",
-
-      terlambatMenitRevisi:
-        klasifikasi.terlambatMenitRevisi,
-
-      terlambatLabelRevisi:
-        klasifikasi.revisiSetelahCutoff
-          ? formatDurasiTerlambat3B04A_(
-              klasifikasi.terlambatMenitRevisi
-            )
-          : "",
-
-      masalah: klasifikasi.masalah || ""
-    };
-
-    metadata.pesanKetepatan =
-      lewatPeriode
-        ? buatPesanKetepatan3B04B_(metadata)
-        : "";
-
-    result[idLaporan] = metadata;
-
-    remaining--;
-    if (remaining <= 0) break;
+    delete requested[idLaporan];
+    if (!Object.keys(requested).length) break;
   }
+
+  Object.keys(requested).forEach(function (idLaporan) {
+    result[idLaporan] = metadataDefault3B04B_({
+      jenisKetepatan: "METADATA_TIDAK_DITEMUKAN",
+      masalah: "ID_LAPORAN_TIDAK_DITEMUKAN",
+      sumberData: rowSource.sumber
+    });
+  });
 
   return result;
 }
@@ -302,11 +466,10 @@ function perkayaItemReviewAdmin3B04B_(items) {
       enriched.idLaporan || ""
     ).trim();
 
-    var metadata =
-      metadataMap[id] || {
-        lewatPeriode: false,
-        jenisKetepatan: "TEPAT_WAKTU"
-      };
+    var metadata = metadataMap[id] || metadataDefault3B04B_({
+      jenisKetepatan: "METADATA_TIDAK_DITEMUKAN",
+      masalah: "ID_LAPORAN_TIDAK_DITEMUKAN"
+    });
 
     Object.keys(metadata).forEach(function (key) {
       enriched[key] = metadata[key];
@@ -314,6 +477,17 @@ function perkayaItemReviewAdmin3B04B_(items) {
 
     return enriched;
   });
+}
+
+
+function normalisasiFilterReview3B04B_(filterStatus) {
+  var filter = String(filterStatus || "semua")
+    .trim()
+    .toLowerCase();
+
+  return ["semua", "menunggu", "lewat_periode"].indexOf(filter) >= 0
+    ? filter
+    : "semua";
 }
 
 
@@ -327,6 +501,7 @@ function ambilSemuaReviewAdmin3B04B_(
   var offset = 0;
   var loop = 0;
   var firstResponse = null;
+  var sourceComplete = false;
 
   while (
     loop <
@@ -334,6 +509,8 @@ function ambilSemuaReviewAdmin3B04B_(
     allItems.length <
       REVIEW_LEWAT_PERIODE_3B04B.MAX_FETCH_ROWS
   ) {
+    loop++;
+
     var response =
       ambilLaporanAdminPerPegawai(
         selectedId,
@@ -346,10 +523,6 @@ function ambilSemuaReviewAdmin3B04B_(
         token
       );
 
-    if (!firstResponse) {
-      firstResponse = response || {};
-    }
-
     if (
       !response ||
       response.sukses === false
@@ -357,25 +530,70 @@ function ambilSemuaReviewAdmin3B04B_(
       return response;
     }
 
+    if (!firstResponse) {
+      firstResponse = salinObject3B04B_(response);
+      firstResponse.summary = salinObject3B04B_(
+        response.summary || {}
+      );
+    }
+
     var incoming = Array.isArray(response.items)
       ? response.items
       : [];
 
+    var remainingCapacity =
+      REVIEW_LEWAT_PERIODE_3B04B.MAX_FETCH_ROWS -
+      allItems.length;
+
     Array.prototype.push.apply(
       allItems,
-      incoming
+      incoming.slice(0, remainingCapacity)
     );
 
-    if (!response.hasMore) break;
+    if (incoming.length > remainingCapacity) {
+      break;
+    }
+
+    if (!response.hasMore) {
+      sourceComplete = true;
+      break;
+    }
 
     var nextOffset = Number(
       response.nextOffset || 0
     );
 
-    if (nextOffset <= offset) break;
+    if (!isFinite(nextOffset) || nextOffset <= offset) {
+      return {
+        sukses: false,
+        kode: "PAGINASI_REVIEW_TIDAK_VALID",
+        pesan: "Pagination Review Admin tidak dapat dilanjutkan.",
+        items: [],
+        summary: {},
+        hanyaInformasi: true,
+        operasiTulisDijalankan: false,
+        dataDiubah: false
+      };
+    }
 
-    offset = nextOffset;
-    loop++;
+    offset = Math.floor(nextOffset);
+  }
+
+  if (!sourceComplete) {
+    return {
+      sukses: false,
+      kode: "BATAS_SCAN_REVIEW_TERCAPAI",
+      pesan:
+        "Pemindaian laporan belum lengkap; filter lewat periode tidak diterapkan sebagian.",
+      jumlahDipindai: allItems.length,
+      batasBaris: REVIEW_LEWAT_PERIODE_3B04B.MAX_FETCH_ROWS,
+      batasPutaran: REVIEW_LEWAT_PERIODE_3B04B.MAX_FETCH_LOOPS,
+      items: [],
+      summary: {},
+      hanyaInformasi: true,
+      operasiTulisDijalankan: false,
+      dataDiubah: false
+    };
   }
 
   firstResponse =
@@ -389,6 +607,8 @@ function ambilSemuaReviewAdmin3B04B_(
   firstResponse.hasMore = false;
   firstResponse.nextOffset = allItems.length;
   firstResponse.totalFiltered = allItems.length;
+  firstResponse.scanLengkap = true;
+  firstResponse.jumlahPutaranScan = loop;
 
   return firstResponse;
 }
@@ -411,18 +631,19 @@ function ambilLaporanAdminPerPegawai3B04B(
   limit,
   token
 ) {
-  var filter = String(
-    filterStatus || "semua"
-  ).toLowerCase();
+  var filter = normalisasiFilterReview3B04B_(filterStatus);
 
-  var safeOffset = Math.max(
+  var safeOffset = normalisasiBilanganBulat3B04B_(
+    offset,
     0,
-    Number(offset) || 0
+    0
   );
 
-  var safeLimit = Math.max(
+  var safeLimit = normalisasiBilanganBulat3B04B_(
+    limit,
+    10,
     1,
-    Math.min(100, Number(limit) || 10)
+    100
   );
 
   if (filter !== "lewat_periode") {
@@ -444,32 +665,41 @@ function ambilLaporanAdminPerPegawai3B04B(
       return normalResponse;
     }
 
-    normalResponse.items =
+    var normalResult = salinObject3B04B_(normalResponse);
+
+    normalResult.items =
       perkayaItemReviewAdmin3B04B_(
         normalResponse.items
       );
 
     var loadedLate =
-      normalResponse.items.filter(
+      normalResult.items.filter(
         function (item) {
           return !!item.lewatPeriode;
         }
       ).length;
 
-    normalResponse.summary =
-      normalResponse.summary || {};
+    normalResult.summary = salinObject3B04B_(
+      normalResponse.summary || {}
+    );
 
-    normalResponse.summary
+    normalResult.summary
       .totalLewatPeriodeLoaded =
       loadedLate;
 
-    normalResponse.patch3B04B = {
+    normalResult.patch3B04B = {
       versi:
         REVIEW_LEWAT_PERIODE_3B04B.VERSION,
-      filter: filter
+      filter: filter,
+      hanyaInformasi: true,
+      operasiTulisDijalankan: false,
+      dataDiubah: false,
+      poinDiubah: false,
+      statusReviewDiubah: false,
+      schemaDiubah: false
     };
 
-    return normalResponse;
+    return normalResult;
   }
 
   var allResponse =
@@ -529,10 +759,126 @@ function ambilLaporanAdminPerPegawai3B04B(
   result.patch3B04B = {
     versi:
       REVIEW_LEWAT_PERIODE_3B04B.VERSION,
-    filter: "lewat_periode"
+    filter: "lewat_periode",
+    scanLengkap: allResponse.scanLengkap === true,
+    hanyaInformasi: true,
+    operasiTulisDijalankan: false,
+    dataDiubah: false,
+    poinDiubah: false,
+    statusReviewDiubah: false,
+    schemaDiubah: false
   };
 
   return result;
+}
+
+
+function ujiMetadataKetepatan3B04B_() {
+  var cutoff = new Date("2026-07-31T16:59:59.999Z");
+  var tepat = new Date(cutoff.getTime());
+  var lewatSatuMilidetik = new Date(cutoff.getTime() + 1);
+  var columns = {
+    TANGGAL_LAPORAN: 0,
+    TANGGAL_KEGIATAN: 1,
+    ID_LAPORAN: 2,
+    REVISI_KE: 3,
+    TERAKHIR_DIREVISI_PADA: 4,
+    PAYLOAD_JSON: 5,
+    PAYLOAD_DETAIL_JSON: 6
+  };
+  var periodeInfo = {
+    periode: "2026-07",
+    sumber: "UJI_METADATA"
+  };
+  var lock = {
+    status: "DITUTUP",
+    cutoffDate: cutoff,
+    labelPeriode: "Juli 2026"
+  };
+
+  function metadata(row) {
+    return buatMetadataKetepatanRow3B04B_(
+      row,
+      columns,
+      periodeInfo,
+      lock
+    );
+  }
+
+  var batasPersis = metadata([
+    tepat,
+    new Date("2026-07-15T03:00:00.000Z"),
+    "UJI-TEPAT",
+    0,
+    "",
+    "{}",
+    ""
+  ]);
+  var submitTerlambat = metadata([
+    lewatSatuMilidetik,
+    new Date("2026-07-15T03:00:00.000Z"),
+    "UJI-SUBMIT",
+    0,
+    "",
+    "{}",
+    ""
+  ]);
+  var timestampRevisiUsang = metadata([
+    tepat,
+    new Date("2026-07-15T03:00:00.000Z"),
+    "UJI-REVISI-USANG",
+    0,
+    lewatSatuMilidetik,
+    "{}",
+    ""
+  ]);
+  var revisiTerlambat = metadata([
+    tepat,
+    new Date("2026-07-15T03:00:00.000Z"),
+    "UJI-REVISI",
+    1,
+    lewatSatuMilidetik,
+    "{}",
+    ""
+  ]);
+
+  var checks = {
+    batasPersisTidakTerlambat:
+      batasPersis.lewatPeriode === false &&
+      batasPersis.jenisKetepatan === "TEPAT_WAKTU",
+    satuMilidetikTerlambat:
+      submitTerlambat.lewatPeriode === true &&
+      submitTerlambat.jenisKetepatan === "SUBMIT_SETELAH_CUTOFF" &&
+      submitTerlambat.terlambatMilidetikSubmit === 1 &&
+      submitTerlambat.terlambatLabelSubmit === "1 detik",
+    revisiUsangDiabaikan:
+      timestampRevisiUsang.lewatPeriode === false &&
+      timestampRevisiUsang.sumberWaktuEfektif === "WAKTU_SUBMIT" &&
+      timestampRevisiUsang.peringatan.indexOf(
+        "WAKTU_REVISI_DIABAIKAN_TANPA_NOMOR_REVISI"
+      ) >= 0,
+    revisiSahMenjadiWaktuEfektif:
+      revisiTerlambat.lewatPeriode === true &&
+      revisiTerlambat.jenisKetepatan === "REVISI_SETELAH_CUTOFF" &&
+      revisiTerlambat.sumberWaktuEfektif === "WAKTU_REVISI" &&
+      revisiTerlambat.terlambatMilidetikEfektif === 1,
+    readOnly:
+      submitTerlambat.hanyaInformasi === true &&
+      submitTerlambat.operasiTulisDijalankan === false &&
+      submitTerlambat.dataDiubah === false &&
+      submitTerlambat.poinDiubah === false &&
+      submitTerlambat.statusReviewDiubah === false &&
+      submitTerlambat.schemaDiubah === false
+  };
+  var issues = Object.keys(checks).filter(function (key) {
+    return checks[key] !== true;
+  });
+
+  return {
+    sukses: issues.length === 0,
+    checks: checks,
+    issues: issues
+  };
 }
 
 
@@ -562,9 +908,12 @@ function statusPenandaLewatPeriodeAdmin3B04B() {
     pegawaiTerdampak:
       audit ? audit.pegawaiTerdampak : 0,
     hanyaInformasi: true,
+    operasiTulisDijalankan: false,
     poinDiubah: false,
     statusReviewDiubah: false,
-    dataDiubah: false
+    dataDiubah: false,
+    indexDiubah: false,
+    schemaDiubah: false
   };
 
   Logger.log(
@@ -580,24 +929,18 @@ function validasiPenandaLewatPeriodeAdmin3B04B() {
     "VALIDASI_PENANDA_LEWAT_PERIODE_ADMIN_3B04B"
   );
 
-  var audit =
-    auditLaporanLewatPeriode3B04A(
-      "2026-07"
-    );
-
-  var affected = audit &&
-    audit.summary
-      ? Number(
-          audit.summary
-            .totalLaporanTerdampak || 0
-        )
-      : 0;
+  var audit = validasiAuditLaporanLewatPeriode3B04A();
+  var unitTests = ujiMetadataKetepatan3B04B_();
+  var affected = audit
+    ? Number(audit.jumlahTerdampak || 0)
+    : 0;
 
   var valid =
     !!audit &&
-    audit.sukses === true &&
+    audit.valid === true &&
+    audit.operasiTulisDijalankan === false &&
     audit.dataDiubah === false &&
-    affected >= 0;
+    unitTests.sukses === true;
 
   var result = {
     sukses: valid,
@@ -611,16 +954,23 @@ function validasiPenandaLewatPeriodeAdmin3B04B() {
     jumlahTerdampak: affected,
     klasifikasi:
       audit
-        ? audit.classificationCounts
+        ? audit.counts
         : {},
+    auditValid:
+      !!audit && audit.valid === true,
+    unitTests: unitTests,
+    hanyaInformasi: true,
+    operasiTulisDijalankan: false,
     dataDiubah: false,
     poinDiubah: false,
     statusReviewDiubah: false,
-    issues: valid
-      ? []
-      : [
-          "Audit periode belum dapat digunakan."
-        ]
+    indexDiubah: false,
+    schemaDiubah: false,
+    issues: (audit && audit.issues || []).concat(
+      unitTests.issues.map(function (key) {
+        return "Uji metadata gagal: " + key;
+      })
+    )
   };
 
   Logger.log(
@@ -642,7 +992,7 @@ function validasiPenandaLewatPeriodeAdmin3B04B() {
 // ============================================================
 
 var PENANDA_LEWAT_PERIODE_ADMIN_3B04B1 = {
-  VERSION: "3B04B1-2026.08.03.01",
+  VERSION: "3B04B1-2026.08.19.01",
   PROPERTY:
     "PENANDA_LEWAT_PERIODE_ADMIN_3B04B1_ENABLED"
 };
@@ -682,9 +1032,18 @@ function ambilLaporanAdminPerPegawai3B04B1(
   limit,
   token
 ) {
-  var requestedFilter = String(
-    filterStatus || "semua"
-  ).toLowerCase();
+  var requestedFilter = normalisasiFilterReview3B04B_(filterStatus);
+  var safeOffset = normalisasiBilanganBulat3B04B_(
+    offset,
+    0,
+    0
+  );
+  var safeLimit = normalisasiBilanganBulat3B04B_(
+    limit,
+    10,
+    1,
+    100
+  );
 
   var fallbackFilter =
     requestedFilter === "lewat_periode"
@@ -706,8 +1065,8 @@ function ambilLaporanAdminPerPegawai3B04B1(
           requestedFilter,
           tanggalMulai,
           tanggalAkhir,
-          offset,
-          limit,
+          safeOffset,
+          safeLimit,
           token
         );
 
@@ -717,16 +1076,19 @@ function ambilLaporanAdminPerPegawai3B04B1(
       ) {
         fallback = true;
         fallbackReason =
-          result && result.pesan
-            ? String(result.pesan)
+          result && result.kode
+            ? String(result.kode)
             : "ENDPOINT_BARU_MENGEMBALIKAN_GAGAL";
       }
     } catch (errorBaru) {
       fallback = true;
-      fallbackReason =
-        errorBaru && errorBaru.message
+      fallbackReason = "KESALAHAN_ENDPOINT_BARU";
+      Logger.log(
+        "Fallback Review Admin 3B04B1: " +
+        (errorBaru && errorBaru.message
           ? String(errorBaru.message)
-          : String(errorBaru);
+          : String(errorBaru))
+      );
     }
   }
 
@@ -737,8 +1099,8 @@ function ambilLaporanAdminPerPegawai3B04B1(
         fallbackFilter,
         tanggalMulai,
         tanggalAkhir,
-        offset,
-        limit,
+        safeOffset,
+        safeLimit,
         token
       );
   }
@@ -750,6 +1112,12 @@ function ambilLaporanAdminPerPegawai3B04B1(
     items: [],
     summary: {}
   };
+
+  result = salinObject3B04B_(result);
+  result.items = Array.isArray(result.items)
+    ? result.items.slice()
+    : [];
+  result.summary = salinObject3B04B_(result.summary || {});
 
   result.patch3B04B1 = {
     versi:
@@ -763,7 +1131,13 @@ function ambilLaporanAdminPerPegawai3B04B1(
     effectiveFilter:
       aktif && !fallback
         ? requestedFilter
-        : fallbackFilter
+        : fallbackFilter,
+    hanyaInformasi: true,
+    operasiTulisDijalankan: false,
+    dataDiubah: false,
+    poinDiubah: false,
+    statusReviewDiubah: false,
+    schemaDiubah: false
   };
 
   return result;
@@ -796,7 +1170,12 @@ function statusPenandaLewatPeriodeAdmin3B04B1() {
       "function",
     defaultAman: true,
     fallbackOtomatis: true,
+    hanyaInformasi: true,
+    operasiTulisDijalankan: false,
     dataDiubah: false,
+    poinDiubah: false,
+    statusReviewDiubah: false,
+    schemaDiubah: false,
     pesan:
       "Integrasi 3B-0.4B.1 menggunakan feature flag dan fallback otomatis."
   };
@@ -850,14 +1229,19 @@ function validasiPenandaLewatPeriodeAdmin3B04B1() {
     aktif:
       penandaLewatPeriodeAdminAktif3B04B1_(),
     fallbackOtomatis: true,
+    hanyaInformasi: true,
+    operasiTulisDijalankan: false,
     dataDiubah: false,
     poinDiubah: false,
     statusReviewDiubah: false,
+    schemaDiubah: false,
     issues: valid
       ? []
-      : [
-          "Komponen backend 3B-0.4A/3B-0.4B belum lengkap."
-        ]
+      : (audit && audit.issues && audit.issues.length
+          ? audit.issues.slice()
+          : [
+              "Komponen backend 3B-0.4A/3B-0.4B belum lengkap."
+            ])
   };
 
   Logger.log(JSON.stringify(result, null, 2));
