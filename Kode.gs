@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.19.02";
+var APP_VERSION = "2026.08.21.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -39,6 +39,13 @@ var CONFIG = {
     PIN_HASH_VERSION_LEGACY: 'v1',
     PIN_HASH_VERSION_SALTED: 'v2',
     PIN_PEPPER_PROPERTY: 'PIN_PEPPER',
+    // Token v2 ditandatangani dan dicatat persisten per pengguna. Cache hanya
+    // menjadi akselerator sehingga eviksi CacheService tidak memutus semua sesi.
+    SESSION_TOKEN_TTL_SECONDS: 43200,
+    SESSION_VALIDATION_CACHE_TTL_SECONDS: 300,
+    SESSION_MAX_PER_USER: 4,
+    SESSION_CLOCK_SKEW_SECONDS: 120,
+    SESSION_REGISTRY_PROPERTY_PREFIX: 'PORTAL_SESSION_V2_',
     SESSION_ACCOUNT_STATUS_TTL_SECONDS: 60,
     TEMP_UPLOAD_TTL_SECONDS: 3600,
     TEMP_UPLOAD_MAX_FILES: 50,
@@ -853,7 +860,166 @@ function getPegawaiByUsername_(username) {
   return null;
 }
 
-function buatToken() { return Utilities.getUuid(); }
+// ===== SESSION V2: SIGNED TOKEN + PERSISTENT REGISTRY =====
+// CacheService tetap dipakai sebagai jalur cepat, tetapi bukan lagi sumber
+// kebenaran tunggal. Registry persisten berisi maksimal beberapa hash token per
+// pengguna dan tidak menyimpan token mentah.
+function base64WebSafeSessionV2_(value) {
+  return Utilities.base64EncodeWebSafe(String(value || ''), Utilities.Charset.UTF_8).replace(/=+$/g, '');
+}
+
+function decodeBase64WebSafeSessionV2_(encoded) {
+  var value = String(encoded || '');
+  while (value.length % 4) value += '=';
+  return Utilities.newBlob(Utilities.base64DecodeWebSafe(value)).getDataAsString();
+}
+
+function sessionSigningKeyV2_() {
+  return sha256Hex('PORTAL_KINERJA_SESSION_V2|' + String(getPinPepper_()).trim());
+}
+
+function sessionSignatureV2_(signedValue) {
+  var bytes = Utilities.computeHmacSha256Signature(
+    String(signedValue || ''),
+    sessionSigningKeyV2_(),
+    Utilities.Charset.UTF_8
+  );
+  return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/g, '');
+}
+
+function buatToken(idUser) {
+  var sub = normalizeId_(idUser);
+  if (!sub) throw new Error('ID pengguna untuk sesi tidak valid.');
+
+  var nowSeconds = Math.floor(Date.now() / 1000);
+  var ttlSeconds = Math.max(3600, Number(CONFIG.SECURITY.SESSION_TOKEN_TTL_SECONDS || 43200));
+  var payload = {
+    v: 2,
+    aud: 'portal-kinerja-minomartani',
+    sub: sub,
+    iat: nowSeconds,
+    exp: nowSeconds + ttlSeconds,
+    jti: Utilities.getUuid()
+  };
+  var encoded = base64WebSafeSessionV2_(JSON.stringify(payload));
+  var signedValue = 'v2.' + encoded;
+  return signedValue + '.' + sessionSignatureV2_(signedValue);
+}
+
+function bacaTokenSessionV2_(token, allowExpired) {
+  token = String(token || '').trim();
+  var parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== 'v2' || !parts[1] || !parts[2]) return null;
+
+  var signedValue = parts[0] + '.' + parts[1];
+  var expected = sessionSignatureV2_(signedValue);
+  if (!constantTimeEquals_(expected, parts[2])) return null;
+
+  try {
+    var payload = JSON.parse(decodeBase64WebSafeSessionV2_(parts[1]));
+    var idUser = normalizeId_(payload && payload.sub);
+    var nowSeconds = Math.floor(Date.now() / 1000);
+    var skewSeconds = Math.max(0, Number(CONFIG.SECURITY.SESSION_CLOCK_SKEW_SECONDS || 120));
+    var iat = Number(payload && payload.iat);
+    var exp = Number(payload && payload.exp);
+    var ttlLimit = Math.max(3600, Number(CONFIG.SECURITY.SESSION_TOKEN_TTL_SECONDS || 43200)) + skewSeconds;
+
+    if (!payload || Number(payload.v) !== 2 || payload.aud !== 'portal-kinerja-minomartani') return null;
+    if (!idUser || !isFinite(iat) || !isFinite(exp) || exp <= iat) return null;
+    if (iat > nowSeconds + skewSeconds || exp - iat > ttlLimit) return null;
+    if (!allowExpired && exp <= nowSeconds) return null;
+
+    return { idUser: idUser, issuedAt: iat, expiresAt: exp, jti: String(payload.jti || '') };
+  } catch (e) {
+    return null;
+  }
+}
+
+function sessionRegistryKeyV2_(idUser) {
+  var prefix = CONFIG.SECURITY.SESSION_REGISTRY_PROPERTY_PREFIX || 'PORTAL_SESSION_V2_';
+  return prefix + sha256Hex(normalizeId_(idUser)).substring(0, 40);
+}
+
+function sessionValidationCacheKeyV2_(token) {
+  return 'SESSION_VALID_V2_' + sha256Hex(String(token || '')).substring(0, 40);
+}
+
+function sessionTokenHashV2_(token) {
+  return sha256Hex('SESSION_TOKEN_V2|' + String(token || ''));
+}
+
+function bacaRegistrySessionV2_(idUser) {
+  try {
+    var raw = portalScriptProperties_().getProperty(sessionRegistryKeyV2_(idUser));
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    return parsed && Array.isArray(parsed.sessions) ? parsed.sessions : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function tulisRegistrySessionV2_(idUser, sessions) {
+  var key = sessionRegistryKeyV2_(idUser);
+  var props = portalScriptProperties_();
+  if (!sessions || !sessions.length) {
+    props.deleteProperty(key);
+    return;
+  }
+  props.setProperty(key, JSON.stringify({ v: 2, sessions: sessions, updatedAt: Date.now() }));
+}
+
+function daftarkanSessionV2_(token) {
+  var claims = bacaTokenSessionV2_(token, false);
+  if (!claims) throw new Error('Token sesi baru gagal diverifikasi.');
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error('Penyimpanan sesi sedang sibuk. Silakan login kembali.');
+  try {
+    var nowSeconds = Math.floor(Date.now() / 1000);
+    var tokenHash = sessionTokenHashV2_(token);
+    var sessions = bacaRegistrySessionV2_(claims.idUser).filter(function (item) {
+      return item && Number(item.exp || 0) > nowSeconds && String(item.h || '') !== tokenHash;
+    });
+    sessions.push({ h: tokenHash, exp: claims.expiresAt, createdAt: claims.issuedAt });
+    sessions.sort(function (a, b) { return Number(b.createdAt || 0) - Number(a.createdAt || 0); });
+    sessions = sessions.slice(0, Math.max(1, Number(CONFIG.SECURITY.SESSION_MAX_PER_USER || 4)));
+    tulisRegistrySessionV2_(claims.idUser, sessions);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function registryMemuatSessionV2_(token, claims) {
+  var tokenHash = sessionTokenHashV2_(token);
+  var nowSeconds = Math.floor(Date.now() / 1000);
+  return bacaRegistrySessionV2_(claims.idUser).some(function (item) {
+    return item &&
+      Number(item.exp || 0) > nowSeconds &&
+      Number(item.exp || 0) === Number(claims.expiresAt) &&
+      constantTimeEquals_(String(item.h || ''), tokenHash);
+  });
+}
+
+function hapusSessionV2_(token, claims) {
+  if (!claims) return;
+  var cacheKey = sessionValidationCacheKeyV2_(token);
+  try { CacheService.getScriptCache().remove(cacheKey); } catch (eCache) { }
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error('Penghapusan sesi sedang sibuk. Silakan coba lagi.');
+  try {
+    var tokenHash = sessionTokenHashV2_(token);
+    var nowSeconds = Math.floor(Date.now() / 1000);
+    var sessions = bacaRegistrySessionV2_(claims.idUser).filter(function (item) {
+      return item && Number(item.exp || 0) > nowSeconds && !constantTimeEquals_(String(item.h || ''), tokenHash);
+    });
+    tulisRegistrySessionV2_(claims.idUser, sessions);
+  } finally {
+    lock.releaseLock();
+  }
+}
+// ===== END SESSION V2 =====
 
 function statusPegawaiAktif_(status) {
   var normalized = String(status || '').trim().toLowerCase();
@@ -921,7 +1087,27 @@ function validasiSession(token) {
   }
 
   var cache = CacheService.getScriptCache();
-  if (!idUser) idUser = cache.get(token);
+  var isTokenV2 = token.indexOf('v2.') === 0;
+  var claimsV2 = isTokenV2 ? bacaTokenSessionV2_(token, false) : null;
+  var cacheKey = isTokenV2 ? sessionValidationCacheKeyV2_(token) : token;
+
+  if (isTokenV2 && !claimsV2) {
+    PORTAL_RUNTIME_CACHE_.sessionByToken[token] = null;
+    return null;
+  }
+
+  if (!idUser && isTokenV2) {
+    try {
+      var cachedSignedUser = cache.get(cacheKey);
+      if (cachedSignedUser && idsEqual_(cachedSignedUser, claimsV2.idUser)) idUser = claimsV2.idUser;
+    } catch (eSignedCache) { }
+
+    if (!idUser && registryMemuatSessionV2_(token, claimsV2)) idUser = claimsV2.idUser;
+  } else if (!idUser) {
+    // Kompatibilitas sementara untuk token UUID dari deployment sebelumnya.
+    idUser = cache.get(token);
+  }
+
   if (!idUser) {
     PORTAL_RUNTIME_CACHE_.sessionByToken[token] = null;
     return null;
@@ -929,12 +1115,21 @@ function validasiSession(token) {
 
   if (!pegawaiAktifUntukSession_(idUser)) {
     delete PORTAL_RUNTIME_CACHE_.sessionByToken[token];
-    try { cache.remove(token); } catch (eRemove) { }
+    try { cache.remove(cacheKey); } catch (eRemove) { }
+    if (claimsV2) {
+      try { hapusSessionV2_(token, claimsV2); } catch (eRemoveRegistry) { }
+    }
     try { logAudit_(idUser, 'SESSION_REVOKED_INACTIVE', 'Sesi dicabut karena akun tidak aktif atau tidak ditemukan.'); } catch (eAudit) { }
     return null;
   }
 
-  cache.put(token, idUser, CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+  var cacheTtl = claimsV2
+    ? Math.min(
+        Math.max(1, claimsV2.expiresAt - Math.floor(Date.now() / 1000)),
+        Math.max(60, Number(CONFIG.SECURITY.SESSION_VALIDATION_CACHE_TTL_SECONDS || 300))
+      )
+    : CONFIG.CACHE.SESSION_TIMEOUT_SECONDS;
+  cache.put(cacheKey, idUser, cacheTtl);
 
   PORTAL_RUNTIME_CACHE_.sessionByToken[token] = idUser;
   return idUser;
@@ -945,10 +1140,86 @@ function akhiriSession(token) {
     token = String(token || '').trim();
     if (!token) return { sukses: true };
     delete PORTAL_RUNTIME_CACHE_.sessionByToken[token];
-    CacheService.getScriptCache().remove(token);
+    var claimsV2 = token.indexOf('v2.') === 0 ? bacaTokenSessionV2_(token, true) : null;
+    if (claimsV2) hapusSessionV2_(token, claimsV2);
+    else CacheService.getScriptCache().remove(token);
     return { sukses: true };
   } catch (e) {
     return { sukses: false };
+  }
+}
+
+function buatDataAksesSesiPortal_(idUser, pegawai) {
+  pegawai = pegawai || {};
+  var jabatan = String(pegawai.jabatan || '');
+  var isLurahDisposisi = isLurah_(jabatan);
+  var petugasDisposisiAktif = null;
+  try { petugasDisposisiAktif = getPetugasDisposisiAktifCachedV38_(); } catch (ePetugas) { }
+  var isOperatorDisposisi = !!(
+    petugasDisposisiAktif &&
+    idsEqual_(petugasDisposisiAktif.pegawaiId, idUser)
+  );
+
+  return {
+    nama: pegawai.nama || '',
+    jabatan: jabatan,
+    akses: pegawai.akses || '',
+    isAdminUtama: isCarik_(jabatan) || isLurah_(jabatan),
+    isCarikTunjangan: isCarik_(jabatan),
+    isLurahTunjangan: isLurah_(jabatan),
+    isBendaharaDanarta: isBendaharaDanarta_(jabatan),
+    canAccessTunjangan: isCarik_(jabatan) || isLurah_(jabatan) || isBendaharaDanarta_(jabatan),
+    isLurahDisposisi: isLurahDisposisi,
+    isOperatorDisposisiAktif: isOperatorDisposisi,
+    canAccessDisposisi: true,
+    canPublishDisposisi: !!(isLurahDisposisi || isOperatorDisposisi)
+  };
+}
+
+function cekSessionAktif(token) {
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) {
+      return {
+        sukses: false,
+        sessionExpired: true,
+        debug: 'SESSION_INVALID',
+        pesan: 'Sesi habis. Silakan login ulang.'
+      };
+    }
+
+    var pegawai = getPegawaiById_(idUser);
+    if (!pegawai || !statusPegawaiAktif_(pegawai.status)) {
+      return {
+        sukses: false,
+        sessionExpired: true,
+        debug: 'SESSION_ACCOUNT_INVALID',
+        pesan: 'Akun tidak aktif atau tidak ditemukan. Silakan login ulang.'
+      };
+    }
+
+    var result = buatDataAksesSesiPortal_(idUser, pegawai);
+    result.sukses = true;
+    result.sessionMode = String(token || '').indexOf('v2.') === 0 ? 'SIGNED_V2' : 'LEGACY_CACHE';
+
+    // Migrasikan sesi UUID lama yang masih valid tanpa memaksa pengguna login.
+    if (result.sessionMode === 'LEGACY_CACHE') {
+      var tokenBaru = buatToken(idUser);
+      daftarkanSessionV2_(tokenBaru);
+      result.tokenBaru = tokenBaru;
+      var claimsBaru = bacaTokenSessionV2_(tokenBaru, false);
+      result.sessionExpiresAt = claimsBaru ? claimsBaru.expiresAt * 1000 : 0;
+    } else {
+      var claims = bacaTokenSessionV2_(token, false);
+      result.sessionExpiresAt = claims ? claims.expiresAt * 1000 : 0;
+    }
+    return result;
+  } catch (e) {
+    return handleError('cekSessionAktif', e, {
+      sukses: false,
+      sessionExpired: false,
+      pesan: 'Sesi belum dapat diverifikasi. Silakan coba lagi.'
+    });
   }
 }
 
@@ -3714,38 +3985,23 @@ function cekLogin(username, pin, clientId) {
             migrasiPinPegawaiKeV2_(idUserLogin, inputPinMentah, inputUserBersih);
           }
 
-          var token = buatToken();
-          CacheService.getScriptCache().put(token, idUserLogin, CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
+          var token = buatToken(idUserLogin);
+          daftarkanSessionV2_(token);
           simpanStatusSessionPegawaiCache_(idUserLogin, true);
 
-          // PATCH 2A-1: sertakan hak Disposisi pada respons login agar frontend
-          // tidak perlu memanggil getStatusAksesDisposisiModul() sesudah login.
           var jabatanLogin = data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN];
-          var isLurahDisposisiLogin = isLurah_(jabatanLogin);
-          var petugasDisposisiAktifLogin = null;
-          try { petugasDisposisiAktifLogin = getPetugasDisposisiAktifCachedV38_(); } catch (ePetugasLogin) { }
-          var isOperatorDisposisiLogin = !!(
-            petugasDisposisiAktifLogin &&
-            idsEqual_(petugasDisposisiAktifLogin.pegawaiId, idUserLogin)
-          );
-
-          logAudit_(idUserLogin, "LOGIN", "Sukses login" + (verifikasi.legacy ? " | PIN hash dimigrasikan ke v2" : ""));
-          return {
-            sukses: true,
-            token: token,
+          var dataAksesSesi = buatDataAksesSesiPortal_(idUserLogin, {
             nama: data[i][SHEET_COLUMNS.DATA_PEGAWAI.NAMA],
             jabatan: jabatanLogin,
-            akses: data[i][SHEET_COLUMNS.DATA_PEGAWAI.AKSES],
-            isAdminUtama: isCarik_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]) || isLurah_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]),
-            isCarikTunjangan: isCarik_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]),
-            isLurahTunjangan: isLurah_(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN]),
-            isBendaharaDanarta: isBendaharaDanarta_(jabatanLogin),
-            canAccessTunjangan: isCarik_(jabatanLogin) || isLurah_(jabatanLogin) || isBendaharaDanarta_(jabatanLogin),
-            isLurahDisposisi: isLurahDisposisiLogin,
-            isOperatorDisposisiAktif: isOperatorDisposisiLogin,
-            canAccessDisposisi: true,
-            canPublishDisposisi: !!(isLurahDisposisiLogin || isOperatorDisposisiLogin)
-          };
+            akses: data[i][SHEET_COLUMNS.DATA_PEGAWAI.AKSES]
+          });
+
+          logAudit_(idUserLogin, "LOGIN", "Sukses login" + (verifikasi.legacy ? " | PIN hash dimigrasikan ke v2" : ""));
+          dataAksesSesi.sukses = true;
+          dataAksesSesi.token = token;
+          var claimsLogin = bacaTokenSessionV2_(token, false);
+          dataAksesSesi.sessionExpiresAt = claimsLogin ? claimsLogin.expiresAt * 1000 : 0;
+          return dataAksesSesi;
         } else {
           statusPinSalah = true;
         }

@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.13.01
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.21.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.14.01";
+  "3B1B1-2026.08.21.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.13.01",
+  baselineAppVersion: "2026.08.21.01",
 
   policy: {
     privateByDefault: true,
@@ -22,7 +22,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
     functionRemoved: false,
     featureFlagsChanged: false,
     governanceBaselineExclusion:
-      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 155 binding Batch 2b."
+      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 171 binding aktif."
   },
 
   categories: {
@@ -71,6 +71,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "bukaPeriodeLaporan",
       "cekCutoffDefaultLamaDinonaktifkan",
       "cekLogin",
+      "cekSessionAktif",
       "cekNotifikasiLaporanWajib",
       "generateDraftTunjanganBulanan",
       "generateNarasiBulananAI",

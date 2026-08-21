@@ -8202,6 +8202,11 @@
     var appVersionMonitorId = null;
     var appVersionBannerId = "bannerVersiBaru";
     var appVersionLastCheckAt_ = Date.now();
+    var sessionMonitorId_ = null;
+    var sessionValidationAktif_ = false;
+    var sessionValidationTerakhirMs_ = 0;
+    var SESSION_VALIDATION_INTERVAL_MS_ = 300000;
+    var SESSION_VISIBILITY_MIN_GAP_MS_ = 60000;
 
     // ===== FETCH APP CONSTANTS FROM SERVER =====
     function fetchAppConstants() {
@@ -8712,6 +8717,9 @@
         if (sToken && Date.now() - appVersionLastCheckAt_ >= APP_VERSION_INTERVAL_MS) {
           cekVersiAplikasi(true);
         }
+        if (sToken && Date.now() - sessionValidationTerakhirMs_ >= SESSION_VISIBILITY_MIN_GAP_MS_) {
+          cekSessionAktifClient_(false);
+        }
         setTimeout(cekPendingReloadSaatAman, 300);
       }
     });
@@ -8852,6 +8860,138 @@
         canPublishDisposisi: res.canPublishDisposisi === true
       };
     }
+
+    function setPesanLogin_(pesan, tipe) {
+      var el = document.getElementById('pesanLogin');
+      if (!el) return;
+      el.innerText = pesan || '';
+      el.style.color = tipe === 'danger'
+        ? 'var(--danger)'
+        : (tipe === 'success' ? 'var(--success)' : 'var(--text-muted)');
+    }
+
+    function responsSesiTidakValid_(res) {
+      if (!res || typeof res !== 'object') return false;
+      var debug = String(res.debug || res._error || '').toUpperCase().trim();
+      var pesan = String(res.pesan || '').toLowerCase();
+      return res.sessionExpired === true ||
+        debug === 'SESSION_INVALID' ||
+        debug === 'SESSION_EXPIRED' ||
+        debug === 'SESSION_ACCOUNT_INVALID' ||
+        /sesi\s+(habis|berakhir|tidak\s+aktif)/i.test(pesan) ||
+        /silakan\s+login\s+ulang/i.test(pesan);
+    }
+
+    function tanganiResponsSesiTidakValid_(res) {
+      if (!responsSesiTidakValid_(res)) return false;
+      prosesLogout({
+        skipServer: true,
+        pesan: 'Sesi Anda telah berakhir. Silakan login kembali.'
+      });
+      return true;
+    }
+
+    function hentikanMonitorSesiPortal_() {
+      if (sessionMonitorId_) clearInterval(sessionMonitorId_);
+      sessionMonitorId_ = null;
+      sessionValidationAktif_ = false;
+      sessionValidationTerakhirMs_ = 0;
+    }
+
+    function mulaiMonitorSesiPortal_() {
+      hentikanMonitorSesiPortal_();
+      sessionValidationTerakhirMs_ = Date.now();
+      sessionMonitorId_ = setInterval(function () {
+        if (document.hidden || !sToken) return;
+        cekSessionAktifClient_(false);
+      }, SESSION_VALIDATION_INTERVAL_MS_);
+    }
+
+    function cekSessionAktifClient_(force) {
+      force = force === true;
+      if (!sToken || !window.google || !google.script || !google.script.run) return;
+      if (sessionValidationAktif_) return;
+      if (!force && sessionValidationTerakhirMs_ && Date.now() - sessionValidationTerakhirMs_ < SESSION_VISIBILITY_MIN_GAP_MS_) return;
+
+      var tokenSaatRequest = sToken;
+      sessionValidationAktif_ = true;
+      sessionValidationTerakhirMs_ = Date.now();
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (tokenSaatRequest !== sToken) return;
+          sessionValidationAktif_ = false;
+          if (tanganiResponsSesiTidakValid_(res)) return;
+          if (!res || !res.sukses) {
+            console.warn('Sesi belum dapat diverifikasi:', res);
+            return;
+          }
+
+          if (res.tokenBaru) sToken = String(res.tokenBaru);
+          sData = buatDataSesiAman_(res);
+          simpanMemori('kinerja_token', sToken);
+          simpanMemori('kinerja_data', JSON.stringify(sData));
+          setSapaanDashboard();
+          terapkanAksesDisposisiDariSesi_();
+          aturMenuRoleVisibility();
+        })
+        .withFailureHandler(function (err) {
+          if (tokenSaatRequest !== sToken) return;
+          sessionValidationAktif_ = false;
+          console.warn('Gagal memeriksa sesi portal:', (err && err.message) ? err.message : err);
+        })
+        .cekSessionAktif(tokenSaatRequest);
+    }
+
+    function aktifkanPortalSetelahSesiValid_(token, dataSesi) {
+      sToken = String((dataSesi && dataSesi.tokenBaru) || token || '');
+      sData = buatDataSesiAman_(dataSesi);
+      resetPortalRequestState_();
+      simpanMemori('kinerja_token', sToken);
+      simpanMemori('kinerja_data', JSON.stringify(sData));
+      setPesanLogin_('', '');
+      setSapaanDashboard();
+      terapkanAksesDisposisiDariSesi_();
+      document.getElementById('halamanLogin').style.display = 'none';
+      document.getElementById('aplikasiUtama').style.display = 'flex';
+      muatDashboard();
+      prosesLevel1();
+      mulaiMonitorNotifikasiDisposisiBaru_();
+      mulaiMonitorSesiPortal_();
+      jadwalkanSinkronisasiConstants_();
+    }
+
+    function pulihkanSesiPortalSaatMuat_() {
+      var tokenTersimpan = ambilMemori('kinerja_token');
+      var dataTersimpan = ambilMemori('kinerja_data');
+      if (!tokenTersimpan || !dataTersimpan) return;
+
+      try { JSON.parse(dataTersimpan); } catch (eJson) {
+        hapusMemori('kinerja_token');
+        hapusMemori('kinerja_data');
+        return;
+      }
+
+      if (!window.google || !google.script || !google.script.run) {
+        setPesanLogin_('Sesi tersimpan belum dapat diperiksa. Muat ulang halaman.', 'danger');
+        return;
+      }
+
+      setPesanLogin_('Memeriksa sesi tersimpan...', '');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (tanganiResponsSesiTidakValid_(res)) return;
+          if (!res || !res.sukses) {
+            setPesanLogin_((res && res.pesan) || 'Sesi belum dapat diperiksa. Silakan coba lagi.', 'danger');
+            return;
+          }
+          aktifkanPortalSetelahSesiValid_(tokenTersimpan, res);
+        })
+        .withFailureHandler(function (err) {
+          setPesanLogin_('Tidak dapat memeriksa sesi: ' + ((err && err.message) ? err.message : err), 'danger');
+        })
+        .cekSessionAktif(tokenTersimpan);
+    }
+
     var notifLaporanWajibAktif = null;
     var notifLaporanWajibRequestAktif_ = false;
     var notifLaporanWajibTerakhirMs_ = 0;
@@ -8868,6 +9008,7 @@
         .withSuccessHandler(function (res) {
           notifLaporanWajibRequestAktif_ = false;
           notifLaporanWajibTerakhirMs_ = Date.now();
+          if (tanganiResponsSesiTidakValid_(res)) return;
           renderNotifikasiLaporanWajib(res);
         })
         .withFailureHandler(function (err) {
@@ -9045,6 +9186,7 @@
         .withSuccessHandler(function (res) {
           disposisiNotifRequestAktif_ = false;
           disposisiNotifTerakhirMs_ = Date.now();
+          if (tanganiResponsSesiTidakValid_(res)) return;
           disposisiNotifCacheClient_ = res || null;
           disposisiNotifCacheClientAt_ = Date.now();
           renderNotifikasiDisposisiBaru(res);
@@ -9708,6 +9850,7 @@
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.shellSeq) return;
           clearDisposisiStageTimerV2A1C1_('shell');
           selesaiDisposisiStageV2A1C3_('shell');
+          if (tanganiResponsSesiTidakValid_(res)) return;
           if (!res || res.sukses === false) {
             mergeDisposisiBootstrapV2A1C1_({ shellError: (res && res.pesan) || 'Verifikasi akses gagal.', shellLoaded: false });
           } else {
@@ -9778,6 +9921,7 @@
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.inboxSeq) return;
           clearDisposisiStageTimerV2A1C1_('inbox');
           selesaiDisposisiStageV2A1C3_('inbox');
+          if (tanganiResponsSesiTidakValid_(res)) return;
           if (!res || res.sukses === false) {
             mergeDisposisiBootstrapV2A1C1_({
               inboxRequestStartedV2A1C1: false,
@@ -9846,6 +9990,7 @@
           if (pageSeq !== disposisiLoadStateV2A1C1_.pageSeq || requestId !== disposisiLoadStateV2A1C1_.managementSeq) return;
           clearDisposisiStageTimerV2A1C1_('management');
           selesaiDisposisiStageV2A1C3_('management');
+          if (tanganiResponsSesiTidakValid_(management)) return;
           if (!management || management.sukses === false) {
             mergeDisposisiBootstrapV2A1C1_({ managementRequestStartedV2A1C1: false, managementLoading: false, managementLoaded: false, managementError: (management && management.pesan) || 'Panel pengelolaan gagal dimuat.' });
           } else {
@@ -10149,23 +10294,7 @@
         google.script.run.withSuccessHandler(function (res) {
           setLoginButtonIdle_(btn); btn.disabled = false;
           if (res && res.sukses) {
-            sToken = res.token;
-            sData = buatDataSesiAman_(res);
-            resetPortalRequestState_();
-            simpanMemori("kinerja_token", res.token);
-            simpanMemori("kinerja_data", JSON.stringify(sData));
-
-            // PATCH 2A-1: tampilkan aplikasi segera. Constants disinkronkan di
-            // belakang layar dan hak Disposisi sudah ikut dalam respons login.
-            setSapaanDashboard();
-            terapkanAksesDisposisiDariSesi_();
-            document.getElementById('halamanLogin').style.display = "none";
-            document.getElementById('aplikasiUtama').style.display = "flex";
-            muatDashboard();
-            prosesLevel1();
-            // Status cut-off dibaca saat halaman Input dibuka dan divalidasi ulang oleh backend saat submit.
-            mulaiMonitorNotifikasiDisposisiBaru_();
-            jadwalkanSinkronisasiConstants_();
+            aktifkanPortalSetelahSesiValid_(res.token, res);
           } else {
             msg.innerText = "Error: " + ((res && res.pesan) ? res.pesan : "Respon login tidak valid.");
             msg.style.color = "var(--danger)";
@@ -10186,9 +10315,10 @@
       }
     }
 
-    function prosesLogout() {
+    function prosesLogout(options) {
+      options = options && typeof options === 'object' ? options : {};
       var tokenLogout = sToken || ambilMemori("kinerja_token");
-      if (tokenLogout && window.google && google.script && google.script.run) {
+      if (!options.skipServer && tokenLogout && window.google && google.script && google.script.run) {
         try {
           google.script.run
             .withFailureHandler(function () { })
@@ -10200,6 +10330,11 @@
       hapusMemori("kinerja_data");
       sToken = "";
       sData = { nama: "", jabatan: "" };
+      hentikanMonitorSesiPortal_();
+      if (typeof disposisiNotifTimerId !== 'undefined' && disposisiNotifTimerId) {
+        clearInterval(disposisiNotifTimerId);
+        disposisiNotifTimerId = null;
+      }
       resetPortalRequestState_();
       disposisiAccessStatus = { loaded:false, boleh:false, isLurahDisposisi:false, isOperatorDisposisiAktif:false };
 
@@ -10220,6 +10355,7 @@
 
       document.getElementById('aplikasiUtama').style.display = "none";
       document.getElementById('halamanLogin').style.display = "flex";
+      setPesanLogin_(options.pesan || '', options.pesan ? 'danger' : '');
     }
 
     // ======== EFEK RIPPLE ANDROID PWA ========
@@ -10830,6 +10966,7 @@
       google.script.run.withSuccessHandler(function (stats) {
         if (dashboardRequestId !== dashboardRequestState_.requestId) return;
         dashboardRequestState_.loading = false;
+        if (tanganiResponsSesiTidakValid_(stats)) return;
         dashboardRequestState_.lastLoadedAt = Date.now();
         if (stats) {
           var kotakSatu = document.querySelectorAll('.stat-card')[0];
@@ -12595,6 +12732,7 @@
 
       google.script.run.withSuccessHandler(function (res) {
         daftarPegawaiPinState_.loading = false;
+        if (tanganiResponsSesiTidakValid_(res)) return;
         if (!res || !res.sukses) {
           daftarPegawaiPinState_.loaded = false;
           selectEl.innerHTML = '<option value="">Gagal memuat daftar pegawai</option>';
@@ -13192,6 +13330,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       renderAdminReviewSummary_([], 0);
 
       google.script.run.withSuccessHandler(function (res) {
+        if (tanganiResponsSesiTidakValid_(res)) return;
         if (!res || !res.sukses) {
           adminReviewPegawaiList = [];
           selectEl.innerHTML = '<option value="">Gagal memuat daftar pegawai</option>';
@@ -16053,10 +16192,7 @@ function updateAdminLatePeriodFilter3B04B1_(
             btn.disabled = false;
             btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">auto_fix_high</span> Rapikan Bahasa dengan AI';
           }
-          if (res && res.sessionExpired) {
-            prosesLogout();
-            return;
-          }
+          if (tanganiResponsSesiTidakValid_(res)) return;
           if (!res || !res.sukses) {
             setStatusRapikanBahasaAI_((res && res.pesan) || 'AI belum berhasil merapikan bahasa.', 'danger');
             return;
@@ -16918,10 +17054,7 @@ function updateAdminLatePeriodFilter3B04B1_(
 
       if (!form) return;
 
-      if (res && res.sessionExpired) {
-        prosesLogout();
-        return;
-      }
+      if (tanganiResponsSesiTidakValid_(res)) return;
 
       if (res && res.ditutup) {
         if (banner) {
@@ -18186,34 +18319,7 @@ function updateAdminLatePeriodFilter3B04B1_(
     // ===== END PATCH v2026.05.12.43 =====
 
 
-    try {
-      var simpananToken = ambilMemori("kinerja_token");
-      var simpananData = ambilMemori("kinerja_data");
-      if (simpananToken && simpananData) {
-        var dataSesiTersimpanRaw_ = JSON.parse(simpananData);
-        var perluSinkronAksesDisposisi_ =
-          typeof dataSesiTersimpanRaw_.canPublishDisposisi !== 'boolean' ||
-          typeof dataSesiTersimpanRaw_.isOperatorDisposisiAktif !== 'boolean' ||
-          typeof dataSesiTersimpanRaw_.isLurahDisposisi !== 'boolean';
-
-        sToken = simpananToken;
-        sData = buatDataSesiAman_(dataSesiTersimpanRaw_);
-        setSapaanDashboard();
-        var jCheck = (sData.jabatan || "").toLowerCase();
-        terapkanAksesDisposisiDariSesi_();
-        // Kompatibilitas satu kali untuk sesi yang dibuat sebelum Patch 2A-1.
-        if (perluSinkronAksesDisposisi_) {
-          setTimeout(function () { refreshAksesDisposisiModul_(); }, 2500);
-        }
-        document.getElementById('halamanLogin').style.display = "none";
-        document.getElementById('aplikasiUtama').style.display = "";
-        document.getElementById('aplikasiUtama').style.display = "flex";
-        muatDashboard();
-        prosesLevel1();
-        mulaiMonitorNotifikasiDisposisiBaru_();
-        jadwalkanSinkronisasiConstants_();
-      }
-    } catch (e) { }
+    pulihkanSesiPortalSaatMuat_();
 
     mulaiMonitorVersiAplikasi();
 
