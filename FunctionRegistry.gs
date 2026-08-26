@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.21.01
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.26.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.21.01";
+  "3B1B1-2026.08.26.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.21.01",
+  baselineAppVersion: "2026.08.26.01",
 
   policy: {
     privateByDefault: true,
@@ -22,7 +22,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
     functionRemoved: false,
     featureFlagsChanged: false,
     governanceBaselineExclusion:
-      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 171 binding aktif."
+      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 173 binding aktif."
   },
 
   categories: {
@@ -110,6 +110,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "maintenanceSiapkanKolomKeamananPin3B0",
       "maintenanceSiapkanKolomDetailRekap3B0",
       "maintenancePerbaikiPeriodeTunjangan3B0",
+      "statusMaintenanceAksesBuktiLama3C3",
+      "maintenancePerbaikiAksesBuktiLama3C3",
       "maintenanceDiagnostikCacheDisposisi3B01",
       "maintenanceDiagnostikCacheDisposisi3B02",
       "statusRegistryFungsi3B1B1",

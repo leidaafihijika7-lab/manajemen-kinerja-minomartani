@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.21.01";
+var APP_VERSION = "2026.08.26.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -317,6 +317,8 @@ var PORTAL_MAINTENANCE_PUBLIC_REGISTRY_3B0 = {
   maintenanceSiapkanKolomKeamananPin3B0: "OWNER_ONLY_SCHEMA",
   maintenanceSiapkanKolomDetailRekap3B0: "OWNER_ONLY_SCHEMA",
   maintenancePerbaikiPeriodeTunjangan3B0: "OWNER_ONLY_DATA_FIX",
+  statusMaintenanceAksesBuktiLama3C3: "OWNER_ONLY_READ_DRIVE",
+  maintenancePerbaikiAksesBuktiLama3C3: "OWNER_ONLY_WRITE_DRIVE_PER_FILE",
   initializeAppConstants: "BLOCKED_COMPATIBILITY_STUB",
   siapkanKolomKeamananPinPegawai: "BLOCKED_COMPATIBILITY_STUB",
   siapkanKolomDetailFormRekapKinerja: "BLOCKED_COMPATIBILITY_STUB",
@@ -4682,6 +4684,328 @@ function terapkanKebijakanSharingFilePortal_(file) {
   }
   return mode;
 }
+
+// ===== TAHAP 3C-3: NORMALISASI AKSES FILE BUKTI LAMA =====
+// Folder bukti tetap privat. Hanya file gambar/PDF di bawah folder bukti yang
+// disamakan dengan kebijakan sharing file Portal yang sedang aktif.
+var MAINTENANCE_AKSES_BUKTI_LAMA_3C3 = {
+  VERSION: '3C3-2026.08.26.01',
+  STATE_PROPERTY: 'PORTAL_MAINT_AKSES_BUKTI_LAMA_3C3_STATE',
+  MAX_FILES_PER_RUN: 50,
+  MAX_RUNTIME_MS: 240000,
+  MAX_FOLDERS: 150,
+  MAX_DEPTH: 8,
+  MAX_FAILURE_DETAILS: 10
+};
+
+function konteksFolderBuktiLama3C3_() {
+  var props = portalScriptProperties_();
+  var rootId = String(props.getProperty('FOLDER_ID_BUKTI_KINERJA') || props.getProperty('FOLDER_ID_BUKTI') || '').trim();
+  if (!rootId) {
+    throw new Error('Konfigurasi Folder Bukti belum diatur. Isi Script Property FOLDER_ID_BUKTI_KINERJA atau FOLDER_ID_BUKTI.');
+  }
+  var folder = DriveApp.getFolderById(rootId);
+  return { rootId: rootId, folder: folder };
+}
+
+function daftarFolderBuktiLama3C3_(rootFolder) {
+  var hasil = [];
+  var antrean = [{ folder: rootFolder, depth: 0 }];
+  var terlihat = {};
+
+  while (antrean.length) {
+    var item = antrean.shift();
+    var folder = item.folder;
+    var folderId = String(folder.getId());
+    if (terlihat[folderId]) continue;
+    terlihat[folderId] = true;
+    hasil.push(folderId);
+
+    if (hasil.length > MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_FOLDERS) {
+      throw new Error('Jumlah subfolder bukti melebihi batas aman maintenance ' + MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_FOLDERS + '.');
+    }
+    if (item.depth >= MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_DEPTH) continue;
+
+    var children = folder.getFolders();
+    while (children.hasNext()) {
+      antrean.push({ folder: children.next(), depth: item.depth + 1 });
+    }
+  }
+  return hasil;
+}
+
+function bacaStateAksesBuktiLama3C3_() {
+  var raw = portalScriptProperties_().getProperty(MAINTENANCE_AKSES_BUKTI_LAMA_3C3.STATE_PROPERTY);
+  if (!raw) return null;
+  try {
+    var state = JSON.parse(raw);
+    return state && typeof state === 'object' ? state : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function simpanStateAksesBuktiLama3C3_(state) {
+  state.updatedAt = new Date().toISOString();
+  portalScriptProperties_().setProperty(
+    MAINTENANCE_AKSES_BUKTI_LAMA_3C3.STATE_PROPERTY,
+    JSON.stringify(state)
+  );
+}
+
+function buatStateAksesBuktiLama3C3_(rootContext, mode) {
+  return {
+    version: MAINTENANCE_AKSES_BUKTI_LAMA_3C3.VERSION,
+    rootFolderId: rootContext.rootId,
+    mode: mode,
+    folderIds: daftarFolderBuktiLama3C3_(rootContext.folder),
+    folderIndex: 0,
+    folderOffset: 0,
+    continuationToken: '',
+    dipindai: 0,
+    diubah: 0,
+    sudahSesuai: 0,
+    dilewati: 0,
+    gagal: 0,
+    folderGagal: 0,
+    resumeReset: 0,
+    lastFailures: [],
+    selesai: false,
+    startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function ringkasStateAksesBuktiLama3C3_(state) {
+  state = state || {};
+  var totalFolder = Array.isArray(state.folderIds) ? state.folderIds.length : 0;
+  return {
+    versi: MAINTENANCE_AKSES_BUKTI_LAMA_3C3.VERSION,
+    mode: String(state.mode || modeSharingFilePortal_()),
+    totalFolder: totalFolder,
+    folderSelesai: Math.min(Number(state.folderIndex || 0), totalFolder),
+    dipindai: Number(state.dipindai || 0),
+    diubah: Number(state.diubah || 0),
+    sudahSesuai: Number(state.sudahSesuai || 0),
+    dilewati: Number(state.dilewati || 0),
+    gagal: Number(state.gagal || 0),
+    folderGagal: Number(state.folderGagal || 0),
+    resumeReset: Number(state.resumeReset || 0),
+    kegagalanTerakhir: Array.isArray(state.lastFailures) ? state.lastFailures.slice() : [],
+    mulaiPada: state.startedAt || '',
+    diperbaruiPada: state.updatedAt || '',
+    selesai: state.selesai === true
+  };
+}
+
+function catatKegagalanAksesBuktiLama3C3_(state, detail) {
+  state.lastFailures = Array.isArray(state.lastFailures) ? state.lastFailures : [];
+  state.lastFailures.push(detail);
+  if (state.lastFailures.length > MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_FAILURE_DETAILS) {
+    state.lastFailures = state.lastFailures.slice(-MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_FAILURE_DETAILS);
+  }
+}
+
+function mimeBuktiLamaDidukung3C3_(file) {
+  var mime = String(file.getMimeType() || '').toLowerCase();
+  return mime.indexOf('image/') === 0 || mime === 'application/pdf';
+}
+
+function aksesFileSudahSesuai3C3_(file, mode) {
+  var expectedAccess = mode === 'ANYONE_WITH_LINK'
+    ? DriveApp.Access.ANYONE_WITH_LINK
+    : DriveApp.Access.DOMAIN_WITH_LINK;
+  return file.getSharingAccess() === expectedAccess &&
+    file.getSharingPermission() === DriveApp.Permission.VIEW;
+}
+
+function iteratorFileBuktiLama3C3_(state, folder) {
+  if (state.continuationToken) {
+    try {
+      return DriveApp.continueFileIterator(state.continuationToken);
+    } catch (e) {
+      state.continuationToken = '';
+      state.resumeReset = Number(state.resumeReset || 0) + 1;
+    }
+  }
+
+  var iterator = folder.getFiles();
+  var skip = Math.max(0, Number(state.folderOffset || 0));
+  while (skip > 0 && iterator.hasNext()) {
+    iterator.next();
+    skip--;
+  }
+  return iterator;
+}
+
+function statusMaintenanceAksesBuktiLama3C3() {
+  var ctx = pastikanMaintainerPortal3B0_('STATUS_AKSES_BUKTI_LAMA_3C3');
+  try {
+    var root = konteksFolderBuktiLama3C3_();
+    var mode = modeSharingFilePortal_();
+    var state = bacaStateAksesBuktiLama3C3_();
+    var result = {
+      sukses: true,
+      valid: mode === 'ANYONE_WITH_LINK' || mode === 'DOMAIN_WITH_LINK',
+      siapDijalankan: mode === 'ANYONE_WITH_LINK' || mode === 'DOMAIN_WITH_LINK',
+      maintainerAktif: ctx.email,
+      rootFolderId: root.rootId,
+      rootFolderName: root.folder.getName(),
+      folderTetapPrivat: true,
+      propertyDiaturOtomatis: MAINTENANCE_AKSES_BUKTI_LAMA_3C3.STATE_PROPERTY,
+      status: ringkasStateAksesBuktiLama3C3_(state || { mode: mode })
+    };
+    if (!result.siapDijalankan) {
+      result.kode = 'FILE_SHARING_MODE_PRIVATE';
+      result.pesan = 'Maintenance diblokir karena mode sharing file Portal masih PRIVATE.';
+    } else {
+      result.pesan = state && state.selesai
+        ? 'Maintenance akses bukti lama sudah selesai.'
+        : 'Maintenance siap dijalankan dari Apps Script Editor.';
+    }
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    return handleError('statusMaintenanceAksesBuktiLama3C3', e, { sukses: false, pesan: '' });
+  }
+}
+
+function maintenancePerbaikiAksesBuktiLama3C3() {
+  var ctx = pastikanMaintainerPortal3B0_('PERBAIKI_AKSES_BUKTI_LAMA_3C3');
+  var lock = LockService.getScriptLock();
+  var locked = false;
+  try {
+    locked = lock.tryLock(5000);
+    if (!locked) {
+      return { sukses: false, kode: 'MAINTENANCE_BUSY', pesan: 'Maintenance akses bukti sedang dijalankan. Coba lagi setelah eksekusi sebelumnya selesai.' };
+    }
+
+    var startedMs = Date.now();
+    var root = konteksFolderBuktiLama3C3_();
+    var mode = modeSharingFilePortal_();
+    if (mode !== 'ANYONE_WITH_LINK' && mode !== 'DOMAIN_WITH_LINK') {
+      return {
+        sukses: false,
+        kode: 'FILE_SHARING_MODE_PRIVATE',
+        mode: mode,
+        folderTetapPrivat: true,
+        pesan: 'Maintenance diblokir karena mode sharing file Portal masih PRIVATE.'
+      };
+    }
+
+    var state = bacaStateAksesBuktiLama3C3_();
+    var stateTidakCocok = !state ||
+      state.version !== MAINTENANCE_AKSES_BUKTI_LAMA_3C3.VERSION ||
+      state.rootFolderId !== root.rootId ||
+      state.mode !== mode ||
+      !Array.isArray(state.folderIds);
+    if (stateTidakCocok) {
+      state = buatStateAksesBuktiLama3C3_(root, mode);
+      simpanStateAksesBuktiLama3C3_(state);
+    }
+
+    if (state.selesai === true) {
+      var alreadyDone = ringkasStateAksesBuktiLama3C3_(state);
+      alreadyDone.sukses = true;
+      alreadyDone.valid = alreadyDone.gagal === 0 && alreadyDone.folderGagal === 0;
+      alreadyDone.perluJalankanLagi = false;
+      alreadyDone.folderTetapPrivat = true;
+      alreadyDone.pesan = alreadyDone.valid
+        ? 'Maintenance akses bukti lama sudah selesai.'
+        : 'Maintenance selesai dengan kegagalan; periksa kegagalanTerakhir.';
+      Logger.log(JSON.stringify(alreadyDone, null, 2));
+      return alreadyDone;
+    }
+
+    var processedThisRun = 0;
+    while (state.folderIndex < state.folderIds.length &&
+      processedThisRun < MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_FILES_PER_RUN &&
+      Date.now() - startedMs < MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_RUNTIME_MS) {
+      var folderId = state.folderIds[state.folderIndex];
+      var iterator;
+      try {
+        var folder = DriveApp.getFolderById(folderId);
+        iterator = iteratorFileBuktiLama3C3_(state, folder);
+      } catch (folderError) {
+        state.folderGagal = Number(state.folderGagal || 0) + 1;
+        catatKegagalanAksesBuktiLama3C3_(state, {
+          jenis: 'FOLDER',
+          folderId: String(folderId || ''),
+          error: getInternalErrorMessage_(folderError).substring(0, 240)
+        });
+        state.folderIndex++;
+        state.folderOffset = 0;
+        state.continuationToken = '';
+        continue;
+      }
+
+      while (iterator.hasNext() &&
+        processedThisRun < MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_FILES_PER_RUN &&
+        Date.now() - startedMs < MAINTENANCE_AKSES_BUKTI_LAMA_3C3.MAX_RUNTIME_MS) {
+        var file = iterator.next();
+        processedThisRun++;
+        state.folderOffset = Number(state.folderOffset || 0) + 1;
+        state.dipindai = Number(state.dipindai || 0) + 1;
+
+        try {
+          if (!mimeBuktiLamaDidukung3C3_(file)) {
+            state.dilewati = Number(state.dilewati || 0) + 1;
+          } else if (aksesFileSudahSesuai3C3_(file, mode)) {
+            state.sudahSesuai = Number(state.sudahSesuai || 0) + 1;
+          } else {
+            terapkanKebijakanSharingFilePortal_(file);
+            state.diubah = Number(state.diubah || 0) + 1;
+          }
+        } catch (fileError) {
+          state.gagal = Number(state.gagal || 0) + 1;
+          catatKegagalanAksesBuktiLama3C3_(state, {
+            jenis: 'FILE',
+            fileId: String(file.getId ? file.getId() : ''),
+            nama: String(file.getName ? file.getName() : '').substring(0, 160),
+            error: getInternalErrorMessage_(fileError).substring(0, 240)
+          });
+        }
+      }
+
+      if (iterator.hasNext()) {
+        try {
+          state.continuationToken = iterator.getContinuationToken();
+        } catch (tokenError) {
+          // Offset yang tersimpan tetap memungkinkan batch berikutnya melanjutkan
+          // pemindaian walau Drive tidak menerbitkan continuation token.
+          state.continuationToken = '';
+          state.resumeReset = Number(state.resumeReset || 0) + 1;
+        }
+        break;
+      }
+
+      state.folderIndex++;
+      state.folderOffset = 0;
+      state.continuationToken = '';
+    }
+
+    state.selesai = state.folderIndex >= state.folderIds.length;
+    simpanStateAksesBuktiLama3C3_(state);
+    var result = ringkasStateAksesBuktiLama3C3_(state);
+    result.sukses = true;
+    result.valid = state.selesai && result.gagal === 0 && result.folderGagal === 0;
+    result.diprosesBatchIni = processedThisRun;
+    result.perluJalankanLagi = !state.selesai;
+    result.folderTetapPrivat = true;
+    result.pesan = state.selesai
+      ? (result.valid ? 'Maintenance akses bukti lama selesai.' : 'Maintenance selesai dengan kegagalan; periksa kegagalanTerakhir.')
+      : 'Batch selesai. Jalankan fungsi yang sama lagi untuk melanjutkan.';
+    catatMaintenancePortal3B0_(ctx, result.valid ? 'SUCCESS' : (state.selesai ? 'COMPLETED_WITH_ERRORS' : 'BATCH_CONTINUE'), result);
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } catch (e) {
+    catatMaintenancePortal3B0_(ctx, 'FAILED', getInternalErrorMessage_(e));
+    return handleError('maintenancePerbaikiAksesBuktiLama3C3', e, { sukses: false, pesan: '' });
+  } finally {
+    if (locked) lock.releaseLock();
+  }
+}
+// ===== END TAHAP 3C-3 =====
 
 function normalisasiTujuanUploadSementara_(purpose) {
   var p = String(purpose || '').trim().toUpperCase();
@@ -11310,7 +11634,7 @@ var DISPOSISI_SAYA_CACHE_TTL_V2A1C = 180;
 var DISPOSISI_SAYA_CACHE_MAX_JSON_V2A1C = 90000;
 
 // ===== HOTFIX PERFORMA 2A-1C.2: SHARED CACHE + SINGLE-FLIGHT =====
-var DISPOSISI_SHARED_CACHE_TTL_V2A1C2 = 180;
+var DISPOSISI_SHARED_CACHE_TTL_V2A1C2 = 600;
 var DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2 = 80000;
 var DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2 = 8;
 var DISPOSISI_SHARED_BUILD_MARKER_TTL_V2A1C2 = 90;
