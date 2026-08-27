@@ -17,7 +17,7 @@
 // ============================================================
 
 var AUDIT_LAPORAN_LEWAT_PERIODE_3B04A = {
-  VERSION: "3B04A-2026.08.19.01",
+  VERSION: "3B04A-2026.08.27.02",
   DEFAULT_PERIODE: "2026-07",
   TIMEZONE: "Asia/Jakarta",
   MAX_DETAIL_RETURN: 500,
@@ -253,9 +253,85 @@ function ambilPeriodeEksplisitPayload3B04A_(payload) {
 }
 
 
+function periodeBerikutnyaAudit3B04A_(periode) {
+  var p = normalisasiPeriodeAudit3B04A_(periode);
+  if (!p) return "";
+  var y = Number(p.slice(0, 4));
+  var m = Number(p.slice(5, 7)) - 1;
+  return Utilities.formatDate(
+    new Date(y, m + 1, 1, 12, 0, 0, 0),
+    AUDIT_LAPORAN_LEWAT_PERIODE_3B04A.TIMEZONE,
+    "yyyy-MM"
+  );
+}
+
+
+function isKategoriWajibBulananAudit3B04A_(kategori) {
+  try {
+    if (typeof isKategoriWajibBulanan_ === "function") {
+      return isKategoriWajibBulanan_(kategori);
+    }
+  } catch (eGlobal) {}
+
+  var k = String(kategori || "").toLowerCase();
+  return k.indexOf("pelaksanaan kegiatan wajib bulanan") !== -1;
+}
+
+
+function bulanIsiWajibBulananAudit3B04A_(row, columns, payload) {
+  row = row || [];
+  columns = columns || {};
+  payload = payload || {};
+
+  var explicit = payload.detailWajibPamong && payload.detailWajibPamong.bulan;
+  var p = normalisasiPeriodeAudit3B04A_(explicit);
+  if (p) return p;
+
+  if (typeof columns.WAJIB_PAMONG_BULAN === "number") {
+    p = normalisasiPeriodeAudit3B04A_(row[columns.WAJIB_PAMONG_BULAN]);
+    if (p) return p;
+  }
+
+  if (typeof columns.TANGGAL_KEGIATAN === "number") {
+    var d = parseTanggalAudit3B04A_(row[columns.TANGGAL_KEGIATAN]);
+    if (d) {
+      return Utilities.formatDate(
+        d,
+        AUDIT_LAPORAN_LEWAT_PERIODE_3B04A.TIMEZONE,
+        "yyyy-MM"
+      );
+    }
+  }
+
+  return "";
+}
+
+
 function tentukanPeriodeRowAudit3B04A_(row, columns) {
   var payload = parsePayloadAudit3B04A_(row, columns);
   var periodePayload = ambilPeriodeEksplisitPayload3B04A_(payload);
+
+  // Pasal 33: laporan bulan M memang berisi pekerjaan bulan M, tetapi hak poin
+  // dan review-nya berada pada periode M+1. Perbedaan ini bukan "lewat periode".
+  var kategori = typeof columns.KATEGORI === "number"
+    ? row[columns.KATEGORI]
+    : "";
+  if (isKategoriWajibBulananAudit3B04A_(kategori)) {
+    var bulanIsiWajib = bulanIsiWajibBulananAudit3B04A_(row, columns, payload);
+    var periodeHak = periodeBerikutnyaAudit3B04A_(bulanIsiWajib);
+    if (periodeHak) {
+      return {
+        periode: periodeHak,
+        sumber: "BULAN_HAK_PASAL33",
+        tanggalAcuan: parseTanggalAudit3B04A_(row[columns.TANGGAL_LAPORAN]),
+        sumberTanggal: "BULAN_LAPORAN_WAJIB",
+        periodePayload: periodePayload,
+        periodePayloadBerbeda: false,
+        bulanIsiLaporanWajib: bulanIsiWajib,
+        periodeHakPasal33: periodeHak
+      };
+    }
+  }
 
   var tanggalPelaksanaan =
     parseTanggalAudit3B04A_(row[columns.TANGGAL_KEGIATAN]);

@@ -15,7 +15,7 @@
 // ============================================================
 
 var SINKRONISASI_CUTOFF_PERIODE_3B04C1 = {
-  VERSION: "3B04C1a-2026.08.04.02",
+  VERSION: "3B04C1a-2026.08.27.02",
   PROPERTY: "SINKRONISASI_CUTOFF_PERIODE_3B04C1_ENABLED",
   MAX_FORWARD_MONTHS: 36
 };
@@ -494,6 +494,36 @@ function periodeKalenderDariTanggal3B04C1_(value) {
 function periodeAsalRow3B04C1_(row, columns) {
   row = row || [];
   columns = columns || SHEET_COLUMNS.REKAP_KINERJA;
+
+  // Laporan wajib Pasal 33 melaporkan bulan sebelumnya. Bulan isi M harus
+  // dihitung sebagai periode hak/review M+1, bukan sebagai periode M.
+  try {
+    var kategoriWajib = String(row[columns.KATEGORI] || "");
+    if (typeof isKategoriWajibBulanan_ === "function" && isKategoriWajibBulanan_(kategoriWajib)) {
+      var payloadWajib = typeof parsePayloadAudit3B04A_ === "function"
+        ? parsePayloadAudit3B04A_(row, columns)
+        : null;
+      var bulanIsiWajib = payloadWajib && payloadWajib.detailWajibPamong
+        ? normalisasiPeriode3B04C1_(payloadWajib.detailWajibPamong.bulan)
+        : "";
+
+      if (!bulanIsiWajib && typeof columns.WAJIB_PAMONG_BULAN === "number") {
+        bulanIsiWajib = normalisasiPeriode3B04C1_(row[columns.WAJIB_PAMONG_BULAN]);
+      }
+      if (!bulanIsiWajib) {
+        bulanIsiWajib = periodeKalenderDariTanggal3B04C1_(row[columns.TANGGAL_KEGIATAN]);
+      }
+
+      var periodeHakWajib = periodeBerikutnya3B04C1_(bulanIsiWajib);
+      if (periodeHakWajib) {
+        return {
+          periode: periodeHakWajib,
+          sumber: "BULAN_HAK_PASAL33",
+          bulanIsiLaporanWajib: bulanIsiWajib
+        };
+      }
+    }
+  } catch (eWajib) {}
 
   try {
     if (

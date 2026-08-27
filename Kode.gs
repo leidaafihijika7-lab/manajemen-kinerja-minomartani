@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.27.01";
+var APP_VERSION = "2026.08.27.02";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3251,7 +3251,9 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
       else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) item.jmlLapTULurah++;
     } else {
       if (isKategoriProduktivitas_(kategori)) {
-        if (!isKategoriWajibBulanan_(kategori)) item.poinProd += poin;
+        // POIN_FINAL laporan wajib Pasal 33 adalah poin produktivitas yang sah.
+        // Bulan isi laporan = bulan sebelumnya; haknya masuk periode berikutnya.
+        item.poinProd += poin;
       } else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) {
         item.poinTU += poin;
       }
@@ -9850,7 +9852,7 @@ function bangunBaseDashboardAdminV2A2_(meta) {
       if (isStatusApproved_(status)) {
         row.jumlahDisetujui++;
         if (isKategoriProduktivitas_(kategori)) {
-          if (!isKategoriWajibBulanan_(kategori)) row.poinProd += poin;
+          row.poinProd += poin;
         } else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) row.poinTU += poin;
       } else if (isPendingReviewStatus_(status)) {
         row.jumlahMenunggu++;
@@ -10016,7 +10018,7 @@ function bangunDetailPegawaiAdminV2A2_(targetId, meta) {
       if (isStatusApproved_(status)) {
         detail.jumlahDisetujui++;
         if (isKategoriProduktivitas_(kategori)) {
-          if (!isKategoriWajibBulanan_(kategori)) detail.poinProd += poin;
+          detail.poinProd += poin;
         } else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) detail.poinTU += poin;
       } else if (isPendingReviewStatus_(status)) detail.jumlahMenunggu++;
       laporan.push({ _ts: tglLap.getTime(), waktu: formatWaktuAdmin_(data[i][C.TANGGAL_LAPORAN]),
@@ -14018,7 +14020,7 @@ function bangunDashboardAdminKinerjaFallback_(periode, kelompok, keyword) {
       if (isStatusApproved_(status)) {
         row.jumlahDisetujui++;
         if (isKategoriProduktivitas_(kategori)) {
-          if (!isKategoriWajibBulanan_(kategori)) row.poinProd += poin;
+          row.poinProd += poin;
         } else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) {
           row.poinTU += poin;
         }

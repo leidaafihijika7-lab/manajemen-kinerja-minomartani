@@ -4,7 +4,7 @@
 // ============================================================
 
 var REVIEW_LEWAT_PERIODE_3B04B = {
-  VERSION: "3B04B-2026.08.19.01",
+  VERSION: "3B04B-2026.08.27.02",
   PAGE_FETCH_SIZE: 30,
   MAX_FETCH_LOOPS: 30,
   MAX_FETCH_ROWS: 900

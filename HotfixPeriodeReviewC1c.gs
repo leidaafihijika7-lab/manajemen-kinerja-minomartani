@@ -1,6 +1,6 @@
 // ============================================================
 // HOTFIX 3B-0.4C1c — RESOLVER RENTANG CUT-OFF + OPTIMASI REVIEW
-// Target aplikasi: APP_VERSION 2026.08.27.01
+// Target aplikasi: APP_VERSION 2026.08.27.02
 //
 // Tujuan:
 // - periode asal ditentukan dari rentang cut-off manual yang disimpan admin;
@@ -13,7 +13,7 @@
 // ============================================================
 
 var HOTFIX_PERIODE_REVIEW_3B04C1C = {
-  VERSION: "3B04C1c-2026.08.27.01",
+  VERSION: "3B04C1c-2026.08.27.02",
   PROPERTY: "HOTFIX_PERIODE_REVIEW_3B04C1C_ENABLED",
   INDEX_WIDTH: 26,
   EMPLOYEE_MAX_PAGE: 50,
@@ -292,6 +292,51 @@ function cariPeriodeRentang3B04C1c_(tanggal, context) {
 function periodeAsalRow3B04C1c_(row, columns, context) {
   row = row || [];
   columns = columns || SHEET_COLUMNS.REKAP_KINERJA;
+
+  // Kebijakan Pasal 33: laporan wajib pada periode hak M melaporkan bulan M-1.
+  // Karena itu bulan isi tidak boleh dipakai langsung sebagai periode asal.
+  try {
+    var kategori = String(row[columns.KATEGORI] || "");
+    if (typeof isKategoriWajibBulanan_ === "function" && isKategoriWajibBulanan_(kategori)) {
+      var payload = null;
+      var rawPayload = typeof columns.PAYLOAD_JSON === "number"
+        ? row[columns.PAYLOAD_JSON]
+        : "";
+      if ((!rawPayload && rawPayload !== 0) && typeof columns.PAYLOAD_DETAIL_JSON === "number") {
+        rawPayload = row[columns.PAYLOAD_DETAIL_JSON];
+      }
+      if (rawPayload && typeof rawPayload === "object") payload = rawPayload;
+      else if (rawPayload) {
+        try { payload = JSON.parse(String(rawPayload)); } catch (eJson) {}
+      }
+
+      var bulanIsi = payload && payload.detailWajibPamong
+        ? normalisasiPeriode3B04C1c_(payload.detailWajibPamong.bulan)
+        : "";
+      if (!bulanIsi && typeof columns.WAJIB_PAMONG_BULAN === "number") {
+        bulanIsi = normalisasiPeriode3B04C1c_(row[columns.WAJIB_PAMONG_BULAN]);
+      }
+      if (!bulanIsi) {
+        bulanIsi = periodeKalender3B04C1c_(row[columns.TANGGAL_KEGIATAN]);
+      }
+
+      var periodeHak = periodeBerikutnya3B04C1c_(bulanIsi);
+      if (periodeHak) {
+        var ctx = context || buatKonteksCutoff3B04C1c_();
+        return {
+          periode: periodeHak,
+          range: ctx.byPeriod ? (ctx.byPeriod[periodeHak] || null) : null,
+          sumber: "BULAN_HAK_PASAL33",
+          exact: !!(ctx.byPeriod && ctx.byPeriod[periodeHak]),
+          tanggalAcuan: parseTanggal3B04C1c_(row[columns.TANGGAL_LAPORAN]),
+          sumberTanggal: "BULAN_LAPORAN_WAJIB",
+          bulanIsiLaporanWajib: bulanIsi,
+          periodeHakPasal33: periodeHak
+        };
+      }
+    }
+  } catch (eWajib) {}
+
   var tanggalKegiatan = parseTanggal3B04C1c_(row[columns.TANGGAL_KEGIATAN]);
   var tanggalSubmit = parseTanggal3B04C1c_(row[columns.TANGGAL_LAPORAN]);
   var acuan = tanggalKegiatan || tanggalSubmit;
@@ -478,6 +523,8 @@ function buatMetadataRow3B04C1c_(row, columns, context) {
     periodeAsalLabel: originLabel,
     sumberPeriodeAsal: originInfo.sumber,
     sumberTanggalPeriodeAsal: originInfo.sumberTanggal,
+    bulanIsiLaporanWajib: originInfo.bulanIsiLaporanWajib || "",
+    periodeHakPasal33: originInfo.periodeHakPasal33 || "",
     periodeReview: reviewPeriod,
     periodeReviewLabel: reviewLabel,
     jumlahPeriodeDialihkan: Number(route.jumlahPeriodeDialihkan || 0),
@@ -1014,18 +1061,25 @@ function ujiResolverRentangCutoff3B04C1c_() {
 
   var june = range("2026-06", "2026-05-27T00:00:00+07:00", "2026-06-29T11:00:00+07:00");
   var july = range("2026-07", "2026-06-30T00:00:00+07:00", "2026-07-29T16:00:00+07:00");
+  var august = range("2026-08", "2026-07-30T00:00:00+07:00", "2026-08-27T17:30:00+07:00");
   var context = {
-    byPeriod: { "2026-06": june, "2026-07": july },
-    ranges: [june, july],
-    totalRanges: 2
+    byPeriod: { "2026-06": june, "2026-07": july, "2026-08": august },
+    ranges: [june, july, august],
+    totalRanges: 3
   };
 
-  function row(activity, submit) {
+  function row(activity, submit, kategori, bulanWajib) {
     var result = [];
     result[SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_KEGIATAN] = new Date(activity);
     result[SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN] = new Date(submit);
+    result[SHEET_COLUMNS.REKAP_KINERJA.KATEGORI] = kategori || "";
     result[SHEET_COLUMNS.REKAP_KINERJA.REVISI_KE] = 0;
     result[SHEET_COLUMNS.REKAP_KINERJA.TERAKHIR_DIREVISI_PADA] = "";
+    if (bulanWajib) {
+      result[SHEET_COLUMNS.REKAP_KINERJA.PAYLOAD_JSON] = JSON.stringify({
+        detailWajibPamong: { bulan: bulanWajib }
+      });
+    }
     return result;
   }
 
@@ -1044,6 +1098,16 @@ function ujiResolverRentangCutoff3B04C1c_() {
     SHEET_COLUMNS.REKAP_KINERJA,
     context
   );
+  var mandatoryJulyReportedAugust = buatMetadataRow3B04C1c_(
+    row(
+      "2026-07-01T10:00:00+07:00",
+      "2026-08-06T15:56:00+07:00",
+      "Laporan Produktifitas - Pelaksanaan Kegiatan Wajib Bulanan",
+      "2026-07"
+    ),
+    SHEET_COLUMNS.REKAP_KINERJA,
+    context
+  );
 
   var valid =
     june30.periodeAsal === "2026-07" &&
@@ -1054,16 +1118,20 @@ function ujiResolverRentangCutoff3B04C1c_() {
     lateJuly.lewatPeriode === true &&
     july31Activity.periodeAsal === "2026-08" &&
     july31Activity.periodeReview === "2026-08" &&
-    july31Activity.lewatPeriode === false;
+    july31Activity.lewatPeriode === false &&
+    mandatoryJulyReportedAugust.periodeAsal === "2026-08" &&
+    mandatoryJulyReportedAugust.periodeReview === "2026-08" &&
+    mandatoryJulyReportedAugust.lewatPeriode === false &&
+    mandatoryJulyReportedAugust.bulanIsiLaporanWajib === "2026-07";
 
   return {
     valid: valid,
     tanggal30Juni: june30,
     terlambatJuli: lateJuly,
-    kegiatan31Juli: july31Activity
+    kegiatan31Juli: july31Activity,
+    wajibJuliDilaporAgustus: mandatoryJulyReportedAugust
   };
 }
-
 
 function statusHotfixPeriodeReview3B04C1c() {
   pastikanMaintainerPortal3B0_("STATUS_HOTFIX_PERIODE_REVIEW_3B04C1C");
