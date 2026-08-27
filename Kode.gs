@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.27.02";
+var APP_VERSION = "2026.08.27.03";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3291,8 +3291,193 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
   return hasil;
 }
 
+
+// ===== KOREKSI BATCH TUNJANGAN v0.1 =====
+// Koreksi hanya berlaku untuk batch yang sudah Disetujui Lurah tetapi belum
+// diteruskan ke Bendahara / dicairkan. Batch lama tidak dihapus: hanya
+// dinonaktifkan setelah batch pengganti berhasil disiapkan.
+function bangunPreviewKoreksiBatchTunjangan_(batch) {
+  var out = {
+    checked: true,
+    eligible: false,
+    code: "",
+    pesan: "",
+    batchIdLama: "",
+    statusLama: "",
+    oldTotal: 0,
+    newTotal: 0,
+    delta: 0,
+    changedCount: 0,
+    changedRows: [],
+    meta: null
+  };
+
+  if (!batch || !batch.rows || !batch.rows.length) {
+    out.code = "BATCH_NOT_FOUND";
+    out.pesan = "Batch aktif tidak ditemukan.";
+    return out;
+  }
+
+  var first = batch.rows[0].values || [];
+  var status = String(batch.status || first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.STATUS_REKAP] || "");
+  out.statusLama = status;
+  out.batchIdLama = String(batch.batchId || first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.BATCH_ID] || "");
+
+  var diteruskanPada = first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DITERUSKAN_BENDAHARA_PADA];
+  var dicairkanPada = first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DICAIRKAN_PADA];
+  if (status !== TUNJANGAN_STATUS.DISETUJUI_LURAH) {
+    out.code = "STATUS_NOT_ELIGIBLE";
+    out.pesan = "Koreksi batch hanya tersedia pada status Disetujui Lurah.";
+    return out;
+  }
+  if (diteruskanPada || dicairkanPada) {
+    out.code = "BATCH_ALREADY_FORWARDED";
+    out.pesan = "Batch sudah diteruskan atau dicairkan dan tidak dapat dikoreksi melalui mekanisme ini.";
+    return out;
+  }
+
+  var p = normalizePeriode_(batch.periode || first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERIODE]);
+  var meta = metadataBatchTunjanganDariRow_(first);
+  out.meta = meta;
+  var hasilBaru = hitungRekapTunjanganPeriode_(p, meta.tanggalMulaiPeriode, meta.tanggalAkhirPeriode, meta.jamCutoff);
+  var lamaById = {};
+  var baruById = {};
+
+  batch.rows.forEach(function (item) {
+    var r = item.values || [];
+    var id = normalizeId_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.ID_USER]);
+    if (!id) return;
+    var oldRow = {
+      idUser: id,
+      nama: String(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.NAMA] || ""),
+      jabatan: String(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.JABATAN] || ""),
+      jumlahLaporanDisetujui: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.JUMLAH_LAPORAN_DISETUJUI]) || 0,
+      poinProd: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.POIN_PROD]) || 0,
+      poinTU: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.POIN_TU]) || 0,
+      persenProd: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERSEN_PROD]) || 0,
+      persenTU: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERSEN_TU]) || 0,
+      rpProd: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_PROD]) || 0,
+      rpTU: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_TU]) || 0,
+      rpTotal: Number(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_TOTAL]) || 0
+    };
+    lamaById[id] = oldRow;
+    out.oldTotal += oldRow.rpTotal;
+  });
+
+  (hasilBaru || []).forEach(function (r) {
+    var id = normalizeId_(r.idUser);
+    if (!id) return;
+    baruById[id] = r;
+    out.newTotal += Number(r.rpTotal) || 0;
+  });
+
+  var ids = {};
+  Object.keys(lamaById).forEach(function (id) { ids[id] = true; });
+  Object.keys(baruById).forEach(function (id) { ids[id] = true; });
+  Object.keys(ids).forEach(function (id) {
+    var oldRow = lamaById[id] || null;
+    var newRow = baruById[id] || null;
+    var changed = !oldRow || !newRow;
+    if (!changed) {
+      var fields = ["jumlahLaporanDisetujui", "poinProd", "poinTU", "persenProd", "persenTU", "rpProd", "rpTU", "rpTotal"];
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        if (Math.abs((Number(oldRow[f]) || 0) - (Number(newRow[f]) || 0)) > 0.001) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) return;
+    out.changedRows.push({
+      idUser: id,
+      nama: (newRow && newRow.nama) || (oldRow && oldRow.nama) || "",
+      jabatan: (newRow && newRow.jabatan) || (oldRow && oldRow.jabatan) || "",
+      old: oldRow,
+      baru: newRow ? {
+        idUser: id,
+        nama: newRow.nama || "",
+        jabatan: newRow.jabatan || "",
+        jumlahLaporanDisetujui: Number(newRow.jumlahLaporanDisetujui) || 0,
+        poinProd: Number(newRow.poinProd) || 0,
+        poinTU: Number(newRow.poinTU) || 0,
+        persenProd: Number(newRow.persenProd) || 0,
+        persenTU: Number(newRow.persenTU) || 0,
+        rpProd: Number(newRow.rpProd) || 0,
+        rpTU: Number(newRow.rpTU) || 0,
+        rpTotal: Number(newRow.rpTotal) || 0
+      } : null
+    });
+  });
+
+  out.delta = out.newTotal - out.oldTotal;
+  out.changedCount = out.changedRows.length;
+  if (!out.changedCount && Math.abs(out.delta) <= 0.001) {
+    out.code = "NO_DIFFERENCE";
+    out.pesan = "Hasil hitung ulang sama dengan batch aktif. Koreksi tidak diperlukan.";
+    return out;
+  }
+
+  out.eligible = true;
+  out.code = "CORRECTION_AVAILABLE";
+  out.pesan = "Terdapat perbedaan hasil hitung ulang. Batch dapat dikoreksi sebelum diteruskan ke Bendahara.";
+  return out;
+}
+
+function aktifkanRowsBatchTunjangan_(rows, aktif) {
+  if (!rows || !rows.length) return;
+  var sh = ensureSheetRekapTunjanganBulanan_();
+  rows.forEach(function (item) {
+    sh.getRange(item.rowIndex, SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.IS_ACTIVE + 1).setValue(aktif === true);
+  });
+}
+
+function buatRowsDraftTunjangan_(p, hasil, pembuatNama, batchId, now, isActive) {
+  return (hasil || []).map(function (item) {
+    return [
+      p,
+      item.idUser,
+      item.nama,
+      item.jabatan,
+      item.kelompok,
+      item.jumlahLaporanDisetujui,
+      item.poinProd,
+      item.poinTU,
+      item.persenProd,
+      item.persenTU,
+      item.maxProd,
+      item.maxTU,
+      item.rpProd,
+      item.rpTU,
+      item.rpTotal,
+      TUNJANGAN_STATUS.DRAFT,
+      "",
+      "",
+      "",
+      pembuatNama || "",
+      now,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      batchId,
+      isActive === true,
+      item.labelPembayaran,
+      item.tanggalMulaiPeriode,
+      item.tanggalAkhirPeriode,
+      item.tanggalCutoff
+    ];
+  });
+}
+
 function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamCutoff, token) {
   try {
+    var requestConfig = (tanggalMulai && typeof tanggalMulai === "object" && !(tanggalMulai instanceof Date)) ? tanggalMulai : null;
+    var modeKoreksi = !!(requestConfig && String(requestConfig.mode || "").toUpperCase() === "KOREKSI_BATCH");
+
     // Kompatibilitas versi lama: generateDraftTunjanganBulanan(periode, mulai, akhir, token)
     if (typeof token === "undefined") {
       token = jamCutoff;
@@ -3304,15 +3489,80 @@ function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamC
       tanggalAkhir = tanggalMulai;
       tanggalMulai = "";
       jamCutoff = "";
+      requestConfig = null;
+      modeKoreksi = false;
     }
+
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, pesan: "Sesi habis, silakan login ulang." };
     if (!cekHakAksesCarikTunjangan(idUser)) return { sukses: false, pesan: "Akses ditolak. Hanya Carik yang dapat membuat draft." };
 
     var p = normalizePeriode_(periode);
+    var batchAktif = getBatchAktifTunjangan_(p);
+
+    if (modeKoreksi) {
+      if (!batchAktif) return { sukses: false, pesan: "Batch aktif untuk periode " + p + " tidak ditemukan." };
+      var expectedBatchId = String(requestConfig.expectedBatchId || "");
+      if (expectedBatchId && expectedBatchId !== String(batchAktif.batchId || "")) {
+        return { sukses: false, pesan: "Batch aktif telah berubah. Muat ulang halaman sebelum melakukan koreksi." };
+      }
+
+      var preview = bangunPreviewKoreksiBatchTunjangan_(batchAktif);
+      if (!preview.eligible) return { sukses: false, pesan: preview.pesan || "Batch tidak memenuhi syarat koreksi." };
+
+      var alasan = String(requestConfig.alasan || "").trim();
+      if (!alasan) alasan = "Koreksi logika Laporan Wajib Bulanan Pasal 33 dan penyelarasan rekap tunjangan.";
+      var metaKoreksi = preview.meta || metadataBatchTunjanganDariRow_(batchAktif.rows[0].values || []);
+      var hasilKoreksi = hitungRekapTunjanganPeriode_(p, metaKoreksi.tanggalMulaiPeriode, metaKoreksi.tanggalAkhirPeriode, metaKoreksi.jamCutoff);
+      if (!hasilKoreksi.length) return { sukses: false, pesan: "Hasil hitung ulang kosong. Koreksi dibatalkan." };
+
+      var shKoreksi = ensureSheetRekapTunjanganBulanan_();
+      var pembuatKoreksi = getPegawaiById_(idUser) || {};
+      var batchIdBaru = buatBatchIdTunjangan_(p);
+      var nowKoreksi = new Date();
+      var rowsKoreksi = buatRowsDraftTunjangan_(p, hasilKoreksi, pembuatKoreksi.nama || "", batchIdBaru, nowKoreksi, false);
+      var startRowBaru = shKoreksi.getLastRow() + 1;
+      var oldDeactivated = false;
+
+      try {
+        shKoreksi.getRange(startRowBaru, 1, rowsKoreksi.length, REKAP_TUNJANGAN_HEADERS.length).setValues(rowsKoreksi);
+        aktifkanRowsBatchTunjangan_(batchAktif.rows, false);
+        oldDeactivated = true;
+        shKoreksi.getRange(startRowBaru, SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.IS_ACTIVE + 1, rowsKoreksi.length, 1).setValues(rowsKoreksi.map(function () { return [true]; }));
+      } catch (writeErr) {
+        if (oldDeactivated) {
+          try { aktifkanRowsBatchTunjangan_(batchAktif.rows, true); } catch (rollbackErr) {}
+        }
+        try {
+          shKoreksi.getRange(startRowBaru, SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.IS_ACTIVE + 1, rowsKoreksi.length, 1).setValues(rowsKoreksi.map(function () { return [false]; }));
+        } catch (cleanupErr) {}
+        throw writeErr;
+      }
+
+      var detailAudit = "Batch lama: " + preview.batchIdLama +
+        " | Batch baru: " + batchIdBaru +
+        " | Total lama: " + preview.oldTotal +
+        " | Total baru: " + preview.newTotal +
+        " | Selisih: " + preview.delta +
+        " | Pegawai berubah: " + preview.changedCount +
+        " | Alasan: " + alasan;
+      logAuditTunjangan_(idUser, "KOREKSI_BATCH_TUNJANGAN", p, "", "", TUNJANGAN_STATUS.DISETUJUI_LURAH, TUNJANGAN_STATUS.DRAFT, detailAudit);
+
+      return {
+        sukses: true,
+        pesan: "Batch koreksi berhasil dibuat sebagai Draft. Batch lama tetap tersimpan sebagai arsip dan dinonaktifkan.",
+        jumlahPegawai: rowsKoreksi.length,
+        batchIdLama: preview.batchIdLama,
+        batchId: batchIdBaru,
+        totalLama: preview.oldTotal,
+        totalBaru: preview.newTotal,
+        selisih: preview.delta,
+        jumlahPegawaiBerubah: preview.changedCount
+      };
+    }
+
     var metaPeriode = buildDateRangeMeta_(p, tanggalMulai, tanggalAkhir, jamCutoff);
     simpanCutoffTunjanganPeriode_(p, metaPeriode.tanggalMulaiPeriode, metaPeriode.tanggalAkhirPeriode, metaPeriode.jamCutoff);
-    var batchAktif = getBatchAktifTunjangan_(p);
     if (batchAktif) {
       var statusAktif = (batchAktif.status || "").toString();
       if (statusAktif !== TUNJANGAN_STATUS.DRAFT && statusAktif !== TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH) {
@@ -3328,44 +3578,7 @@ function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamC
     var pembuat = getPegawaiById_(idUser) || {};
     var batchId = buatBatchIdTunjangan_(p);
     var now = new Date();
-    var rows = hasil.map(function (item) {
-      return [
-        p,
-        item.idUser,
-        item.nama,
-        item.jabatan,
-        item.kelompok,
-        item.jumlahLaporanDisetujui,
-        item.poinProd,
-        item.poinTU,
-        item.persenProd,
-        item.persenTU,
-        item.maxProd,
-        item.maxTU,
-        item.rpProd,
-        item.rpTU,
-        item.rpTotal,
-        TUNJANGAN_STATUS.DRAFT,
-        "",
-        "",
-        "",
-        pembuat.nama || "",
-        now,
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        batchId,
-        true,
-        item.labelPembayaran,
-        item.tanggalMulaiPeriode,
-        item.tanggalAkhirPeriode,
-        item.tanggalCutoff
-      ];
-    });
+    var rows = buatRowsDraftTunjangan_(p, hasil, pembuat.nama || "", batchId, now, true);
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, REKAP_TUNJANGAN_HEADERS.length).setValues(rows);
     logAuditTunjangan_(idUser, "GENERATE_DRAFT_TUNJANGAN", p, "", "", batchAktif ? batchAktif.status : "", TUNJANGAN_STATUS.DRAFT, "Batch: " + batchId + " | Pegawai: " + rows.length + " | Rentang: " + metaPeriode.tanggalMulaiPeriode + " s.d. " + metaPeriode.tanggalCutoff);
     return { sukses: true, pesan: "Draft tunjangan berhasil dibuat untuk periode pembayaran " + metaPeriode.labelPembayaran + " (" + metaPeriode.tanggalMulaiPeriode + " s.d. " + metaPeriode.tanggalCutoff + ").", jumlahPegawai: rows.length, batchId: batchId };
@@ -3456,10 +3669,25 @@ function ambilRekapTunjanganBulanan(periode, token) {
       nomorBuktiCair: data[0].nomorBuktiCair
     };
 
+    var correction = { checked: false, eligible: false, code: "", pesan: "" };
+    if (summary.status === TUNJANGAN_STATUS.DISETUJUI_LURAH) {
+      try {
+        correction = bangunPreviewKoreksiBatchTunjangan_({
+          periode: p,
+          status: summary.status,
+          batchId: summary.batchId,
+          rows: rows
+        });
+      } catch (eKoreksi) {
+        correction = { checked: true, eligible: false, code: "PREVIEW_ERROR", pesan: "Preview koreksi gagal dihitung: " + (eKoreksi && eKoreksi.message ? eKoreksi.message : eKoreksi) };
+      }
+    }
+
     return {
       sukses: true,
       rows: data,
       summary: summary,
+      correction: correction,
       role: {
         carik: cekHakAksesCarikTunjangan(idUser),
         lurah: cekHakAksesLurahTunjangan(idUser),
@@ -3486,6 +3714,16 @@ function updateBatchTunjanganStatus_(periode, token, config) {
   var statusLama = (batch.status || "").toString();
   if (config.allowedFrom && config.allowedFrom.indexOf(statusLama) === -1) {
     return { sukses: false, pesan: "Status saat ini tidak sesuai. Status aktif: " + statusLama };
+  }
+
+  if (config.toStatus === TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA && statusLama === TUNJANGAN_STATUS.DISETUJUI_LURAH) {
+    var previewKoreksi = bangunPreviewKoreksiBatchTunjangan_(batch);
+    if (previewKoreksi && previewKoreksi.eligible) {
+      return {
+        sukses: false,
+        pesan: "Rekap belum dapat diteruskan ke Bendahara karena hasil hitung ulang berbeda sebesar " + previewKoreksi.delta + ". Buat Batch Koreksi terlebih dahulu."
+      };
+    }
   }
 
   var sh = ensureSheetRekapTunjanganBulanan_();

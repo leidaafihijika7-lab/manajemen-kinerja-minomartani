@@ -7575,6 +7575,7 @@
               <div class="tunjangan-card-title"><span class="material-symbols-outlined">fact_check</span><span>Aksi Rekap</span></div>
               <div class="tunjangan-action-bar">
                 <button type="button" id="btnGenerateTunjangan" class="tunjangan-btn secondary" onclick="generateDraftTunjangan()"><span class="material-symbols-outlined">autorenew</span> Generate Draft</button>
+                <button type="button" id="btnKoreksiTunjangan" class="tunjangan-btn warning" style="display:none;" onclick="koreksiBatchTunjanganUI()"><span class="material-symbols-outlined">published_with_changes</span> Koreksi Batch</button>
                 <button type="button" id="btnKunciTunjangan" class="tunjangan-btn secondary" style="display:none;" onclick="kunciDraftTunjangan()"><span class="material-symbols-outlined">lock</span> Kunci</button>
                 <button type="button" id="btnAjukanTunjangan" class="tunjangan-btn accent" style="display:none;" onclick="ajukanTunjanganKeLurah()"><span class="material-symbols-outlined">send</span> Ajukan ke Lurah</button>
                 <button type="button" id="btnSetujuiTunjangan" class="tunjangan-btn success" style="display:none;" onclick="setujuiRekapTunjanganUI()"><span class="material-symbols-outlined">check_circle</span> Setujui</button>
@@ -12317,8 +12318,10 @@
     }
 
     function renderAksiTunjangan(summary) {
+      var correction = (tunjanganPayloadAktif && tunjanganPayloadAktif.correction) || null;
       setBtnVisible('btnSimpanCutoffTunjangan', userIsCarikTunjangan() || userIsAdminUtama());
-      setBtnVisible('btnGenerateTunjangan', userIsCarikTunjangan());
+      setBtnVisible('btnGenerateTunjangan', false);
+      setBtnVisible('btnKoreksiTunjangan', false);
       setBtnVisible('btnKunciTunjangan', false);
       setBtnVisible('btnAjukanTunjangan', false);
       setBtnVisible('btnSetujuiTunjangan', false);
@@ -12326,17 +12329,30 @@
       setBtnVisible('btnTeruskanTunjangan', false);
       setBtnVisible('btnCairTunjangan', false);
       setBtnVisible('btnUnduhTunjangan', !!summary);
-      if (!summary) return;
+
+      if (!summary) {
+        setBtnVisible('btnGenerateTunjangan', userIsCarikTunjangan());
+        return;
+      }
 
       var st = summary.status || '';
-      if (userIsCarikTunjangan() && (st === 'Draft' || st === 'Dikembalikan Lurah')) setBtnVisible('btnKunciTunjangan', true);
+      if (userIsCarikTunjangan() && (st === 'Draft' || st === 'Dikembalikan Lurah')) {
+        setBtnVisible('btnGenerateTunjangan', true);
+        setBtnVisible('btnKunciTunjangan', true);
+      }
       if (userIsCarikTunjangan() && st === 'Dikunci Carik') setBtnVisible('btnAjukanTunjangan', true);
       if (userIsLurahTunjangan() && st === 'Diajukan ke Lurah') {
         setBtnVisible('btnSetujuiTunjangan', true);
         setBtnVisible('btnKembalikanTunjangan', true);
       }
-      if (userIsCarikTunjangan() && st === 'Disetujui Lurah') setBtnVisible('btnTeruskanTunjangan', true);
-      if (userIsBendaharaTunjangan() && (st === 'Diteruskan ke Bendahara' || st === 'Disetujui Lurah')) setBtnVisible('btnCairTunjangan', true);
+      if (userIsCarikTunjangan() && st === 'Disetujui Lurah') {
+        if (correction && correction.eligible) {
+          setBtnVisible('btnKoreksiTunjangan', true);
+        } else if (correction && correction.checked && correction.code === 'NO_DIFFERENCE') {
+          setBtnVisible('btnTeruskanTunjangan', true);
+        }
+      }
+      if (userIsBendaharaTunjangan() && st === 'Diteruskan ke Bendahara') setBtnVisible('btnCairTunjangan', true);
     }
 
     function isLurahTunjanganRow_(r) {
@@ -12453,6 +12469,12 @@
       if (summary.catatanLurah) extra += '<div><b>Catatan Lurah:</b> ' + escapeHTML(summary.catatanLurah) + '</div>';
       if (summary.catatanBendahara) extra += '<div><b>Catatan Bendahara:</b> ' + escapeHTML(summary.catatanBendahara) + '</div>';
       if (summary.nomorBuktiCair) extra += '<div><b>No. Bukti Cair:</b> ' + escapeHTML(summary.nomorBuktiCair) + '</div>';
+      var correction = payload.correction || null;
+      if (correction && correction.eligible) {
+        extra += '<div style="margin-top:8px; padding:9px 11px; border:1px solid #f59e0b; background:#fffbeb; border-radius:9px; color:#92400e;"><b>Koreksi batch diperlukan.</b> Hasil hitung ulang: ' + formatRupiahID(correction.oldTotal || 0) + ' → <b>' + formatRupiahID(correction.newTotal || 0) + '</b> (selisih ' + formatRupiahID(correction.delta || 0) + '). Batch belum dapat diteruskan ke Bendahara sebelum koreksi dibuat.</div>';
+      } else if (correction && correction.checked && correction.code && correction.code !== 'NO_DIFFERENCE') {
+        extra += '<div style="margin-top:8px; padding:9px 11px; border:1px solid #ef4444; background:#fef2f2; border-radius:9px; color:#991b1b;"><b>Validasi koreksi belum aman.</b> ' + escapeHTML(correction.pesan || 'Preview koreksi belum dapat diverifikasi.') + ' Rekap tidak dapat diteruskan sebelum validasi berhasil.</div>';
+      }
       var labelPembayaran = summary.labelPembayaran || (summary.periode || periodeTunjanganAktif());
       var rentang = '';
       if (summary.tanggalMulaiPeriode && summary.tanggalAkhirPeriode) {
@@ -12601,6 +12623,58 @@
       }).kembalikanRekapTunjangan(periode, catatan, sToken);
     }
 
+    function koreksiBatchTunjanganUI() {
+      var payload = tunjanganPayloadAktif || {};
+      var summary = payload.summary || {};
+      var correction = payload.correction || null;
+      if (!correction || !correction.eligible) {
+        alert((correction && correction.pesan) || 'Tidak ada koreksi batch yang perlu dibuat.');
+        return;
+      }
+
+      var detail = (correction.changedRows || []).map(function (r) {
+        var oldRow = r.old || {};
+        var newRow = r.baru || {};
+        return '- ' + (r.nama || '-') + ': ' +
+          formatRupiahID(oldRow.rpTotal || 0) + ' → ' + formatRupiahID(newRow.rpTotal || 0) +
+          ' | Produktivitas ' + (oldRow.poinProd || 0) + ' → ' + (newRow.poinProd || 0) + ' poin';
+      }).join('\n');
+
+      var pesan = 'KOREKSI BATCH TUNJANGAN\n\n' +
+        'Batch lama: ' + (correction.batchIdLama || summary.batchId || '-') + '\n' +
+        'Total lama: ' + formatRupiahID(correction.oldTotal || 0) + '\n' +
+        'Total hitung ulang: ' + formatRupiahID(correction.newTotal || 0) + '\n' +
+        'Selisih: ' + formatRupiahID(correction.delta || 0) + '\n\n' +
+        (detail ? ('Perubahan:\n' + detail + '\n\n') : '') +
+        'Batch lama tidak akan dihapus. Sistem akan menonaktifkannya dan membuat batch pengganti berstatus Draft. Lanjutkan?';
+      if (!confirm(pesan)) return;
+
+      var alasan = prompt('Alasan koreksi batch:', 'Koreksi logika Laporan Wajib Bulanan Pasal 33 dan penyelarasan rekap tunjangan.');
+      if (alasan === null) return;
+      alasan = (alasan || '').trim();
+      if (!alasan) {
+        alert('Alasan koreksi wajib diisi untuk audit trail.');
+        return;
+      }
+
+      var periode = periodeTunjanganAktif();
+      var cfg = {
+        mode: 'KOREKSI_BATCH',
+        expectedBatchId: correction.batchIdLama || summary.batchId || '',
+        alasan: alasan
+      };
+      google.script.run.withSuccessHandler(function (res) {
+        if (!res || !res.sukses) {
+          alert((res && res.pesan) || 'Koreksi batch gagal dibuat.');
+          return;
+        }
+        alert((res.pesan || 'Batch koreksi berhasil dibuat.') + '\n\nTotal baru: ' + formatRupiahID(res.totalBaru || 0) + '\nSelisih: ' + formatRupiahID(res.selisih || 0));
+        muatTunjangan();
+      }).withFailureHandler(function (err) {
+        alert('Gagal membuat koreksi batch: ' + ((err && err.message) || err));
+      }).generateDraftTunjanganBulanan(periode, cfg, '', '', sToken);
+    }
+
     function teruskanKeBendaharaUI() {
       var periode = periodeTunjanganAktif();
       var catatan = prompt('Catatan saat diteruskan ke Bendahara:', '') || '';
@@ -12660,7 +12734,7 @@
       }
       var cutoffLabel = summary.tanggalCutoff ? formatTanggalJamCutoffAdaptif3B04C1d_(summary.tanggalCutoff) : (formatTanggalIndonesiaShort(tanggalAkhir) + ' ' + (summary.jamCutoff || '18:00'));
 
-      var tableHTML = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body>';
+      var tableHTML = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><style>table.rekap{table-layout:auto;border-collapse:collapse;} table.rekap th,table.rekap td{white-space:normal;word-wrap:break-word;vertical-align:top;mso-height-source:auto;} table.rekap tr{mso-height-source:auto;height:auto;}</style></head><body>';
       tableHTML += '<table border="0">';
       tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:16pt; font-weight:bold;">PEMERINTAH KABUPATEN SLEMAN</td></tr>';
       tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:16pt; font-weight:bold;">KAPANEWON NGAGLIK</td></tr>';
@@ -12674,7 +12748,7 @@
       tableHTML += '<tr><td colspan="7"></td></tr>';
       tableHTML += '</table>';
 
-      tableHTML += '<table border="1" style="border-collapse:collapse; font-size:10pt;">';
+      tableHTML += '<table class="rekap" border="1" style="border-collapse:collapse; font-size:10pt;"><colgroup><col style="width:160px"><col style="width:190px"><col style="width:90px"><col style="width:230px"><col style="width:230px"><col style="width:110px"><col style="width:120px"></colgroup>';
       tableHTML += '<thead><tr>' +
         '<th style="background-color:#f1f5f9; text-align:center;">Nama Pegawai</th>' +
         '<th style="background-color:#f1f5f9; text-align:center;">Jabatan</th>' +
@@ -12688,7 +12762,7 @@
       rowsData.forEach(function (r) {
         tableHTML += '<tr>' +
           '<td>' + escapeExcelHTML_(r.nama || '-') + '</td>' +
-          '<td>' + escapeExcelHTML_(r.jabatan || '-') + '</td>' +
+          '<td style="white-space:normal; word-wrap:break-word; vertical-align:top;">' + escapeExcelHTML_(r.jabatan || '-') + '</td>' +
           '<td style="text-align:center;">' + escapeExcelHTML_((r.jumlahLaporanDisetujui || 0) + ' Laporan') + '</td>' +
           '<td>' + escapeExcelHTML_(teksCapaianKomponenCetakTunjangan_(r, 'prod')) + '</td>' +
           '<td>' + escapeExcelHTML_(teksCapaianKomponenCetakTunjangan_(r, 'tu')) + '</td>' +
@@ -12702,7 +12776,7 @@
       tableHTML += '<table border="0">';
       tableHTML += '<tr><td colspan="7"></td></tr>';
       tableHTML += '<tr><td colspan="7" style="font-size:9pt;"><b>Keterangan:</b></td></tr>';
-      tableHTML += '<tr><td colspan="7" style="font-size:9pt;">1. Poin Periode adalah poin dari laporan yang sudah disetujui Admin sebelum atau tepat pada jam cut-off laporan.</td></tr>';
+      tableHTML += '<tr><td colspan="7" style="font-size:9pt;">1. Poin Periode adalah poin dari laporan yang dikirim atau direvisi pegawai sebelum atau tepat pada waktu cut-off dan telah memperoleh persetujuan Admin pada saat rekap tunjangan dibuat.</td></tr>';
       tableHTML += '<tr><td colspan="7" style="font-size:9pt;">2. Capaian adalah persentase yang digunakan untuk menghitung nominal tunjangan pada periode pembayaran ini.</td></tr>';
       tableHTML += '<tr><td colspan="7" style="font-size:9pt;">3. Untuk Lurah, capaian dihitung dari jumlah laporan yang disetujui pada periode berjalan, bukan dari poin evaluasi triwulan.</td></tr>';
       tableHTML += '</table>';
