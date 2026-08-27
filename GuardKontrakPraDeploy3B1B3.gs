@@ -11,10 +11,10 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3d-2026.08.27.04";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3e-2026.08.27.04";
 var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.08.27.04";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 173;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "9b15cffa803d14d96203e1eeea0ba9a37e585eff2bae4a991ee6afb9d83f6ba3";
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "cfa81c4291eeee9ca5f8de9a87617060655f082c1e0c6df1b35871158f693134";
 
 // Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 173 Batch 2g.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.
