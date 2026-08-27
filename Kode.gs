@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.27.03";
+var APP_VERSION = "2026.08.27.04";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3130,6 +3130,17 @@ function getBatchAktifTunjangan_(periode) {
     batchId: rows[0].values[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.BATCH_ID],
     rows: rows
   };
+}
+
+function pengaturanPeriodeTunjanganTerkunci_(status) {
+  var s = String(status || "").trim();
+  return [
+    TUNJANGAN_STATUS.DIKUNCI_CARIK,
+    TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH,
+    TUNJANGAN_STATUS.DISETUJUI_LURAH,
+    TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA,
+    TUNJANGAN_STATUS.SUDAH_DICAIRKAN
+  ].indexOf(s) >= 0;
 }
 
 function nonaktifkanBatchAktifTunjangan_(periode) {
@@ -13786,7 +13797,20 @@ function simpanCutoffInputLaporanPeriode(periode, tanggalMulai, tanggalAkhir, ja
       return { sukses: false, pesan: 'Akses ditolak. Hanya Admin/Carik yang dapat menyimpan cut-off input laporan.' };
     }
 
-    var meta = simpanCutoffTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCutoff);
+    var p = normalizePeriode_(periode);
+    var batchAktif = getBatchAktifTunjangan_(p);
+    if (batchAktif && pengaturanPeriodeTunjanganTerkunci_(batchAktif.status)) {
+      return {
+        sukses: false,
+        code: 'PENGATURAN_PERIODE_TERKUNCI',
+        periode: p,
+        batchId: String(batchAktif.batchId || ''),
+        status: String(batchAktif.status || ''),
+        pesan: 'Pengaturan periode tidak dapat diubah karena batch aktif sudah berstatus ' + String(batchAktif.status || '-') + '.'
+      };
+    }
+
+    var meta = simpanCutoffTunjanganPeriode_(p, tanggalMulai, tanggalAkhir, jamCutoff);
     var lock = simpanLockInputLaporanPeriode_(periode, meta);
     var buka = parseTanggal(lock.bukaKembali || '');
     var bukaLabel = (buka instanceof Date && !isNaN(buka.getTime())) ? formatTanggalJamClient_(buka) : (lock.bukaKembali || '-');

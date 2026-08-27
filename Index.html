@@ -5463,6 +5463,7 @@
     .tunjangan-field-full { grid-column:1 / -1; }
     .tunjangan-input { width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 12px; background:#fff; color:#111827; font-size:14px; font-family:var(--font-body); }
     .tunjangan-input:focus { outline:none; border-color:#001e40; box-shadow:0 0 0 3px rgba(0,30,64,.10); }
+    .tunjangan-input:disabled { background:#f1f5f9; color:#64748b; cursor:not-allowed; }
     .tunjangan-cutoff-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; }
     .tunjangan-summary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
     .tunjangan-summary-card { background:white; border:1px solid #cbd5e1; border-radius:14px; padding:22px 24px; min-height:128px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 8px 22px rgba(15,23,42,.04); }
@@ -7531,20 +7532,20 @@
                 <div class="tunjangan-form-grid">
                   <label class="tunjangan-field tunjangan-field-full">
                     <span>Periode Pembayaran</span>
-                    <input type="month" id="fPeriodeTunjangan" class="tunjangan-input" onchange="sinkronkanRangeTunjanganDariPeriode(true); muatTunjangan()">
+                    <input type="month" id="fPeriodeTunjangan" class="tunjangan-input" onchange="pengaturanPeriodeTunjanganDirty_ = false; sinkronkanRangeTunjanganDariPeriode(true); muatTunjangan()">
                   </label>
                   <label class="tunjangan-field">
                     <span>Tanggal Mulai</span>
-                    <input type="date" id="fTanggalMulaiTunjangan" class="tunjangan-input" onchange="muatTunjangan()">
+                    <input type="date" id="fTanggalMulaiTunjangan" class="tunjangan-input" onchange="tandaiPengaturanPeriodeTunjanganBerubah_()">
                   </label>
                   <label class="tunjangan-field">
                     <span>Tanggal Akhir</span>
-                    <input type="date" id="fTanggalAkhirTunjangan" class="tunjangan-input" onchange="muatTunjangan()">
+                    <input type="date" id="fTanggalAkhirTunjangan" class="tunjangan-input" onchange="tandaiPengaturanPeriodeTunjanganBerubah_()">
                   </label>
                   <div class="tunjangan-field tunjangan-field-full">
                     <span>Jam Cut-off Laporan</span>
                     <div class="tunjangan-cutoff-row">
-                      <input type="time" step="1" id="fJamCutoffTunjangan" class="tunjangan-input" value="18:00:00" onchange="muatTunjangan()" title="Jam cut-off laporan">
+                      <input type="time" step="1" id="fJamCutoffTunjangan" class="tunjangan-input" onchange="tandaiPengaturanPeriodeTunjanganBerubah_()" title="Jam cut-off laporan">
                       <button type="button" id="btnSimpanCutoffTunjangan" class="tunjangan-btn primary" onclick="simpanCutoffInputLaporanUI()"><span class="material-symbols-outlined">timer_lock</span> Simpan Cut-off</button>
                     </div>
                   </div>
@@ -12295,6 +12296,87 @@
       };
     }
 
+
+    // HOTFIX v2026.08.27.04 — form Pengaturan Periode harus mencerminkan
+    // metadata batch aktif, bukan default statis browser.
+    var pengaturanPeriodeTunjanganDirty_ = false;
+
+    function tandaiPengaturanPeriodeTunjanganBerubah_() {
+      pengaturanPeriodeTunjanganDirty_ = true;
+    }
+
+    function tanggalInputTunjangan_(value) {
+      var s = (value == null ? '' : String(value)).trim();
+      if (!s) return '';
+      var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return iso[1] + '-' + iso[2] + '-' + iso[3];
+      var id = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (id) return id[3] + '-' + String(id[2]).padStart(2, '0') + '-' + String(id[1]).padStart(2, '0');
+      return '';
+    }
+
+    function jamInputTunjangan_(value, fallback) {
+      var s = (value == null ? '' : String(value)).trim();
+      var m = s.match(/(?:^|[ T])(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (!m) m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (!m) return fallback || '';
+      return String(m[1]).padStart(2, '0') + ':' + m[2] + ':' + (m[3] || '00');
+    }
+
+    function statusKunciPengaturanPeriodeTunjangan_(status) {
+      var s = (status || '').toString().trim();
+      return [
+        'Dikunci Carik',
+        'Diajukan ke Lurah',
+        'Disetujui Lurah',
+        'Diteruskan ke Bendahara',
+        'Sudah Dicairkan'
+      ].indexOf(s) >= 0;
+    }
+
+    function aturKunciPengaturanPeriodeTunjangan_(summary) {
+      var locked = !!summary && statusKunciPengaturanPeriodeTunjangan_(summary.status);
+      var startEl = document.getElementById('fTanggalMulaiTunjangan');
+      var endEl = document.getElementById('fTanggalAkhirTunjangan');
+      var cutoffEl = document.getElementById('fJamCutoffTunjangan');
+      [startEl, endEl, cutoffEl].forEach(function (el) {
+        if (!el) return;
+        el.disabled = locked;
+        el.title = locked
+          ? 'Pengaturan periode terkunci karena batch sudah masuk workflow persetujuan.'
+          : '';
+      });
+      return locked;
+    }
+
+    function sinkronkanPengaturanPeriodeTunjanganDariBatch_(summary) {
+      if (!summary) {
+        pengaturanPeriodeTunjanganDirty_ = false;
+        aturKunciPengaturanPeriodeTunjangan_(null);
+        return sinkronkanRangeTunjanganDariPeriode(true);
+      }
+
+      var startEl = document.getElementById('fTanggalMulaiTunjangan');
+      var endEl = document.getElementById('fTanggalAkhirTunjangan');
+      var cutoffEl = document.getElementById('fJamCutoffTunjangan');
+      var start = tanggalInputTunjangan_(summary.tanggalMulaiPeriode);
+      var end = tanggalInputTunjangan_(summary.tanggalAkhirPeriode);
+      var jam = jamInputTunjangan_(summary.jamCutoff || summary.tanggalCutoff, '18:00:00');
+
+      if (startEl && start) startEl.value = start;
+      if (endEl && end) endEl.value = end;
+      if (cutoffEl && jam) cutoffEl.value = jam;
+
+      pengaturanPeriodeTunjanganDirty_ = false;
+      aturKunciPengaturanPeriodeTunjangan_(summary);
+      return {
+        labelPembayaran: summary.labelPembayaran || summary.periode || periodeTunjanganAktif(),
+        tanggalMulaiPeriode: start,
+        tanggalAkhirPeriode: end,
+        jamCutoff: jam
+      };
+    }
+
     function rangeTunjanganAktif() {
       var periode = periodeTunjanganAktif();
       var current = sinkronkanRangeTunjanganDariPeriode(false);
@@ -12319,7 +12401,8 @@
 
     function renderAksiTunjangan(summary) {
       var correction = (tunjanganPayloadAktif && tunjanganPayloadAktif.correction) || null;
-      setBtnVisible('btnSimpanCutoffTunjangan', userIsCarikTunjangan() || userIsAdminUtama());
+      var pengaturanTerkunci = !!summary && statusKunciPengaturanPeriodeTunjangan_(summary.status);
+      setBtnVisible('btnSimpanCutoffTunjangan', (userIsCarikTunjangan() || userIsAdminUtama()) && !pengaturanTerkunci);
       setBtnVisible('btnGenerateTunjangan', false);
       setBtnVisible('btnKoreksiTunjangan', false);
       setBtnVisible('btnKunciTunjangan', false);
@@ -12454,6 +12537,8 @@
       tb.innerHTML = '';
       tunjanganPayloadAktif = payload || null;
       updateSummaryCardsTunjangan_(payload || null);
+      var summary = (payload && payload.summary) || null;
+      sinkronkanPengaturanPeriodeTunjanganDariBatch_(summary);
       if (!payload || !payload.rows || payload.rows.length === 0) {
         var preview = rangeTunjanganAktif();
         info.innerHTML = '<span class="badge bg-gray">Belum ada batch aktif</span> <b style="margin-left:8px;">' + escapeHTML(preview.labelPembayaran) + '</b><div style="margin-top:6px;">Periode hitung rencana: <b>' + escapeHTML(formatTanggalIndonesiaShort(preview.tanggalMulaiPeriode)) + ' s.d. ' + escapeHTML(formatTanggalIndonesiaShort(preview.tanggalAkhirPeriode)) + ' pukul ' + escapeHTML(preview.jamCutoff || '18:00') + '</b></div>';
@@ -12462,7 +12547,7 @@
         return;
       }
 
-      var summary = payload.summary || {};
+      summary = summary || {};
       var badge = '<span class="badge ' + statusBadgeClass(summary.status) + '">' + escapeHTML(summary.status || '-') + '</span>';
       var extra = '';
       if (summary.catatanCarik) extra += '<div><b>Catatan Carik:</b> ' + escapeHTML(summary.catatanCarik) + '</div>';
@@ -12529,6 +12614,12 @@
     }
 
     function simpanCutoffInputLaporanUI() {
+      var summaryAktif = tunjanganPayloadAktif && tunjanganPayloadAktif.summary;
+      if (summaryAktif && statusKunciPengaturanPeriodeTunjangan_(summaryAktif.status)) {
+        alert('Pengaturan periode terkunci karena batch sudah berstatus ' + summaryAktif.status + '.');
+        sinkronkanPengaturanPeriodeTunjanganDariBatch_(summaryAktif);
+        return;
+      }
       var periode = periodeTunjanganAktif();
       var range = rangeTunjanganAktif();
       var label = range.labelPembayaran || periode;
