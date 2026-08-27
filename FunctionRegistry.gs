@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
-// REGISTRY FUNGSI EKSPLISIT — TANPA PERUBAHAN PERILAKU
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.26.01
+// REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.27.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1-2026.08.26.01";
+  "3B1B1b-2026.08.27.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.26.01",
+  baselineAppVersion: "2026.08.27.01",
 
   policy: {
     privateByDefault: true,
@@ -18,7 +18,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "Hanya nama yang tercantum dalam kategori public yang dianggap kontrak public resmi.",
     enforcement:
       "STRUCTURE_VALIDATION_AND_PREDEPLOY_GUARD",
-    behaviorChanged: false,
+    behaviorChanged: true,
     functionRemoved: false,
     featureFlagsChanged: false,
     governanceBaselineExclusion:
@@ -316,9 +316,9 @@ function validasiStrukturRegistryFungsi3B1B1_() {
     duplicateNames: duplicateNames,
     invalidNames: invalidNames,
     emptyCategories: emptyCategories,
-    behaviorChanged: false,
-    functionRemoved: false,
-    featureFlagsChanged: false
+    behaviorChanged: registry.policy.behaviorChanged === true,
+    functionRemoved: registry.policy.functionRemoved === true,
+    featureFlagsChanged: registry.policy.featureFlagsChanged === true
   };
 }
 

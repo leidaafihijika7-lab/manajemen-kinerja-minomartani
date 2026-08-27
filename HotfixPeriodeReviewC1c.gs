@@ -1,6 +1,6 @@
 // ============================================================
 // HOTFIX 3B-0.4C1c — RESOLVER RENTANG CUT-OFF + OPTIMASI REVIEW
-// Target aplikasi: APP_VERSION 2026.08.06.01
+// Target aplikasi: APP_VERSION 2026.08.27.01
 //
 // Tujuan:
 // - periode asal ditentukan dari rentang cut-off manual yang disimpan admin;
@@ -13,7 +13,7 @@
 // ============================================================
 
 var HOTFIX_PERIODE_REVIEW_3B04C1C = {
-  VERSION: "3B04C1c-2026.08.06.01",
+  VERSION: "3B04C1c-2026.08.27.01",
   PROPERTY: "HOTFIX_PERIODE_REVIEW_3B04C1C_ENABLED",
   INDEX_WIDTH: 26,
   EMPLOYEE_MAX_PAGE: 50,
@@ -509,6 +509,11 @@ function gabungkanMetadata3B04C1c_(item, metadata) {
   if (typeof tambahkanLabelWaktuPenilaian3B04C1b_ === "function") {
     out = tambahkanLabelWaktuPenilaian3B04C1b_(out);
   }
+  var periodeReview = String((metadata && metadata.periodeReview) || "");
+  var policyActive = !!(metadata && metadata.lewatPeriode === true &&
+    /^\d{4}-\d{2}$/.test(periodeReview) && periodeReview >= "2026-09");
+  out.kebijakanCutoffImbalanAktif = policyActive;
+  out.tanpaImbalanKarenaCutoff = policyActive;
   return out;
 }
 
@@ -572,6 +577,42 @@ function fallbackRiwayat3B04C1c_(params, token, reason) {
     : response;
 }
 
+function bacaRowsRiwayatUserIndex3C4_(idUser) {
+  var result = { rows: null, sumber: "REKAP_KINERJA", totalDipindai: 0, fallbackReason: "" };
+  try {
+    if (typeof readRiwayatIndexAktif2B2A_ !== "function" || !readRiwayatIndexAktif2B2A_()) {
+      throw new Error("INDEX_READ_NONAKTIF");
+    }
+    if (typeof bacaCircuitReadRiwayat2B2A_ === "function") {
+      var circuit = bacaCircuitReadRiwayat2B2A_();
+      if (circuit && circuit.aktif) throw new Error("INDEX_CIRCUIT_AKTIF");
+    }
+    var health = cekKesehatanRinganReadRiwayatIndex2B2A_();
+    if (!health.valid) throw new Error("INDEX_TIDAK_SEHAT_" + String(health.alasan || ""));
+
+    var entries = bacaKandidatIndexRiwayat2B2A_(idUser, {});
+    var rowsByNumber = bacaBarisRekapTerpilih2B2A_(entries);
+    // Fungsi utama di bawah berjalan dari indeks terakhir ke awal. Susun baris
+    // secara ascending agar urutan hasil tetap identik dengan Rekap_Kinerja.
+    result.rows = entries.slice().reverse().map(function (entry) {
+      var row = rowsByNumber["r" + entry.rowRekap];
+      if (!row) throw new Error("INDEX_ROW_TIDAK_TERSEDIA_" + entry.rowRekap);
+      return row;
+    });
+    result.sumber = "INDEX_LAPORAN_USER_3C4";
+    result.totalDipindai = result.rows.length;
+    return result;
+  } catch (e) {
+    result.fallbackReason = String(e && e.message ? e.message : e);
+    var sheet = getSheet_("Rekap_Kinerja");
+    var lastRow = sheet.getLastRow();
+    var width = Math.min(sheet.getLastColumn(), HOTFIX_PERIODE_REVIEW_3B04C1C.INDEX_WIDTH);
+    result.rows = lastRow >= 2 ? sheet.getRange(2, 1, lastRow - 1, width).getValues() : [];
+    result.totalDipindai = result.rows.length;
+    return result;
+  }
+}
+
 
 function ambilRiwayatKuPaged3B04C1c(params, token) {
   params = params || {};
@@ -596,10 +637,8 @@ function ambilRiwayatKuPaged3B04C1c(params, token) {
       return { sukses: false, pesan: "Periode belum dipilih atau tidak valid.", items: [], total: 0, hasMore: false };
     }
 
-    var sheet = getSheet_("Rekap_Kinerja");
-    var lastRow = sheet.getLastRow();
-    var width = Math.min(sheet.getLastColumn(), HOTFIX_PERIODE_REVIEW_3B04C1C.INDEX_WIDTH);
-    var rows = lastRow >= 2 ? sheet.getRange(2, 1, lastRow - 1, width).getValues() : [];
+    var rowSource = bacaRowsRiwayatUserIndex3C4_(idUser);
+    var rows = rowSource.rows || [];
     var context = buatKonteksCutoff3B04C1c_();
     var selected = [];
     var targetRecord = null;
@@ -675,7 +714,9 @@ function ambilRiwayatKuPaged3B04C1c(params, token) {
         mode: mode,
         resolverRentangCutoff: true,
         optimasiSatuScan: true,
-        totalBarisDipindai: rows.length,
+        totalBarisDipindai: rowSource.totalDipindai,
+        sumberData: rowSource.sumber,
+        fallbackIndexReason: rowSource.fallbackReason || "",
         totalRentangCutoff: context.totalRanges,
         sumberDefaultDigunakan: false,
         dataDiubah: false,

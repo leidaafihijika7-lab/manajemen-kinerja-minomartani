@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.26.01";
+var APP_VERSION = "2026.08.27.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3194,10 +3194,16 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
   }
 
   var data = getSheet_("Rekap_Kinerja").getDataRange().getValues();
+  var cutoffPolicyContext = typeof buatKonteksCutoff3B04C1c_ === "function"
+    ? buatKonteksCutoff3B04C1c_()
+    : null;
   for (var r = 1; r < data.length; r++) {
     var tglLap = parseTanggal(data[r][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
     if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
     if (tglLap < window.start || tglLap >= window.end) continue;
+    // Pertahanan terakhir: walau status/poin lama belum tersinkron, laporan
+    // yang terkena kebijakan 3C-4 tidak boleh ikut jumlah laporan maupun uang.
+    if (evaluasiKebijakanCutoffImbalan3C4_(data[r], cutoffPolicyContext).tanpaImbalan) continue;
     if (!isStatusApproved_(data[r][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW])) continue;
 
     var idUserRow = normalizeId_(data[r][SHEET_COLUMNS.REKAP_KINERJA.ID_USER]);
@@ -4691,7 +4697,7 @@ function terapkanKebijakanSharingFilePortal_(file) {
 var MAINTENANCE_AKSES_BUKTI_LAMA_3C3 = {
   VERSION: '3C3-2026.08.26.01',
   STATE_PROPERTY: 'PORTAL_MAINT_AKSES_BUKTI_LAMA_3C3_STATE',
-  MAX_FILES_PER_RUN: 50,
+  MAX_FILES_PER_RUN: 500, // Tetap dibatasi MAX_RUNTIME_MS; progres lama tidak direset.
   MAX_RUNTIME_MS: 240000,
   MAX_FOLDERS: 150,
   MAX_DEPTH: 8,
@@ -5380,13 +5386,16 @@ function buatKonteksSubmitKinerja_() {
     folderRootId: "",
     aiAktif: false,
     idLaporan: "",
+    submittedAt: null,
     timestamp: "",
     tahunStr: "",
     tahunBulanStr: "",
     rootFolder: null,
     folderTahun: null,
     folderFotoUtama: null,
-    folderPDFUtama: null
+    folderPDFUtama: null,
+    folderUploadSiap: false,
+    kebijakanCutoffImbalan: null
   };
 }
 
@@ -5485,15 +5494,20 @@ function muatKonfigurasiSubmitKinerja_(ctx) {
 
   ctx.idLaporan = Utilities.getUuid();
   var d = new Date();
+  ctx.submittedAt = d;
   ctx.timestamp = Utilities.formatDate(d, "GMT+7", "yyyyMMdd_HHmmss");
   ctx.tahunStr = Utilities.formatDate(d, "GMT+7", "yyyy");
   ctx.tahunBulanStr = Utilities.formatDate(d, "GMT+7", "yyyy-MM");
+}
 
+function siapkanFolderUploadSubmitKinerja_(ctx) {
+  if (ctx.folderUploadSiap && ctx.folderFotoUtama && ctx.folderPDFUtama) return;
   ctx.rootFolder = DriveApp.getFolderById(ctx.folderRootId);
   ctx.folderTahun = dapatkanAtauBuatFolder_(ctx.rootFolder, ctx.tahunStr);
   ctx.folderFotoUtama = dapatkanAtauBuatFolder_(ctx.folderTahun, "FOTO");
   ctx.folderPDFUtama = dapatkanAtauBuatFolder_(ctx.folderTahun, "PDF");
   dapatkanAtauBuatFolder_(ctx.folderTahun, "BACKUP");
+  ctx.folderUploadSiap = true;
 }
 
 function validasiPayloadSubmitKinerja_(paket, pegawaiUser) {
@@ -5567,6 +5581,9 @@ function validasiPayloadSubmitKinerja_(paket, pegawaiUser) {
 
 function buatUploaderBuktiSubmitKinerja_(ctx) {
   return function (fileData, mimeType, oriName, finalName) {
+    // Upload endpoint terpisah sudah mengirim fileUrl pada alur normal. Folder
+    // Drive baru dibuka ketika request ini benar-benar masih membawa base64.
+    siapkanFolderUploadSubmitKinerja_(ctx);
     var safeOriName = (oriName || "file").toString();
     var bytesUpload = Utilities.base64Decode(fileData);
     var validasiFile = validasiBuktiUploadBytes_(bytesUpload, mimeType, safeOriName);
@@ -5856,6 +5873,135 @@ function hitungEvaluasiAwalSubmitKinerja_(paket, kategoriSheet) {
   };
 }
 
+// ===== KEBIJAKAN 3C-4: LAPORAN LEWAT CUT-OFF TANPA POIN/TUNJANGAN =====
+// Berlaku mulai periode operasional September 2026. Periode sebelumnya tetap
+// memakai kebijakan lama. Waktu yang dinilai adalah waktu pegawai mengirim atau
+// merevisi laporan; waktu Admin membuka/mengubah review tidak dijadikan dasar.
+var KEBIJAKAN_CUTOFF_IMBALAN_3C4 = {
+  VERSION: "3C4-2026.08.27.01",
+  EFFECTIVE_REVIEW_PERIOD: "2026-09",
+  STATUS_LATE_APPROVED: "Disetujui - Lewat Cut-off"
+};
+
+function konteksCutoffKebijakanImbalan3C4_() {
+  if (PORTAL_RUNTIME_CACHE_.cutoffPolicyContext3C4) {
+    return PORTAL_RUNTIME_CACHE_.cutoffPolicyContext3C4;
+  }
+  var context = typeof buatKonteksCutoff3B04C1c_ === "function"
+    ? buatKonteksCutoff3B04C1c_()
+    : null;
+  PORTAL_RUNTIME_CACHE_.cutoffPolicyContext3C4 = context;
+  return context;
+}
+
+function evaluasiKebijakanCutoffImbalan3C4_(row, context) {
+  var result = {
+    versi: KEBIJAKAN_CUTOFF_IMBALAN_3C4.VERSION,
+    berlaku: false,
+    tanpaImbalan: false,
+    statusDisetujui: KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED,
+    periodeEfektifKebijakan: KEBIJAKAN_CUTOFF_IMBALAN_3C4.EFFECTIVE_REVIEW_PERIOD,
+    metadata: null,
+    alasan: ""
+  };
+
+  try {
+    if (typeof buatMetadataRow3B04C1c_ !== "function") {
+      result.alasan = "RESOLVER_PERIODE_TIDAK_TERSEDIA";
+      return result;
+    }
+    var ctx = context || konteksCutoffKebijakanImbalan3C4_();
+    var metadata = buatMetadataRow3B04C1c_(row || [], SHEET_COLUMNS.REKAP_KINERJA, ctx);
+    result.metadata = metadata || null;
+    var periodeReview = String(metadata && metadata.periodeReview || "");
+    result.berlaku = !!(metadata && metadata.lewatPeriode === true &&
+      /^\d{4}-\d{2}$/.test(periodeReview) &&
+      periodeReview >= KEBIJAKAN_CUTOFF_IMBALAN_3C4.EFFECTIVE_REVIEW_PERIOD);
+    result.tanpaImbalan = result.berlaku;
+    result.alasan = result.berlaku
+      ? "Laporan/revisi melewati cut-off. Mulai periode September 2026 laporan tetap menjadi arsip, tetapi poin dan tunjangan bernilai 0."
+      : "";
+    return result;
+  } catch (e) {
+    result.alasan = "EVALUASI_GAGAL: " + String(e && e.message ? e.message : e);
+    return result;
+  }
+}
+
+function gabungAlasanKebijakanCutoffImbalan3C4_(existing, addition) {
+  var current = String(existing || "").trim();
+  var extra = String(addition || "").trim();
+  if (!extra || current.indexOf(extra) !== -1) return current;
+  return current ? current + " " + extra : extra;
+}
+
+function bacaSnapshotKebijakanCutoffImbalan3C4_(row) {
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var raw = row && (row[C.PAYLOAD_JSON] || row[C.PAYLOAD_DETAIL_JSON]);
+  if (!raw) return null;
+  try {
+    var payload = JSON.parse(String(raw));
+    return payload && payload.kebijakanCutoffImbalan || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function simpanSnapshotKebijakanCutoffImbalan3C4_(row, policy, operation) {
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var metadata = policy && policy.metadata || {};
+  var snapshot = {
+    versi: KEBIJAKAN_CUTOFF_IMBALAN_3C4.VERSION,
+    operasi: String(operation || "EVALUASI"),
+    berlaku: !!(policy && policy.berlaku),
+    tanpaImbalan: !!(policy && policy.tanpaImbalan),
+    periodeEfektifKebijakan: KEBIJAKAN_CUTOFF_IMBALAN_3C4.EFFECTIVE_REVIEW_PERIOD,
+    periodeAsal: metadata.periodeAsal || "",
+    periodeReview: metadata.periodeReview || "",
+    jenisKetepatan: metadata.jenisKetepatan || "",
+    batasAkhirPeriode: metadata.batasAkhirPeriode || "",
+    waktuEfektifReview: metadata.waktuEfektifReview || "",
+    sumberWaktuEfektif: metadata.sumberWaktuEfektif || "",
+    dicatatPada: new Date().toISOString()
+  };
+
+  var payloadDasar = {};
+  var rawPayloadDasar = row[C.PAYLOAD_JSON] || row[C.PAYLOAD_DETAIL_JSON] || "";
+  try { payloadDasar = rawPayloadDasar ? JSON.parse(String(rawPayloadDasar)) : {}; } catch (eBase) { payloadDasar = {}; }
+  if (!payloadDasar || typeof payloadDasar !== "object" || Array.isArray(payloadDasar)) payloadDasar = {};
+
+  [C.PAYLOAD_JSON, C.PAYLOAD_DETAIL_JSON].forEach(function (index) {
+    if (typeof index !== "number") return;
+    var payload = {};
+    try { payload = JSON.parse(JSON.stringify(payloadDasar)); } catch (e) { payload = {}; }
+    payload.kebijakanCutoffImbalan = snapshot;
+    row[index] = stringifyDetailJson_(payload);
+  });
+  return snapshot;
+}
+
+function terapkanKebijakanCutoffImbalan3C4KeRow_(row, context, operation) {
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var policy = evaluasiKebijakanCutoffImbalan3C4_(row, context);
+  if (policy.berlaku) {
+    // POIN_SISTEM dipertahankan sebagai saran asli agar pembukaan resmi periode
+    // dapat mengembalikan hak tanpa menghitung ulang. Poin yang benar-benar
+    // diberikan tetap POIN_FINAL dan selalu dikunci 0 selama kebijakan berlaku.
+    row[C.POIN_FINAL] = 0;
+    row[C.ALASAN_SISTEM] = sanitizeForSheet_(gabungAlasanKebijakanCutoffImbalan3C4_(
+      row[C.ALASAN_SISTEM],
+      policy.alasan
+    ));
+    if (isStatusApproved_(row[C.STATUS_REVIEW]) ||
+        String(row[C.STATUS_REVIEW] || "").indexOf(KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED) === 0) {
+      row[C.STATUS_REVIEW] = KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED;
+    }
+  }
+  policy.snapshot = simpanSnapshotKebijakanCutoffImbalan3C4_(row, policy, operation);
+  return policy;
+}
+// ===== END KEBIJAKAN 3C-4 =====
+
 function buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi) {
   var urlVisualFinal = draft.urlVisualArray.join(",");
   var waktuSekarang = Utilities.formatDate(new Date(), "GMT+7", "dd/MM/yyyy HH:mm:ss");
@@ -5918,21 +6064,19 @@ function simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, barisBaru) 
     var IDX_NONCE = SHEET_COLUMNS.REKAP_KINERJA.NONCE;
     var lastRowSebelumSimpan = sheetRekap.getLastRow();
 
-    // Untuk cek idempotensi submit biasa, baca hanya rentang kolom ID_USER..NONCE,
-    // bukan seluruh puluhan kolom Rekap_Kinerja.
+    // Cari nonce di sisi Spreadsheet. Ini menghindari transfer seluruh rentang
+    // ID_USER..NONCE (termasuk URL/deskripsi panjang) pada setiap submit.
     if (lastRowSebelumSimpan > 1) {
-      var firstNonceIdx = Math.min(IDX_IDUSER, IDX_NONCE);
-      var nonceWidth = Math.abs(IDX_NONCE - IDX_IDUSER) + 1;
-      var nonceRows = sheetRekap
-        .getRange(2, firstNonceIdx + 1, lastRowSebelumSimpan - 1, nonceWidth)
-        .getValues();
-      var relIdUser = IDX_IDUSER - firstNonceIdx;
-      var relNonce = IDX_NONCE - firstNonceIdx;
+      var nonceMatches = sheetRekap
+        .getRange(2, IDX_NONCE + 1, lastRowSebelumSimpan - 1, 1)
+        .createTextFinder(ctx.submitNonce)
+        .matchEntireCell(true)
+        .useRegularExpression(false)
+        .findAll();
 
-      for (var rr = nonceRows.length - 1; rr >= 0; rr--) {
-        var existingUserId = nonceRows[rr][relIdUser] != null ? nonceRows[rr][relIdUser].toString().trim() : "";
-        var existingNonce = nonceRows[rr][relNonce] != null ? nonceRows[rr][relNonce].toString().trim() : "";
-        if (idsEqual_(existingUserId, ctx.idUser) && existingNonce === ctx.submitNonce) {
+      for (var rr = nonceMatches.length - 1; rr >= 0; rr--) {
+        var existingUserId = sheetRekap.getRange(nonceMatches[rr].getRow(), IDX_IDUSER + 1).getValue();
+        if (idsEqual_(existingUserId, ctx.idUser)) {
           ctx.submitCache.put(ctx.nonceKey, "DONE", CONFIG.CACHE.SESSION_TIMEOUT_SECONDS);
           ctx.pertahankanNonce = true;
           return {
@@ -5950,6 +6094,12 @@ function simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, barisBaru) 
       var hasilApb = terapkanValidasiAPBKalSubmit_(paket, ctx, draft, evaluasi, barisBaru, dataRekap);
       if (!hasilApb.sukses) return hasilApb;
     }
+
+    ctx.kebijakanCutoffImbalan = terapkanKebijakanCutoffImbalan3C4KeRow_(
+      barisBaru,
+      null,
+      "SUBMIT_LAPORAN"
+    );
 
     sheetRekap.appendRow(barisBaru);
     invalidasiCacheRekapKinerjaReadOnly_();
@@ -7273,8 +7423,9 @@ function simpanRevisiLaporanDitolakPegawai(paket, token) {
 
       dataBaru = bangunDataRevisiKinerjaDariPaket_(paket, pegawaiUser, row);
 
-      var allRows = sh.getDataRange().getValues();
       if (paket.detailAPBKal) {
+        // Full read hanya diperlukan untuk validasi rantai APBKal.
+        var allRows = sh.getDataRange().getValues();
         var currTermin = String(paket.detailAPBKal.termin || '');
         var currTahap = String(paket.detailAPBKal.tahap || '');
         var kodeRekTarget = String(paket.detailAPBKal.kodeRek || '');
@@ -7330,6 +7481,18 @@ function simpanRevisiLaporanDitolakPegawai(paket, token) {
       var startDetail = C.JENIS_FORM_DETAIL;
       for (var kd = 0; kd < dataBaru.kolomDetailForm.length; kd++) {
         rowUpdate[startDetail + kd] = dataBaru.kolomDetailForm[kd];
+      }
+
+      var kebijakanRevisi = terapkanKebijakanCutoffImbalan3C4KeRow_(
+        rowUpdate,
+        null,
+        "REVISI_PEGAWAI"
+      );
+      if (kebijakanRevisi.berlaku) {
+        rowUpdate[C.CATATAN_ADMIN] = sanitizeForSheet_(gabungAlasanKebijakanCutoffImbalan3C4_(
+          rowUpdate[C.CATATAN_ADMIN],
+          "Revisi ini masuk periode September 2026 atau sesudahnya dan melewati cut-off; poin serta tunjangan tetap 0."
+        ));
       }
 
       sh.getRange(rowIndex, 1, 1, rowUpdate.length).setValues([rowUpdate]);
@@ -8970,20 +9133,66 @@ function prosesReviewAdmin(idLaporan, status, poinFinal, catatan, token) {
       }
     }
 
-    var waktuReview = (isStatusApproved_(statusSimpan) || isStatusLewatCutoff_(statusSimpan)) ? new Date() : "";
+    // Penolakan selalu membatalkan poin final, termasuk bila Admin mengubah
+    // keputusan Disetujui menjadi Ditolak setelah periode ditutup.
+    if (String(statusSimpan) === String(REVIEW_STATUS.DITOLAK)) poinSimpan = 0;
+
+    // Kebijakan 3C-4 memakai waktu submit/revisi pegawai dari baris, bukan waktu
+    // review Admin. Karena itu persetujuan Admin setelah cut-off tetap berhak
+    // bila laporan pegawai semula masuk tepat waktu.
+    var rowUntukKebijakan = row.slice();
+    rowUntukKebijakan[SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] = statusSimpan;
+    rowUntukKebijakan[SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL] = poinSimpan;
+    var kebijakanReview = evaluasiKebijakanCutoffImbalan3C4_(rowUntukKebijakan, null);
+    if (kebijakanReview.berlaku) {
+      if (isStatusApproved_(statusSimpan)) {
+        statusSimpan = KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED;
+      }
+      poinSimpan = 0;
+      catatanSimpan = gabungAlasanKebijakanCutoffImbalan3C4_(catatanSimpan, kebijakanReview.alasan);
+      rowUntukKebijakan[SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] = statusSimpan;
+      rowUntukKebijakan[SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL] = poinSimpan;
+      kebijakanReview = terapkanKebijakanCutoffImbalan3C4KeRow_(
+        rowUntukKebijakan,
+        null,
+        "REVIEW_ADMIN"
+      );
+    }
+
+    var waktuReview = (isStatusApproved_(statusSimpan) ||
+      String(statusSimpan).indexOf(KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED) === 0 ||
+      isStatusLewatCutoff_(statusSimpan)) ? new Date() : "";
 
     // Status review dan poin final berdampingan, sehingga bisa ditulis dalam satu call.
     // Catatan dan waktu review ditulis terpisah agar tidak menimpa kolom ID/formula lain.
     sheet.getRange(targetRow, SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW + 1, 1, 2).setValues([[statusSimpan, poinSimpan]]);
     sheet.getRange(targetRow, SHEET_COLUMNS.REKAP_KINERJA.CATATAN_ADMIN + 1).setValue(catatanSimpan);
     sheet.getRange(targetRow, SHEET_COLUMNS.REKAP_KINERJA.WAKTU_REVIEW_ADMIN + 1).setValue(waktuReview);
+    if (kebijakanReview.berlaku) {
+      sheet.getRange(targetRow, SHEET_COLUMNS.REKAP_KINERJA.PAYLOAD_JSON + 1)
+        .setValue(rowUntukKebijakan[SHEET_COLUMNS.REKAP_KINERJA.PAYLOAD_JSON]);
+      sheet.getRange(targetRow, SHEET_COLUMNS.REKAP_KINERJA.PAYLOAD_DETAIL_JSON + 1)
+        .setValue(rowUntukKebijakan[SHEET_COLUMNS.REKAP_KINERJA.PAYLOAD_DETAIL_JSON]);
+    }
     invalidasiCacheRekapKinerjaReadOnly_();
 
     auditReviewDetail = targetIdLaporan + " | row " + targetRow + " | " + statusSimpan + " | " + poinSimpan;
-    if (isStatusLewatCutoff_(statusSimpan)) {
-      hasilReview = { pesan: "Review disimpan sebagai 'Disetujui - Lewat Cut-off'. Poin dibuat 0 dan tidak masuk tunjangan periode berjalan." };
+    if (String(statusSimpan).indexOf(KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED) === 0) {
+      hasilReview = {
+        sukses: true,
+        pesan: "Review disimpan sebagai 'Disetujui - Lewat Cut-off'. Laporan menjadi arsip administratif dengan poin 0 dan tanpa tunjangan.",
+        statusFinal: statusSimpan,
+        poinFinal: 0,
+        kebijakanCutoffImbalan: kebijakanReview.snapshot || kebijakanReview
+      };
     } else {
-      hasilReview = { pesan: "Review berhasil disimpan!" };
+      hasilReview = {
+        sukses: true,
+        pesan: "Review berhasil disimpan!",
+        statusFinal: statusSimpan,
+        poinFinal: poinSimpan,
+        kebijakanCutoffImbalan: kebijakanReview.berlaku ? (kebijakanReview.snapshot || kebijakanReview) : null
+      };
     }
     return hasilReview;
   } finally {
@@ -11638,8 +11847,9 @@ var DISPOSISI_SHARED_CACHE_TTL_V2A1C2 = 600;
 var DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2 = 80000;
 var DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2 = 8;
 var DISPOSISI_SHARED_BUILD_MARKER_TTL_V2A1C2 = 90;
-var DISPOSISI_SHARED_WAIT_MS_V2A1C2 = 12000;
+var DISPOSISI_SHARED_WAIT_MS_V2A1C2 = 2000;
 var DISPOSISI_SHARED_POLL_MS_V2A1C2 = 250;
+var DISPOSISI_SHARED_STALE_TTL_3C4 = 1800;
 
 function disposisiSayaCacheKeyV2A1C_(idUser) {
   var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -11649,6 +11859,58 @@ function disposisiSayaCacheKeyV2A1C_(idUser) {
 function disposisiSharedBaseKeyV2A1C2_(idUser) {
   var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 80);
   return 'DISP_SHARED_C2_' + disposisiCacheGenerationV2A1_() + '_' + rekapDisposisiGenerationV2A1B_() + '_' + userKey;
+}
+
+function disposisiSharedStableBaseKey3C4_(idUser) {
+  var userKey = normalizeId_(idUser).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 80);
+  return 'DISP_SHARED_STABLE_3C4_' + userKey;
+}
+
+function bacaPaketDisposisiStable3C4_(idUser) {
+  var cache = CacheService.getScriptCache();
+  var base = disposisiSharedStableBaseKey3C4_(idUser);
+  try {
+    var metaRaw = cache.get(base + '_M');
+    if (!metaRaw) return null;
+    var meta = JSON.parse(metaRaw);
+    var chunks = Number(meta.chunks || 0);
+    if (!chunks || chunks > DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2) return null;
+    var keys = [];
+    for (var i = 0; i < chunks; i++) keys.push(base + '_C' + i);
+    var parts = cache.getAll(keys);
+    var joined = '';
+    for (var k = 0; k < keys.length; k++) {
+      if (parts[keys[k]] === null || parts[keys[k]] === undefined) return null;
+      joined += parts[keys[k]];
+    }
+    var paket = JSON.parse(joined);
+    if (!paket || !Array.isArray(paket.disposisiSaya) || !paket.ringkasan) return null;
+    paket.optimasi = '3C4-stale-while-refresh';
+    paket.staleSementara = true;
+    return paket;
+  } catch (e) {
+    return null;
+  }
+}
+
+function simpanPaketDisposisiStable3C4_(idUser, paket) {
+  try {
+    var json = JSON.stringify(paket || {});
+    if (!json) return false;
+    var chunks = [];
+    for (var i = 0; i < json.length; i += DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2) {
+      chunks.push(json.substring(i, i + DISPOSISI_SHARED_CACHE_CHUNK_SIZE_V2A1C2));
+      if (chunks.length > DISPOSISI_SHARED_CACHE_MAX_CHUNKS_V2A1C2) return false;
+    }
+    var base = disposisiSharedStableBaseKey3C4_(idUser);
+    var entries = {};
+    for (var c = 0; c < chunks.length; c++) entries[base + '_C' + c] = chunks[c];
+    entries[base + '_M'] = JSON.stringify({ chunks: chunks.length, createdAt: Date.now() });
+    CacheService.getScriptCache().putAll(entries, DISPOSISI_SHARED_STALE_TTL_3C4);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function bacaPaketDisposisiCacheV2A1C2_(idUser) {
@@ -11692,6 +11954,7 @@ function simpanPaketDisposisiCacheV2A1C2_(idUser, paket) {
     for (var c = 0; c < chunks.length; c++) entries[base + '_C' + c] = chunks[c];
     entries[base + '_M'] = JSON.stringify({ chunks: chunks.length, createdAt: Date.now(), rows: (paket.disposisiSaya || []).length });
     CacheService.getScriptCache().putAll(entries, DISPOSISI_SHARED_CACHE_TTL_V2A1C2);
+    simpanPaketDisposisiStable3C4_(idUser, paket);
     return true;
   } catch (e) {
     return false;
@@ -11786,6 +12049,14 @@ function ambilPaketDisposisiUserV2A1C2_(idUser) {
 
   var pemilik = klaimPembangunDisposisiV2A1C2_(userKey);
   if (!pemilik) {
+    // Pemanggil kedua tidak perlu membeku hingga 12 detik. Sajikan paket
+    // terakhir yang masih aman sementara proses pertama membangun generasi baru.
+    var stable = bacaPaketDisposisiStable3C4_(userKey);
+    if (stable) {
+      PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey] = stable;
+      PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C[userKey] = stable.disposisiSaya;
+      return stable;
+    }
     var hasilTunggu = tungguPaketDisposisiV2A1C2_(userKey, DISPOSISI_SHARED_WAIT_MS_V2A1C2);
     if (hasilTunggu) {
       PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2[userKey] = hasilTunggu;
@@ -14024,8 +14295,12 @@ prosesReviewAdmin = function (idLaporan, status, poinFinal, catatan, token) {
       var rowIndex = cariRowRekapKinerjaById_(sh, idLaporan);
       if (rowIndex) {
         var C = SHEET_COLUMNS.REKAP_KINERJA;
-        var statusSekarang = String(sh.getRange(rowIndex, C.STATUS_REVIEW + 1).getValue() || "");
-        if (statusSekarang.indexOf("Disetujui - Lewat Cut-off") === 0) {
+        var rowSekarang = sh.getRange(rowIndex, 1, 1, sh.getLastColumn()).getValues()[0];
+        var statusSekarang = String(rowSekarang[C.STATUS_REVIEW] || "");
+        var kebijakanSekarang = evaluasiKebijakanCutoffImbalan3C4_(rowSekarang, null);
+        // Status lama tetap dinormalisasi, tetapi status resmi kebijakan 3C-4
+        // tidak boleh diubah kembali menjadi Disetujui biasa.
+        if (statusSekarang.indexOf("Disetujui - Lewat Cut-off") === 0 && !kebijakanSekarang.berlaku) {
           sh.getRange(rowIndex, C.STATUS_REVIEW + 1).setValue(REVIEW_STATUS.DISETUJUI);
 
           var catatanSekarang = String(sh.getRange(rowIndex, C.CATATAN_ADMIN + 1).getValue() || "");
@@ -14058,6 +14333,9 @@ function normalisasiStatusLewatCutoffLama(token) {
     for (var i = 1; i < data.length; i++) {
       var status = String(data[i][C.STATUS_REVIEW] || "");
       if (status.indexOf("Disetujui - Lewat Cut-off") !== 0) continue;
+      // Jangan menormalisasi status resmi yang dibuat kebijakan mulai periode
+      // September 2026; maintenance ini hanya untuk arsip status cut-off lama.
+      if (evaluasiKebijakanCutoffImbalan3C4_(data[i], null).berlaku) continue;
 
       sh.getRange(i + 1, C.STATUS_REVIEW + 1).setValue(REVIEW_STATUS.DISETUJUI);
 
@@ -14097,12 +14375,33 @@ if (typeof buildAdminReviewItemFromRow__SEBELUM_NONAKTIF_CUTOFF_2026051212 !== '
     var item = buildAdminReviewItemFromRow__SEBELUM_NONAKTIF_CUTOFF_2026051212(row, lampiranCache);
 
     try {
-      // Normalisasi hanya status "Disetujui - Lewat Cut-off".
-      // Jangan hapus item.lewatCutoff, item.cutoffPesan, atau item.labelCutoff,
-      // karena field tersebut dipakai sebagai peringatan audit periode tertutup.
-      if (item && item.status && String(item.status).indexOf("Disetujui - Lewat Cut-off") === 0) {
-        item.status = REVIEW_STATUS.DISETUJUI;
-        item.statusAsliSebelumNormalisasi = "Disetujui - Lewat Cut-off";
+      var policy = evaluasiKebijakanCutoffImbalan3C4_(row, null);
+      if (item && policy.berlaku) {
+        item.kebijakanCutoffImbalanAktif = true;
+        item.tanpaImbalanKarenaCutoff = true;
+        item.poinAI = 0;
+        item.poinFinal = 0;
+        item.evaluasi = gabungAlasanKebijakanCutoffImbalan3C4_(item.evaluasi, policy.alasan);
+        item.lewatCutoff = true;
+        item.cutoffLabel = policy.metadata && policy.metadata.batasAkhirPeriode || item.cutoffLabel || "";
+        item.cutoffPesan = policy.alasan;
+        if (String(row[SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || "").indexOf(KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED) === 0) {
+          item.status = KEBIJAKAN_CUTOFF_IMBALAN_3C4.STATUS_LATE_APPROVED;
+        }
+      } else if (item) {
+        var snapshotLama = bacaSnapshotKebijakanCutoffImbalan3C4_(row);
+        if (snapshotLama && snapshotLama.berlaku === true) {
+          // Periode telah dibuka kembali secara resmi. Tampilkan kembali saran
+          // sistem agar Admin dapat melakukan review ulang, tanpa auto-mutasi.
+          item.kebijakanDibukaKembali = true;
+          item.poinFinal = Number(row[SHEET_COLUMNS.REKAP_KINERJA.POIN_SISTEM]) || 0;
+        }
+        if (item.status && String(item.status).indexOf("Disetujui - Lewat Cut-off") === 0) {
+        // Arsip status lama sebelum September 2026 tetap mengikuti kebijakan
+        // kompatibilitas terdahulu dan ditampilkan sebagai Disetujui biasa.
+          item.status = REVIEW_STATUS.DISETUJUI;
+          item.statusAsliSebelumNormalisasi = "Disetujui - Lewat Cut-off";
+        }
       }
     } catch (e) { }
 
@@ -14150,7 +14449,7 @@ function ambilDataRekapKlasemenCached_() {
 // dibutuhkan Klasemen: tanggal, status, id/nama/jabatan, kategori, dan poin final.
 // Logika ranking/predikat tidak diubah.
 
-var KLASMEN_FAST_CACHE_TTL_SECONDS_2026060614 = 120;
+var KLASMEN_FAST_CACHE_TTL_SECONDS_2026060614 = 600;
 
 function kolomMaksRekapKlasemenCepat_() {
   var c = SHEET_COLUMNS.REKAP_KINERJA;
@@ -14169,7 +14468,7 @@ function ambilDataRekapKlasemenFastCached_() {
   var periodeAktif = periodeKinerjaAktifUntukLaporanWajibV34_(new Date());
   var sh = getSheet_("Rekap_Kinerja");
   var lastRow = sh.getLastRow();
-  var cacheKey = "KLASEMEN_FAST_V36_ADMIN_PERIOD_" + periodeAktif + "_R" + lastRow;
+  var cacheKey = "KLASEMEN_FAST_3C4_" + periodeAktif + "_R" + lastRow + "_G" + rekapDisposisiGenerationV2A1B_();
 
   try {
     var cache = CacheService.getScriptCache();
@@ -14189,6 +14488,49 @@ function ambilDataRekapKlasemenFastCached_() {
   } catch (eCacheWrite) { }
 
   return rows;
+}
+
+function bacaProyeksiKlasemen3C4_(sh, lastRow, maxCol, pegawaiById) {
+  try {
+    if (typeof readRiwayatIndexAktif2B2A_ !== 'function' || !readRiwayatIndexAktif2B2A_()) throw new Error('INDEX_READ_NONAKTIF');
+    if (typeof bacaCircuitReadRiwayat2B2A_ === 'function') {
+      var circuit = bacaCircuitReadRiwayat2B2A_();
+      if (circuit && circuit.aktif) throw new Error('INDEX_CIRCUIT_AKTIF');
+    }
+    var health = cekKesehatanRinganReadRiwayatIndex2B2A_();
+    if (!health.valid) throw new Error('INDEX_TIDAK_SEHAT_' + String(health.alasan || ''));
+    var shIndex = getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+    var indexLastRow = shIndex ? shIndex.getLastRow() : 0;
+    if (!shIndex || indexLastRow < 2) return { rows: [], sumber: 'INDEX_LAPORAN_3C4', sourceRows: 0 };
+    var M = getIndexLaporanColumnMap2B0_();
+    var indexRows = shIndex.getRange(2, 1, indexLastRow - 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues();
+    var C = SHEET_COLUMNS.REKAP_KINERJA;
+    var projected = [];
+    for (var i = 0; i < indexRows.length; i++) {
+      var ir = indexRows[i] || [];
+      var idUser = normalizeId_(ir[M.ID_USER]);
+      var master = idUser && pegawaiById[idUser] ? pegawaiById[idUser] : null;
+      if (!master) throw new Error('PEGAWAI_INDEX_TIDAK_DITEMUKAN_' + idUser);
+      var row = new Array(maxCol);
+      row[C.TANGGAL_LAPORAN] = ir[M.TANGGAL_LAPORAN];
+      row[C.NAMA] = master.nama;
+      row[C.JABATAN] = master.jabatan;
+      row[C.KATEGORI] = ir[M.KATEGORI];
+      row[C.STATUS_REVIEW] = ir[M.STATUS_REVIEW];
+      row[C.POIN_FINAL] = ir[M.POIN_FINAL];
+      row[C.ID_USER] = idUser;
+      projected.push(row);
+    }
+    return { rows: projected, sumber: 'INDEX_LAPORAN_3C4', sourceRows: indexRows.length };
+  } catch (e) {
+    var jumlah = Math.max(0, Number(lastRow || 0) - 1);
+    return {
+      rows: jumlah > 0 ? sh.getRange(2, 1, jumlah, maxCol).getValues() : [],
+      sumber: 'REKAP_KINERJA_FALLBACK',
+      sourceRows: jumlah,
+      fallbackReason: String(e && e.message ? e.message : e)
+    };
+  }
 }
 
 function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
@@ -14212,11 +14554,12 @@ function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
   }
 
   var mapRekap = {};
-  var jumlahBaris = Math.max(0, Number(lastRow || 0) - 1);
+  var proyeksiKlasemen = bacaProyeksiKlasemen3C4_(sh, lastRow, maxCol, pegawaiById);
+  var jumlahBaris = proyeksiKlasemen.sourceRows;
   if (jumlahBaris > 0) {
-    // Baca hanya kolom awal yang diperlukan; jangan memakai getDataRange() agar tidak ikut membaca
-    // kolom bukti/catatan/AI yang panjang dan tidak diperlukan oleh Klasemen.
-    var data = sh.getRange(2, 1, jumlahBaris, maxCol).getValues();
+    // Jalur utama membaca proyeksi sempit Index_Laporan; Rekap_Kinerja tetap
+    // menjadi fallback otomatis bila index/circuit/health bermasalah.
+    var data = proyeksiKlasemen.rows;
 
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
@@ -14296,7 +14639,7 @@ function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
   });
 
   try {
-    Logger.log("ambilDataRekapKlasemenFast_: " + hasil.length + " pegawai, " + jumlahBaris + " baris dibaca, " + (new Date().getTime() - started) + " ms");
+    Logger.log("ambilDataRekapKlasemenFast_: " + hasil.length + " pegawai, " + jumlahBaris + " baris dibaca dari " + proyeksiKlasemen.sumber + ", " + (new Date().getTime() - started) + " ms");
   } catch (eLog) { }
 
   return hasil;
@@ -14784,6 +15127,28 @@ function formatWaktuDuplikasiLaporan_(value) {
   return String(value || '-');
 }
 
+function bacaRowsUserUntukDuplikasi3C4_(idUser) {
+  try {
+    if (typeof readRiwayatIndexAktif2B2A_ !== 'function' || !readRiwayatIndexAktif2B2A_()) throw new Error('INDEX_READ_NONAKTIF');
+    if (typeof bacaCircuitReadRiwayat2B2A_ === 'function') {
+      var circuit = bacaCircuitReadRiwayat2B2A_();
+      if (circuit && circuit.aktif) throw new Error('INDEX_CIRCUIT_AKTIF');
+    }
+    var health = cekKesehatanRinganReadRiwayatIndex2B2A_();
+    if (!health.valid) throw new Error('INDEX_TIDAK_SEHAT_' + String(health.alasan || ''));
+    var entries = bacaKandidatIndexRiwayat2B2A_(idUser, {});
+    var rowsByNumber = bacaBarisRekapTerpilih2B2A_(entries);
+    return entries.slice().reverse().map(function (entry) {
+      var row = rowsByNumber['r' + entry.rowRekap];
+      if (!row) throw new Error('INDEX_ROW_DUPLIKASI_TIDAK_TERSEDIA');
+      return row;
+    });
+  } catch (e) {
+    var data = getRekapKinerjaValuesReadOnly_();
+    return data && data.length > 1 ? data.slice(1) : [];
+  }
+}
+
 function cekDuplikasiLaporanSangatMirip_(paket, pegawaiUser) {
   paket = paket || {};
   pegawaiUser = pegawaiUser || {};
@@ -14809,10 +15174,10 @@ function cekDuplikasiLaporanSangatMirip_(paket, pegawaiUser) {
     return { duplikat: false };
   }
 
-  var data = getRekapKinerjaValuesReadOnly_();
+  var data = bacaRowsUserUntukDuplikasi3C4_(idUser);
   var C = SHEET_COLUMNS.REKAP_KINERJA;
 
-  for (var i = data.length - 1; i >= 1; i--) {
+  for (var i = data.length - 1; i >= 0; i--) {
     var row = data[i] || [];
 
     if (!idsEqual_(row[C.ID_USER], idUser)) continue;
@@ -17735,6 +18100,33 @@ function buildLaporanTerkaitDisposisiProjectedV2A1B_(row) {
 }
 // ===== END PATCH PERFORMA 2A-1B =====
 
+function buatIndexLaporanDisposisiDariIndex3C4_(idUser) {
+  if (typeof readRiwayatIndexAktif2B2A_ !== 'function' || !readRiwayatIndexAktif2B2A_()) return null;
+  if (typeof bacaCircuitReadRiwayat2B2A_ === 'function') {
+    var circuit = bacaCircuitReadRiwayat2B2A_();
+    if (circuit && circuit.aktif) return null;
+  }
+  if (typeof cekKesehatanRinganReadRiwayatIndex2B2A_ !== 'function' ||
+      !cekKesehatanRinganReadRiwayatIndex2B2A_().valid) return null;
+
+  var entries = bacaKandidatIndexRiwayat2B2A_(idUser, {});
+  var rowsByNumber = bacaBarisRekapTerpilih2B2A_(entries);
+  var byIdLaporan = {};
+  var byIdDisposisi = {};
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  for (var i = 0; i < entries.length; i++) {
+    var row = rowsByNumber['r' + entries[i].rowRekap];
+    if (!row) throw new Error('INDEX_DISPOSISI_ROW_TIDAK_TERSEDIA');
+    var idLap = normalizeId_(row[C.ID_LAPORAN]);
+    var idDisp = normalizeId_(row[C.ID_DISPOSISI]);
+    if (!idLap && !idDisp) continue;
+    var item = buildLaporanTerkaitDisposisiProjectedV2A1B_(row);
+    if (idLap && !byIdLaporan[idLap]) byIdLaporan[idLap] = item;
+    if (idDisp && !byIdDisposisi[idDisp]) byIdDisposisi[idDisp] = item;
+  }
+  return { byIdLaporan: byIdLaporan, byIdDisposisi: byIdDisposisi, sumber: 'INDEX_LAPORAN_3C4' };
+}
+
 function buatIndexLaporanDisposisiUserV38_(idUser) {
   var userKey = normalizeId_(idUser);
   var emptyIndex = { byIdLaporan: {}, byIdDisposisi: {} };
@@ -17756,6 +18148,22 @@ function buatIndexLaporanDisposisiUserV38_(idUser) {
       }
     }
   } catch (eCacheRead) { }
+
+  try {
+    var indexCepat = buatIndexLaporanDisposisiDariIndex3C4_(userKey);
+    if (indexCepat) {
+      PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser[userKey] = indexCepat;
+      try {
+        var jsonCepat = JSON.stringify(indexCepat);
+        if (jsonCepat && jsonCepat.length <= REKAP_DISPOSISI_INDEX_MAX_JSON_V2A1B) {
+          cache.put(cacheKey, jsonCepat, REKAP_DISPOSISI_INDEX_TTL_V2A1B);
+        }
+      } catch (eCacheIndexCepat) { }
+      return indexCepat;
+    }
+  } catch (eIndexCepat) {
+    Logger.log('Fallback index Disposisi 3C4: ' + String(eIndexCepat && eIndexCepat.message ? eIndexCepat.message : eIndexCepat));
+  }
 
   var projection = getRekapDisposisiProjectionV2A1B_();
   var baseRows = projection.baseRows || [];

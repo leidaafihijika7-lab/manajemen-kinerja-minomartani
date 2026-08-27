@@ -11173,7 +11173,9 @@
         '<b>Periode review</b><span>' + escapeHTML(periodeReview) + '</span>' +
         '</div>' +
         '<div class="riwayat-late-period-foot-3b04c">' +
-        'Laporan tetap tersimpan sebagai arsip. Status review dan poin hanya berubah melalui keputusan Admin.' +
+        (item.tanpaImbalanKarenaCutoff || item.kebijakanCutoffImbalanAktif
+          ? 'Laporan tetap tersimpan sebagai arsip administratif. Sesuai kebijakan mulai periode September 2026, laporan ini tidak memperoleh poin dan tunjangan.'
+          : 'Laporan tetap tersimpan sebagai arsip. Status review dan poin mengikuti kebijakan periode lama dan keputusan Admin.') +
         '</div>' +
         '</div>';
     }
@@ -13019,7 +13021,11 @@
         '<span class="material-symbols-outlined" style="font-size:18px;">warning</span><span>' + escapeHTML(title) + '</span></div>' +
         '<div>' + escapeHTML(pesan).replace(/\n/g, '<br>') + '</div>' +
         '<div style="margin-top:7px; display:grid; grid-template-columns:minmax(120px,auto) 1fr; gap:3px 10px;">' + rows + '</div>' +
-        '<div style="margin-top:7px; font-weight:700; color:#7c2d12;">Penanda ini bersifat informasi. Keputusan review, alasan penolakan, dan poin tetap ditentukan Admin.</div>' +
+        '<div style="margin-top:7px; font-weight:700; color:#7c2d12;">' +
+        (item.tanpaImbalanKarenaCutoff || item.kebijakanCutoffImbalanAktif
+          ? 'Admin tetap menetapkan keputusan administratif, tetapi sistem mengunci poin pada 0 dan mengecualikan laporan dari tunjangan.'
+          : 'Penanda ini bersifat informasi. Keputusan review, alasan penolakan, dan poin mengikuti kebijakan periode lama.') +
+        '</div>' +
         '</div>';
     }
 
@@ -15232,7 +15238,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         adminReviewItems[idx].status = statusFinal;
         adminReviewItems[idx].poinFinal = parseInt(poinFinal, 10) || 0;
         adminReviewItems[idx].catatan = catatanAdmin || '';
-        adminReviewItems[idx].lewatCutoff = false;
+        adminReviewItems[idx].lewatCutoff = String(statusFinal || '').indexOf('Lewat Cut-off') >= 0;
 
         if (filterStatus === 'menunggu' && !isPendingReviewStatus(statusFinal)) {
           adminReviewItems.splice(idx, 1);
@@ -15255,8 +15261,9 @@ function updateAdminLatePeriodFilter3B04B1_(
 
     function accAdmin(id, poinFinal) {
       var info = adminReviewCache[id] || {};
+      var tanpaImbalan = !!(info.tanpaImbalanKarenaCutoff || info.kebijakanCutoffImbalanAktif);
       currentSetujuAdminId = id;
-      currentSetujuAdminPoin = parseInt(poinFinal, 10) || 0;
+      currentSetujuAdminPoin = tanpaImbalan ? 0 : (parseInt(poinFinal, 10) || 0);
 
       var infoBox = document.getElementById('mSetujuInfoAdmin');
       var poinBox = document.getElementById('mSetujuPoinAdmin');
@@ -15271,7 +15278,9 @@ function updateAdminLatePeriodFilter3B04B1_(
       if (infoBox) {
         infoBox.innerHTML =
           '<b>' + escapeHTML(info.kategori || 'Laporan') + '</b><br>' +
-          'Nilai final yang akan disetujui: <b>' + currentSetujuAdminPoin + ' poin</b><br>' +
+          (tanpaImbalan
+            ? '<span style="color:#9a3412;font-weight:800;">Laporan melewati cut-off pada kebijakan periode September 2026 atau sesudahnya. Nilai dikunci 0 poin dan tidak masuk tunjangan.</span><br>'
+            : 'Nilai final yang akan disetujui: <b>' + currentSetujuAdminPoin + ' poin</b><br>') +
           '<small>Catatan admin akan tampil pada Riwayat Laporan pegawai.</small>';
       }
 
@@ -15314,7 +15323,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         tutupModalSetujuAdmin();
         alert(r.pesan);
         invalidasiAdminDashboardClientCacheV2A2_();
-        updateAdminReviewSetelahAksi_(id, "Disetujui", poin, catatan);
+        updateAdminReviewSetelahAksi_(id, r.statusFinal || "Disetujui", r.poinFinal != null ? r.poinFinal : poin, catatan);
       }).withFailureHandler(function (err) {
         if (btn) {
           btn.disabled = false;
@@ -15338,7 +15347,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       google.script.run.withSuccessHandler(function (r) {
         alert(r.pesan);
         invalidasiAdminDashboardClientCacheV2A2_();
-        updateAdminReviewSetelahAksi_(id, "Ditolak", 0, alasan);
+        updateAdminReviewSetelahAksi_(id, r.statusFinal || "Ditolak", r.poinFinal != null ? r.poinFinal : 0, alasan);
       }).withFailureHandler(function (err) {
         alert('Gagal: ' + ((err && err.message) ? err.message : err));
       }).prosesReviewAdmin(id, "Ditolak", 0, alasan, sToken);
@@ -15360,7 +15369,11 @@ function updateAdminLatePeriodFilter3B04B1_(
       }
 
       document.getElementById('mStatusRevisi').value = normalizedStatus;
-      document.getElementById('mPoinRevisi').value = (data.poinFinal != null && data.poinFinal !== "") ? data.poinFinal : 0;
+      var poinRevisiEl = document.getElementById('mPoinRevisi');
+      var tanpaImbalan = !!(data.tanpaImbalanKarenaCutoff || data.kebijakanCutoffImbalanAktif);
+      poinRevisiEl.value = tanpaImbalan ? 0 : ((data.poinFinal != null && data.poinFinal !== "") ? data.poinFinal : 0);
+      poinRevisiEl.readOnly = tanpaImbalan;
+      poinRevisiEl.style.background = tanpaImbalan ? '#fff7ed' : '';
       document.getElementById('mCatatanRevisi').value = data.catatan || "";
 
       document.getElementById('modalRevisi').classList.add('active');
@@ -15391,7 +15404,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         tutupModalRevisi();
         alert(r.pesan);
         invalidasiAdminDashboardClientCacheV2A2_();
-        updateAdminReviewSetelahAksi_(idRevisi, s, parseInt(p, 10) || 0, c);
+        updateAdminReviewSetelahAksi_(idRevisi, r.statusFinal || s, r.poinFinal != null ? r.poinFinal : (parseInt(p, 10) || 0), c);
       }).withFailureHandler(function (er) {
         if (btn) btn.innerText = "Simpan Perubahan";
         alert("Gagal: " + ((er && er.message) ? er.message : er));
