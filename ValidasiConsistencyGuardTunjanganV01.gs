@@ -1,6 +1,6 @@
 // ============================================================
 // DIAGNOSTIK MANUAL — CONSISTENCY GUARD TUNJANGAN v0.1
-// APP_VERSION target 2026.08.28.05
+// APP_VERSION target 2026.08.28.06
 //
 // Tujuan:
 // - menguji Consistency Guard dengan data simulasi di memori;
@@ -11,7 +11,7 @@
 //   validasiConsistencyGuardTunjanganV01
 // ============================================================
 
-var VALIDASI_CGT_V01_VERSION_ = "CGT-TEST-v0.1-2026.08.28.05";
+var VALIDASI_CGT_V01_VERSION_ = "CGT-TEST-v0.1-2026.08.28.06";
 
 function cloneCgtTest_(value) {
   return JSON.parse(JSON.stringify(value));

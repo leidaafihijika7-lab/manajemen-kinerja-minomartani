@@ -12122,7 +12122,7 @@
 
     var tunjanganPayloadAktif = null;
 
-    // HARDENING LOADING PERIODE v0.1 — v2026.08.28.05
+    // HARDENING LOADING PERIODE v0.1 — v2026.08.28.06
     // Tujuan:
     // 1) data periode lama langsung disembunyikan saat bulan berganti;
     // 2) aksi workflow dinonaktifkan selama request berjalan;
@@ -13171,11 +13171,12 @@
     }
 
     // ============================================================
-    // NATIVE XLSX EXPORT TUNJANGAN v0.1 — v2026.08.28.05
+    // NATIVE XLSX EXPORT TUNJANGAN v0.2 — F4-READY + BLOK TANDA TANGAN — v2026.08.28.06
     // OOXML dibuat langsung di browser tanpa library eksternal dan tanpa
     // membuat file sementara di Google Drive. File .xlsx berisi angka
     // rupiah native, formula total, print area, freeze pane, wrap text,
-    // autofilter, dan page setup landscape.
+    // autofilter, page setup Folio/F4-ready, catatan workflow, dan blok
+    // tanda tangan empat pejabat untuk konsistensi dengan PDF resmi.
     // ============================================================
 
     var xlsxCrcTableTunjangan_ = null;
@@ -13341,12 +13342,13 @@
       return '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
         '<numFmts count="1"><numFmt numFmtId="164" formatCode="[$Rp-421] #,##0"/></numFmts>' +
-        '<fonts count="5">' +
+        '<fonts count="6">' +
           '<font><sz val="11"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
           '<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
           '<font><b/><sz val="16"/><name val="Calibri"/><family val="2"/></font>' +
           '<font><b/><sz val="18"/><name val="Calibri"/><family val="2"/></font>' +
           '<font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font>' +
+          '<font><b/><u val="single"/><sz val="11"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
         '</fonts>' +
         '<fills count="4">' +
           '<fill><patternFill patternType="none"/></fill>' +
@@ -13359,7 +13361,7 @@
           '<border><left style="thin"><color rgb="FFB8C4D4"/></left><right style="thin"><color rgb="FFB8C4D4"/></right><top style="thin"><color rgb="FFB8C4D4"/></top><bottom style="thin"><color rgb="FFB8C4D4"/></bottom><diagonal/></border>' +
         '</borders>' +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-        '<cellXfs count="13">' +
+        '<cellXfs count="16">' +
           '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
           '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
           '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
@@ -13373,6 +13375,9 @@
           '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
           '<xf numFmtId="164" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
           '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
+          '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
+          '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
+          '<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
         '</cellXfs>' +
         '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
         '</styleSheet>';
@@ -13395,6 +13400,15 @@
       function mergedLine_(text, style, height) {
         sheetRows.push(rowXlsxTunjangan_(r, [cellStrXlsxTunjangan_('A' + r, text, style)], height));
         merges.push('A' + r + ':G' + r);
+        r++;
+      }
+      function mergedPairLine_(leftText, rightText, style, height) {
+        sheetRows.push(rowXlsxTunjangan_(r, [
+          cellStrXlsxTunjangan_('A' + r, leftText, style),
+          cellStrXlsxTunjangan_('E' + r, rightText, style)
+        ], height));
+        merges.push('A' + r + ':C' + r);
+        merges.push('E' + r + ':G' + r);
         r++;
       }
 
@@ -13455,6 +13469,25 @@
       mergedLine_('1. Poin Periode adalah poin dari laporan yang dikirim atau direvisi pegawai sebelum atau tepat pada waktu cut-off dan telah memperoleh persetujuan Admin pada saat rekap tunjangan dibuat.', 9, 32);
       mergedLine_('2. Capaian adalah persentase yang digunakan untuk menghitung nominal tunjangan pada periode pembayaran ini.', 9, 24);
       mergedLine_('3. Untuk Lurah, capaian dihitung dari jumlah laporan yang disetujui pada periode berjalan, bukan dari poin evaluasi triwulan.', 9, 24);
+      mergedLine_('', 0, 8);
+      mergedLine_('Catatan Workflow:', 12, 18);
+      mergedLine_('Catatan Carik: ' + (String(summary.catatanCarik || '').trim() || '-'), 9, 24);
+      mergedLine_('Catatan Lurah: ' + (String(summary.catatanLurah || '').trim() || '-'), 9, 24);
+      mergedLine_('Catatan Bendahara: ' + (String(summary.catatanBendahara || '').trim() || '-'), 9, 24);
+
+      var xlsxSigners = penandatanganPdfTunjangan_(payload);
+      var xlsxSignDate = tanggalDokumenPenandatanganPdfTunjangan_(summary);
+      var xlsxBendaharaHeader = summary.status === 'Sudah Dicairkan' ? 'Telah dibayar lunas' : 'Untuk proses pembayaran';
+      mergedLine_('', 0, 12);
+      mergedPairLine_('Telah dilakukan verifikasi', 'Minomartani, ' + xlsxSignDate, 13, 20);
+      mergedPairLine_('Carik', 'Pelaksana Kegiatan', 14, 20);
+      mergedPairLine_('', '', 13, 42);
+      mergedPairLine_(xlsxSigners.carik, xlsxSigners.pelaksanaKegiatan, 15, 22);
+      mergedLine_('', 0, 10);
+      mergedPairLine_('Setuju untuk dibayarkan', xlsxBendaharaHeader, 13, 20);
+      mergedPairLine_('Lurah', 'Bendahara', 14, 20);
+      mergedPairLine_('', '', 13, 42);
+      mergedPairLine_(xlsxSigners.lurah, xlsxSigners.bendahara, 15, 22);
       var lastRow = r - 1;
 
       var mergeXml = merges.length ? '<mergeCells count="' + merges.length + '">' + merges.map(function (m) { return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '';
@@ -13471,7 +13504,7 @@
         '<autoFilter ref="' + filterRef + '"/>' + mergeXml +
         '<printOptions horizontalCentered="1"/>' +
         '<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>' +
-        '<pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/>' +
+        '<pageSetup orientation="landscape" paperSize="14" fitToWidth="1" fitToHeight="0"/>' +
         '<headerFooter><oddFooter>&amp;LPortal Kinerja Minomartani&amp;CRekap Tunjangan&amp;RHalaman &amp;P dari &amp;N</oddFooter></headerFooter>' +
         '</worksheet>';
       return { xml: xml, lastRow: lastRow, headerRow: headerRow, firstDataRow: firstDataRow, lastDataRow: lastDataRow, totalRow: totalRow, labelPembayaran: labelPembayaran };
@@ -13568,18 +13601,18 @@
     }
 
     // ============================================================
-    // PDF EXPORT RESMI TUNJANGAN v0.1 — v2026.08.28.05
+    // PDF EXPORT RESMI TUNJANGAN v0.2 — F4 + BLOK TANDA TANGAN — v2026.08.28.06
     // PDF dibuat langsung di browser tanpa library eksternal, tanpa
-    // Google Drive sementara, dan tanpa window.print(). Layout A4
-    // landscape dengan header identitas, tabel multi-halaman, total,
-    // catatan workflow, metadata pencairan, dan nomor halaman.
+    // Google Drive sementara, dan tanpa window.print(). Layout F4
+    // 210 x 330 mm landscape dengan header identitas, tabel multi-halaman,
+    // total, catatan workflow, blok tanda tangan, metadata pencairan, dan nomor halaman.
     // ============================================================
 
-    var PDF_TUNJANGAN_PAGE_W_ = 841.89;
+    var PDF_TUNJANGAN_PAGE_W_ = 935.43;
     var PDF_TUNJANGAN_PAGE_H_ = 595.28;
     var PDF_TUNJANGAN_MARGIN_X_ = 26;
     var PDF_TUNJANGAN_FOOTER_TOP_ = 565;
-    var PDF_TUNJANGAN_TABLE_W_ = 790;
+    var PDF_TUNJANGAN_TABLE_W_ = 883.43;
 
     function normalisasiTeksPdfTunjangan_(value) {
       var s = String(value == null ? '' : value);
@@ -13753,7 +13786,7 @@
       }
       objects[2] = '<< /Type /Pages /Kids [' + pageRefs.join(' ') + '] /Count ' + pageCount + ' >>';
       var infoObj = nextObj++;
-      objects[infoObj] = '<< /Title (' + escapeLiteralPdfTunjangan_(title || 'Rekap Tunjangan Kinerja') + ') /Author (Portal Kinerja Minomartani) /Creator (Portal Kinerja Minomartani) /Producer (Native PDF Export v0.1) /CreationDate (' + tanggalPdfInfoTunjangan_(new Date()) + ') >>';
+      objects[infoObj] = '<< /Title (' + escapeLiteralPdfTunjangan_(title || 'Rekap Tunjangan Kinerja') + ') /Author (Portal Kinerja Minomartani) /Creator (Portal Kinerja Minomartani) /Producer (Native PDF Export v0.2 F4 TTD) /CreationDate (' + tanggalPdfInfoTunjangan_(new Date()) + ') >>';
 
       var maxObj = nextObj - 1;
       var pdf = '%PDF-1.4\n%PortalKinerja\n';
@@ -13772,13 +13805,13 @@
 
     function kolomPdfTunjangan_() {
       return [
-        { key:'nama', label:'Nama Pegawai', width:110, align:'left' },
-        { key:'jabatan', label:'Jabatan', width:120, align:'left' },
-        { key:'jumlahLaporanDisetujui', label:'Laporan\nDisetujui', width:58, align:'center' },
-        { key:'prod', label:'Capaian Produktivitas', width:145, align:'left' },
-        { key:'tu', label:'Capaian Tugas Umum', width:145, align:'left' },
-        { key:'rpTotal', label:'Total Tunjangan', width:92, align:'right' },
-        { key:'status', label:'Status Rekap', width:120, align:'center' }
+        { key:'nama', label:'Nama Pegawai', width:122, align:'left' },
+        { key:'jabatan', label:'Jabatan', width:135, align:'left' },
+        { key:'jumlahLaporanDisetujui', label:'Laporan\nDisetujui', width:62, align:'center' },
+        { key:'prod', label:'Capaian Produktivitas', width:162, align:'left' },
+        { key:'tu', label:'Capaian Tugas Umum', width:162, align:'left' },
+        { key:'rpTotal', label:'Total Tunjangan', width:106, align:'right' },
+        { key:'status', label:'Status Rekap', width:134, align:'center' }
       ];
     }
 
@@ -13930,21 +13963,19 @@
       });
 
       var notes = [
-        { label:'Catatan Carik', value:summary.catatanCarik },
-        { label:'Catatan Lurah', value:summary.catatanLurah },
-        { label:'Catatan Bendahara', value:summary.catatanBendahara }
-      ].filter(function (n) { return !!String(n.value || '').trim(); });
-      if (notes.length) {
-        top += 3;
-        page.cmd += cmdTextPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_, top, 'Catatan Workflow', 8.0, true, { color:[0.18,0.24,0.34] });
-        top += 13;
-        notes.forEach(function (note) {
-          var prefix = note.label + ': ';
-          var wrapped = cmdWrappedPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_, top, prefix + note.value, maxW, 6.8, false, { lineHeight:lineHeight, color:[0.20,0.24,0.30] });
-          page.cmd += wrapped.cmd;
-          top += wrapped.height + 2;
-        });
-      }
+        { label:'Catatan Carik', value:String(summary.catatanCarik || '').trim() || '-' },
+        { label:'Catatan Lurah', value:String(summary.catatanLurah || '').trim() || '-' },
+        { label:'Catatan Bendahara', value:String(summary.catatanBendahara || '').trim() || '-' }
+      ];
+      top += 3;
+      page.cmd += cmdTextPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_, top, 'Catatan Workflow', 8.0, true, { color:[0.18,0.24,0.34] });
+      top += 13;
+      notes.forEach(function (note) {
+        var prefix = note.label + ': ';
+        var wrapped = cmdWrappedPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_, top, prefix + note.value, maxW, 6.8, false, { lineHeight:lineHeight, color:[0.20,0.24,0.30] });
+        page.cmd += wrapped.cmd;
+        top += wrapped.height + 2;
+      });
       return top;
     }
 
@@ -13952,18 +13983,92 @@
       var y = PDF_TUNJANGAN_FOOTER_TOP_;
       page.cmd += cmdLinePdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_, y, PDF_TUNJANGAN_MARGIN_X_ + PDF_TUNJANGAN_TABLE_W_, y, [0.80,0.83,0.87], 0.45);
       page.cmd += cmdTextPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_, y + 6, 'Portal Kinerja Minomartani', 6.2, false, { color:[0.38,0.43,0.50] });
-      page.cmd += cmdTextPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_ + 250, y + 6, 'Rekap Tunjangan Kinerja', 6.2, false, { width:290, align:'center', color:[0.38,0.43,0.50] });
-      page.cmd += cmdTextPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_ + 650, y + 6, 'Halaman ' + pageNo + ' dari ' + totalPages, 6.2, false, { width:140, align:'right', color:[0.38,0.43,0.50] });
+      page.cmd += cmdTextPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_ + (PDF_TUNJANGAN_TABLE_W_ - 290) / 2, y + 6, 'Rekap Tunjangan Kinerja', 6.2, false, { width:290, align:'center', color:[0.38,0.43,0.50] });
+      page.cmd += cmdTextPdfTunjangan_(PDF_TUNJANGAN_MARGIN_X_ + PDF_TUNJANGAN_TABLE_W_ - 140, y + 6, 'Halaman ' + pageNo + ' dari ' + totalPages, 6.2, false, { width:140, align:'right', color:[0.38,0.43,0.50] });
     }
 
     function estimasiTinggiCatatanPdfTunjangan_(payload) {
       var summary = (payload && payload.summary) || {};
       var base = 92;
       [summary.catatanCarik, summary.catatanLurah, summary.catatanBendahara].forEach(function (v) {
-        if (!v) return;
-        base += Math.max(12, bungkusTeksPdfTunjangan_(v, PDF_TUNJANGAN_TABLE_W_ - 90, 6.8, false).length * 8.4 + 3);
+        var text = String(v || '').trim() || '-';
+        base += Math.max(12, bungkusTeksPdfTunjangan_(text, PDF_TUNJANGAN_TABLE_W_ - 90, 6.8, false).length * 8.4 + 3);
       });
       return base;
+    }
+
+    function normalisasiJabatanPenandatanganPdfTunjangan_(value) {
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function fallbackPenandatanganPdfTunjangan_(rows, tipe) {
+      rows = Array.isArray(rows) ? rows : [];
+      for (var i = 0; i < rows.length; i++) {
+        var j = normalisasiJabatanPenandatanganPdfTunjangan_(rows[i] && rows[i].jabatan);
+        if (tipe === 'carik' && j === 'carik') return String(rows[i].nama || '').trim();
+        if (tipe === 'lurah' && j === 'lurah') return String(rows[i].nama || '').trim();
+        if (tipe === 'pelaksanaKegiatan' && j === 'jagabaya') return String(rows[i].nama || '').trim();
+        if (tipe === 'bendahara' && (j === 'kepala urusan danarta' || j === 'kaur danarta' || j === 'danarta')) return String(rows[i].nama || '').trim();
+      }
+      return '';
+    }
+
+    function penandatanganPdfTunjangan_(payload) {
+      payload = payload || {};
+      var summary = payload.summary || {};
+      var rows = payload.rows || [];
+      var source = summary.penandatangan || {};
+      function pick_(key) {
+        var item = source[key] || {};
+        return String(item.nama || '').trim() || fallbackPenandatanganPdfTunjangan_(rows, key) || '-';
+      }
+      return {
+        carik: pick_('carik'),
+        pelaksanaKegiatan: pick_('pelaksanaKegiatan'),
+        lurah: pick_('lurah'),
+        bendahara: pick_('bendahara')
+      };
+    }
+
+    function tanggalDokumenPenandatanganPdfTunjangan_(summary) {
+      summary = summary || {};
+      var raw = summary.dicairkanPada || summary.diteruskanPada || summary.disetujuiPada || summary.diajukanPada || summary.dikunciPada || summary.dibuatPada || '';
+      if (!raw) return '-';
+      var datePart = String(raw).split(' ')[0];
+      try { return formatTanggalIndonesiaPanjang(datePart); } catch (e) { return datePart; }
+    }
+
+    function estimasiTinggiTandaTanganPdfTunjangan_() {
+      return 190;
+    }
+
+    function gambarBlokTandaTanganPdfTunjangan_(page, top, payload) {
+      var summary = (payload && payload.summary) || {};
+      var signers = penandatanganPdfTunjangan_(payload);
+      var gap = 52;
+      var colW = (PDF_TUNJANGAN_TABLE_W_ - gap) / 2;
+      var leftX = PDF_TUNJANGAN_MARGIN_X_;
+      var rightX = leftX + colW + gap;
+      var dateLabel = tanggalDokumenPenandatanganPdfTunjangan_(summary);
+
+      function signer_(x, y, header, role, name, isRight) {
+        page.cmd += cmdTextPdfTunjangan_(x, y, header, 7.3, false, { width:colW, align:'center', color:[0.18,0.22,0.28] });
+        page.cmd += cmdTextPdfTunjangan_(x, y + 13, role, 7.5, true, { width:colW, align:'center' });
+        var nameTop = y + 72;
+        page.cmd += cmdTextPdfTunjangan_(x, nameTop, name || '-', 7.8, true, { width:colW, align:'center' });
+        var nameWidth = Math.min(colW - 28, Math.max(95, ukurTeksPdfTunjangan_(name || '-', 7.8, true) + 10));
+        var lineX = x + (colW - nameWidth) / 2;
+        page.cmd += cmdLinePdfTunjangan_(lineX, nameTop + 12, lineX + nameWidth, nameTop + 12, [0.18,0.22,0.28], 0.55);
+      }
+
+      signer_(leftX, top, 'Telah dilakukan verifikasi', 'Carik', signers.carik, false);
+      signer_(rightX, top, 'Minomartani, ' + dateLabel, 'Pelaksana Kegiatan', signers.pelaksanaKegiatan, true);
+
+      var secondTop = top + 105;
+      signer_(leftX, secondTop, 'Setuju untuk dibayarkan', 'Lurah', signers.lurah, false);
+      var bendaharaHeader = summary.status === 'Sudah Dicairkan' ? 'Telah dibayar lunas' : 'Untuk proses pembayaran';
+      signer_(rightX, secondTop, bendaharaHeader, 'Bendahara', signers.bendahara, true);
+      return secondTop + 88;
     }
 
     function buatNativePdfTunjangan_(payload, periode) {
@@ -14005,7 +14110,14 @@
         page = newPage_();
         top = gambarHeaderLanjutanPdfTunjangan_(page, payload, periode, 'REKAP TUNJANGAN KINERJA - KETERANGAN DAN CATATAN');
       }
-      gambarBagianCatatanPdfTunjangan_(page, top, payload);
+      top = gambarBagianCatatanPdfTunjangan_(page, top, payload) + 14;
+
+      var needSign = estimasiTinggiTandaTanganPdfTunjangan_();
+      if (top + needSign > PDF_TUNJANGAN_FOOTER_TOP_ - 8) {
+        page = newPage_();
+        top = gambarHeaderLanjutanPdfTunjangan_(page, payload, periode, 'REKAP TUNJANGAN KINERJA - PENGESAHAN');
+      }
+      gambarBlokTandaTanganPdfTunjangan_(page, top, payload);
 
       var totalPages = pages.length;
       pages.forEach(function (p, index) { tambahFooterPdfTunjangan_(p, index + 1, totalPages); });

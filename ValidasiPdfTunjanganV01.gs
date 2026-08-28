@@ -1,11 +1,11 @@
 // ============================================================
-// VALIDASI PDF EXPORT RESMI TUNJANGAN v0.1
-// Target aplikasi: APP_VERSION 2026.08.28.05
+// VALIDASI PDF EXPORT RESMI TUNJANGAN v0.2 — F4 + BLOK TANDA TANGAN
+// Target aplikasi: APP_VERSION 2026.08.28.06
 // READ-ONLY: hanya membaca source Index.html melalui HtmlService.
 // Tidak membaca/menulis Spreadsheet/Drive/Properties dan tidak memanggil endpoint bisnis.
 // ============================================================
 
-var VALIDASI_PDF_TUNJANGAN_V01_VERSION_ = "PDF-TUNJ-v0.1-2026.08.28.05";
+var VALIDASI_PDF_TUNJANGAN_V01_VERSION_ = "PDF-TUNJ-v0.2-F4-TTD-2026.08.28.06";
 
 function validasiPdfTunjanganV01() {
   var source = "";
@@ -26,19 +26,25 @@ function validasiPdfTunjanganV01() {
     { id:"S02", nama:"Generator PDF native tersedia", valid:ada_("function buatNativePdfTunjangan_") && ada_("function rangkaiPdfTunjangan_") },
     { id:"S03", nama:"MIME type PDF native digunakan", valid:ada_("application/pdf") },
     { id:"S04", nama:"Struktur PDF memiliki header, xref, trailer dan EOF", valid:ada_("%PDF-1.4") && ada_("xref\\n0 ") && ada_("trailer\\n<<") && ada_("%%EOF") },
-    { id:"S05", nama:"Ukuran halaman A4 landscape ditetapkan", valid:ada_("841.89") && ada_("595.28") && ada_("/MediaBox") },
+    { id:"S05", nama:"Ukuran PDF F4 210 x 330 mm landscape ditetapkan", valid:ada_("935.43") && ada_("595.28") && ada_("/MediaBox") },
     { id:"S06", nama:"PDF tidak bergantung library eksternal atau window.print", valid:pdfSource && pdfSource.indexOf("window.print") < 0 && source.indexOf("jsPDF") < 0 && source.indexOf("pdfmake") < 0 },
     { id:"S07", nama:"Header identitas pemerintah dan judul rekap tersedia", valid:ada_("PEMERINTAH KABUPATEN SLEMAN") && ada_("KAPANEWON NGAGLIK") && ada_("KALURAHAN MINOMARTANI") && ada_("REKAP TUNJANGAN KINERJA PEGAWAI") },
     { id:"S08", nama:"Tabel mendukung multipage dan header berulang", valid:ada_("gambarHeaderTabelPdfTunjangan_") && ada_("gambarHeaderLanjutanPdfTunjangan_") && ada_("PDF_TUNJANGAN_FOOTER_TOP_") },
     { id:"S09", nama:"Total tunjangan dicetak pada baris total", valid:ada_("gambarTotalPdfTunjangan_") && ada_("TOTAL TUNJANGAN") },
-    { id:"S10", nama:"Catatan workflow Carik/Lurah/Bendahara dibawa ke PDF", valid:ada_("Catatan Carik") && ada_("Catatan Lurah") && ada_("Catatan Bendahara") },
+    { id:"S10", nama:"Catatan workflow Carik/Lurah/Bendahara selalu dibawa ke PDF", valid:ada_("Catatan Carik") && ada_("Catatan Lurah") && ada_("Catatan Bendahara") && ada_("|| '-'") },
     { id:"S11", nama:"Metadata pencairan dan referensi bukti dibawa ke PDF", valid:ada_("Pencairan:") && ada_("No. / Referensi Bukti:") },
     { id:"S12", nama:"Footer nomor halaman tersedia", valid:ada_("Halaman ' + pageNo + ' dari ' + totalPages") && ada_("tambahFooterPdfTunjangan_") },
     { id:"S13", nama:"Nama file menggunakan ekstensi .pdf", valid:ada_("Rekap_Tunjangan_Kinerja_") && ada_(".pdf") && ada_("namaFilePdfTunjangan_") },
     { id:"S14", nama:"Font PDF memakai Helvetica/WinAnsi tanpa embed asset eksternal", valid:ada_("/BaseFont /Helvetica") && ada_("/BaseFont /Helvetica-Bold") && ada_("/WinAnsiEncoding") },
     { id:"S15", nama:"Download memakai Blob dan Object URL lokal", valid:ada_("new Blob([bytes], { type:'application/pdf' })") && ada_("URL.createObjectURL(blob)") },
     { id:"S16", nama:"Redaksi cut-off hasil audit tetap dipertahankan", valid:ada_("Poin Periode adalah poin dari laporan yang dikirim atau direvisi pegawai sebelum atau tepat pada waktu cut-off") },
-    { id:"S17", nama:"PDF ikut dinonaktifkan saat loading periode", valid:ada_("'btnUnduhPdfTunjangan'") && ada_("TUNJANGAN_ACTION_BUTTON_IDS_") && ada_("sembunyikanAksiTunjanganSelamaLoading_") }
+    { id:"S17", nama:"PDF ikut dinonaktifkan saat loading periode", valid:ada_("'btnUnduhPdfTunjangan'") && ada_("TUNJANGAN_ACTION_BUTTON_IDS_") && ada_("sembunyikanAksiTunjanganSelamaLoading_") },
+    { id:"S18", nama:"Blok tanda tangan empat pejabat tersedia", valid:ada_("Telah dilakukan verifikasi") && ada_("Pelaksana Kegiatan") && ada_("Setuju untuk dibayarkan") && ada_("Telah dibayar lunas") && ada_("Bendahara") },
+    { id:"S19", nama:"Nama penandatangan berasal dari data aktif dan memiliki fallback rekap", valid:ada_("penandatanganPdfTunjangan_") && ada_("fallbackPenandatanganPdfTunjangan_") },
+    { id:"S20", nama:"Tanggal pengesahan mengikuti jejak workflow bukan waktu unduh", valid:ada_("tanggalDokumenPenandatanganPdfTunjangan_") && ada_("summary.dicairkanPada || summary.diteruskanPada || summary.disetujuiPada") },
+    { id:"S21", nama:"Blok tanda tangan tidak dipecah antarhalaman", valid:ada_("estimasiTinggiTandaTanganPdfTunjangan_") && ada_("top + needSign > PDF_TUNJANGAN_FOOTER_TOP_ - 8") },
+    { id:"S22", nama:"XLSX disiapkan F4/Folio landscape", valid:ada_('<pageSetup orientation="landscape" paperSize="14" fitToWidth="1" fitToHeight="0"/>') },
+    { id:"S23", nama:"XLSX dan PDF sama-sama memiliki blok tanda tangan", valid:ada_("mergedPairLine_") && ada_("xlsxSigners") && ada_("gambarBlokTandaTanganPdfTunjangan_") }
   ];
 
   checks.forEach(function (c) { if (!c.valid) issues.push(c.id + "_GAGAL: " + c.nama); });
@@ -65,7 +71,7 @@ function validasiPdfTunjanganV01() {
     statusReviewDiubah: false,
     statusTunjanganDiubah: false,
     schemaDiubah: false,
-    pesan: issues.length ? "PDF Export Resmi v0.1 belum lengkap." : "PDF Export Resmi Tunjangan v0.1 terpasang lengkap pada Index.html."
+    pesan: issues.length ? "PDF Export Resmi v0.2 belum lengkap." : "PDF Export Resmi Tunjangan v0.2 F4 + tanda tangan terpasang lengkap pada Index.html."
   };
   Logger.log(JSON.stringify(result, null, 2));
   return result;

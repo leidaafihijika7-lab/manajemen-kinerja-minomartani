@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.28.05";
+var APP_VERSION = "2026.08.28.06";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3139,7 +3139,7 @@ function getBatchAktifTunjangan_(periode) {
 // 3) Diteruskan ke Bendahara -> Sudah Dicairkan.
 // Pada Kunci/Teruskan guard juga memastikan snapshot batch masih sama dengan
 // hasil hitung ulang dan tidak ada laporan relevan yang masih menunggu review.
-var CONSISTENCY_GUARD_TUNJANGAN_VERSION_ = "CGT-v0.1-2026.08.28.05";
+var CONSISTENCY_GUARD_TUNJANGAN_VERSION_ = "CGT-v0.1-2026.08.28.06";
 
 function tambahBlockerConsistencyGuardTunjangan_(out, code, pesan, detail) {
   var item = { code: String(code || "CONSISTENCY_ERROR"), pesan: String(pesan || "Konsistensi batch tidak valid.") };
@@ -4022,6 +4022,35 @@ function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamC
   }
 }
 
+function bangunPenandatanganTunjangan_() {
+  var hasil = {
+    carik: { nama: "", jabatan: "Carik" },
+    pelaksanaKegiatan: { nama: "", jabatan: "Pelaksana Kegiatan" },
+    lurah: { nama: "", jabatan: "Lurah" },
+    bendahara: { nama: "", jabatan: "Bendahara" }
+  };
+  try {
+    var data = getPegawaiDataCached_();
+    if (!data) return hasil;
+    for (var i = 1; i < data.length; i++) {
+      var status = data[i][SHEET_COLUMNS.DATA_PEGAWAI.STATUS];
+      if (!statusPegawaiAktif_(status)) continue;
+      var nama = String(data[i][SHEET_COLUMNS.DATA_PEGAWAI.NAMA] || "").trim();
+      var jabatan = String(data[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN] || "").trim();
+      if (!nama || !jabatan) continue;
+      var role = cariJabatanRole_(jabatan);
+      if (!role) continue;
+      if (role.kunci === "CARIK" && !hasil.carik.nama) hasil.carik.nama = nama;
+      if (role.kunci === "JAGABAYA" && !hasil.pelaksanaKegiatan.nama) hasil.pelaksanaKegiatan.nama = nama;
+      if (role.kunci === "LURAH" && !hasil.lurah.nama) hasil.lurah.nama = nama;
+      if (role.kunci === "KAUR_DANARTA" && !hasil.bendahara.nama) hasil.bendahara.nama = nama;
+    }
+  } catch (e) {
+    Logger.log("Peringatan penandatangan tunjangan: " + (e && e.message ? e.message : e));
+  }
+  return hasil;
+}
+
 function ambilRekapTunjanganBulanan(periode, token) {
   try {
     var idUser = validasiSession(token);
@@ -4101,9 +4130,15 @@ function ambilRekapTunjanganBulanan(periode, token) {
       catatanCarik: data[0].catatanCarik,
       catatanLurah: data[0].catatanLurah,
       catatanBendahara: data[0].catatanBendahara,
+      dibuatPada: data[0].dibuatPada || "",
+      dikunciPada: data[0].dikunciPada || "",
+      diajukanPada: data[0].diajukanPada || "",
+      disetujuiPada: data[0].disetujuiPada || "",
+      dikembalikanPada: data[0].dikembalikanPada || "",
       diteruskanPada: data[0].diteruskanPada || "",
       dicairkanPada: data[0].dicairkanPada || "",
-      nomorBuktiCair: data[0].nomorBuktiCair
+      nomorBuktiCair: data[0].nomorBuktiCair,
+      penandatangan: bangunPenandatanganTunjangan_()
     };
 
     var correction = { checked: false, eligible: false, code: "", pesan: "" };

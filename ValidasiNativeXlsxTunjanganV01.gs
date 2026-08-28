@@ -1,11 +1,11 @@
 // ============================================================
-// VALIDASI NATIVE XLSX TUNJANGAN v0.1
-// Target aplikasi: APP_VERSION 2026.08.28.05
+// VALIDASI NATIVE XLSX TUNJANGAN v0.2 — F4-READY + BLOK TANDA TANGAN
+// Target aplikasi: APP_VERSION 2026.08.28.06
 // READ-ONLY: hanya membaca source Index.html melalui HtmlService.
 // Tidak membaca/menulis Spreadsheet/Properties dan tidak memanggil endpoint bisnis.
 // ============================================================
 
-var VALIDASI_NATIVE_XLSX_TUNJANGAN_V01_VERSION_ = "XLSX-TUNJ-v0.1-2026.08.28.05";
+var VALIDASI_NATIVE_XLSX_TUNJANGAN_V01_VERSION_ = "XLSX-TUNJ-v0.2-F4-TTD-2026.08.28.06";
 
 function validasiNativeXlsxTunjanganV01() {
   var source = "";
@@ -36,7 +36,9 @@ function validasiNativeXlsxTunjanganV01() {
     { id:"S12", nama:"Redaksi cut-off hasil audit tetap dipertahankan", valid:ada_("Poin Periode adalah poin dari laporan yang dikirim atau direvisi pegawai sebelum atau tepat pada waktu cut-off") },
     { id:"S13", nama:"Exporter Tunjangan lama HTML .xls sudah tidak digunakan", valid:exportSource && exportSource.indexOf("application/vnd.ms-excel") < 0 && exportSource.indexOf("tableHTML") < 0 },
     { id:"S14", nama:"Tidak bergantung pada library XLSX eksternal", valid:!ada_("SheetJS") && !ada_("XLSX.write") && !ada_("cdn.sheetjs") },
-    { id:"S15", nama:"Deklarasi XML tidak bertabrakan dengan parser template Apps Script", valid:source.indexOf("<?xml") < 0 && ada_("\\x3C?xml version=\"1.0\"") }
+    { id:"S15", nama:"Deklarasi XML tidak bertabrakan dengan parser template Apps Script", valid:source.indexOf("<?xml") < 0 && ada_("\\x3C?xml version=\"1.0\"") },
+    { id:"S16", nama:"XLSX memakai Folio/F4-ready landscape", valid:ada_('<pageSetup orientation="landscape" paperSize="14" fitToWidth="1" fitToHeight="0"/>') },
+    { id:"S17", nama:"XLSX membawa Catatan Workflow dan blok tanda tangan empat pejabat", valid:ada_("mergedPairLine_") && ada_("xlsxSigners") && ada_("Telah dilakukan verifikasi") && ada_("Pelaksana Kegiatan") && ada_("Setuju untuk dibayarkan") && ada_("xlsxBendaharaHeader") }
   ];
 
   checks.forEach(function (c) { if (!c.valid) issues.push(c.id + "_GAGAL: " + c.nama); });
@@ -63,7 +65,7 @@ function validasiNativeXlsxTunjanganV01() {
     statusReviewDiubah: false,
     statusTunjanganDiubah: false,
     schemaDiubah: false,
-    pesan: issues.length ? "Native XLSX Export v0.1 belum lengkap." : "Native XLSX Export v0.1 + hotfix template parser terpasang lengkap pada Index.html."
+    pesan: issues.length ? "Native XLSX Export v0.2 belum lengkap." : "Native XLSX Export v0.2 F4-ready + tanda tangan terpasang lengkap pada Index.html."
   };
   Logger.log(JSON.stringify(result, null, 2));
   return result;
