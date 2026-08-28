@@ -1,6 +1,6 @@
 // ============================================================
 // DIAGNOSTIK MANUAL — PREFLIGHT SEPTEMBER 2026 v0.1
-// APP_VERSION target 2026.08.28.06
+// APP_VERSION target 2026.08.28.07
 //
 // Tujuan:
 // - menguji logika periode September sebelum laporan produksi masuk;
@@ -21,7 +21,7 @@
 //   validasiPreflightSeptember2026V01
 // ============================================================
 
-var PREFLIGHT_SEPTEMBER_2026_V01_VERSION_ = "PREFLIGHT-SEP-2026-v0.1-2026.08.28.06";
+var PREFLIGHT_SEPTEMBER_2026_V01_VERSION_ = "PREFLIGHT-SEP-2026-v0.1-2026.08.28.07";
 
 function pad2PreflightSep_(value) {
   var n = Number(value) || 0;

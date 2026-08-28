@@ -12122,7 +12122,7 @@
 
     var tunjanganPayloadAktif = null;
 
-    // HARDENING LOADING PERIODE v0.1 — v2026.08.28.06
+    // HARDENING LOADING PERIODE v0.1 — v2026.08.28.07
     // Tujuan:
     // 1) data periode lama langsung disembunyikan saat bulan berganti;
     // 2) aksi workflow dinonaktifkan selama request berjalan;
@@ -13171,7 +13171,7 @@
     }
 
     // ============================================================
-    // NATIVE XLSX EXPORT TUNJANGAN v0.2 — F4-READY + BLOK TANDA TANGAN — v2026.08.28.06
+    // NATIVE XLSX EXPORT TUNJANGAN v0.2.1 — F4-READY + TTD FORMAL + DANARTA — v2026.08.28.07
     // OOXML dibuat langsung di browser tanpa library eksternal dan tanpa
     // membuat file sementara di Google Drive. File .xlsx berisi angka
     // rupiah native, formula total, print area, freeze pane, wrap text,
@@ -13601,7 +13601,7 @@
     }
 
     // ============================================================
-    // PDF EXPORT RESMI TUNJANGAN v0.2 — F4 + BLOK TANDA TANGAN — v2026.08.28.06
+    // PDF EXPORT RESMI TUNJANGAN v0.2.1 — F4 + TTD FORMAL + DANARTA — v2026.08.28.07
     // PDF dibuat langsung di browser tanpa library eksternal, tanpa
     // Google Drive sementara, dan tanpa window.print(). Layout F4
     // 210 x 330 mm landscape dengan header identitas, tabel multi-halaman,
@@ -14007,10 +14007,33 @@
         var j = normalisasiJabatanPenandatanganPdfTunjangan_(rows[i] && rows[i].jabatan);
         if (tipe === 'carik' && j === 'carik') return String(rows[i].nama || '').trim();
         if (tipe === 'lurah' && j === 'lurah') return String(rows[i].nama || '').trim();
-        if (tipe === 'pelaksanaKegiatan' && j === 'jagabaya') return String(rows[i].nama || '').trim();
+        // Rekap tunjangan adalah dokumen kegiatan Penghasilan Tetap dan
+        // Tunjangan. Pelaksana Kegiatan menggunakan Danarta sesuai fungsi
+        // urusan keuangan pada Perbup Sleman Nomor 2.9 Tahun 2020.
+        if (tipe === 'pelaksanaKegiatan' && (j === 'kepala urusan danarta' || j === 'kaur danarta' || j === 'danarta')) return String(rows[i].nama || '').trim();
         if (tipe === 'bendahara' && (j === 'kepala urusan danarta' || j === 'kaur danarta' || j === 'danarta')) return String(rows[i].nama || '').trim();
       }
       return '';
+    }
+
+    function namaFormalPenandatanganTunjangan_(value) {
+      var raw = String(value || '').replace(/\s+/g, ' ').trim();
+      if (!raw || raw === '-') return raw || '-';
+
+      // Alias resmi yang digunakan pada dokumen Pemerintah Kalurahan
+      // Minomartani. Nama pokok dicetak huruf kapital, gelar dipertahankan
+      // menurut kaidah penulisannya.
+      if (/^heri\s+suranto(?:\s*,.*)?$/i.test(raw)) return 'HERI SURANTO, S.Sn.';
+      if (/^edi\s+suroto(?:\s*,.*)?$/i.test(raw)) return 'EDI SUROTO, S.H.';
+      if (/^dhani\s+astrida(?:\s*,.*)?$/i.test(raw)) return 'DHANI ASTRIDA';
+
+      var comma = raw.indexOf(',');
+      if (comma >= 0) {
+        var namaPokok = raw.substring(0, comma).trim().toLocaleUpperCase('id-ID');
+        var gelar = raw.substring(comma + 1).trim();
+        return namaPokok + (gelar ? ', ' + gelar : '');
+      }
+      return raw.toLocaleUpperCase('id-ID');
     }
 
     function penandatanganPdfTunjangan_(payload) {
@@ -14020,7 +14043,8 @@
       var source = summary.penandatangan || {};
       function pick_(key) {
         var item = source[key] || {};
-        return String(item.nama || '').trim() || fallbackPenandatanganPdfTunjangan_(rows, key) || '-';
+        var raw = String(item.nama || '').trim() || fallbackPenandatanganPdfTunjangan_(rows, key) || '-';
+        return namaFormalPenandatanganTunjangan_(raw);
       }
       return {
         carik: pick_('carik'),

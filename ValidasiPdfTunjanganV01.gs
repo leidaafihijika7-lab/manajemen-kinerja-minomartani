@@ -1,11 +1,11 @@
 // ============================================================
-// VALIDASI PDF EXPORT RESMI TUNJANGAN v0.2 — F4 + BLOK TANDA TANGAN
-// Target aplikasi: APP_VERSION 2026.08.28.06
-// READ-ONLY: hanya membaca source Index.html melalui HtmlService.
+// VALIDASI PDF EXPORT RESMI TUNJANGAN v0.2.1 — F4 + TTD FORMAL + DANARTA
+// Target aplikasi: APP_VERSION 2026.08.28.07
+// READ-ONLY: membaca source Index.html dan source fungsi penandatangan di memori.
 // Tidak membaca/menulis Spreadsheet/Drive/Properties dan tidak memanggil endpoint bisnis.
 // ============================================================
 
-var VALIDASI_PDF_TUNJANGAN_V01_VERSION_ = "PDF-TUNJ-v0.2-F4-TTD-2026.08.28.06";
+var VALIDASI_PDF_TUNJANGAN_V01_VERSION_ = "PDF-TUNJ-v0.2.1-F4-TTD-FORMAL-DANARTA-2026.08.28.07";
 
 function validasiPdfTunjanganV01() {
   var source = "";
@@ -14,6 +14,14 @@ function validasiPdfTunjanganV01() {
     source = HtmlService.createHtmlOutputFromFile("Index").getContent();
   } catch (err) {
     issues.push("INDEX_HTML_TIDAK_DAPAT_DIBACA: " + String(err && err.message ? err.message : err));
+  }
+
+
+  var signerServerSource = "";
+  try {
+    signerServerSource = typeof bangunPenandatanganTunjangan_ === "function" ? String(bangunPenandatanganTunjangan_) : "";
+  } catch (eSigner) {
+    issues.push("SOURCE_PENANDATANGAN_SERVER_TIDAK_DAPAT_DIBACA: " + String(eSigner && eSigner.message ? eSigner.message : eSigner));
   }
 
   function ada_(marker) { return source.indexOf(marker) >= 0; }
@@ -44,7 +52,9 @@ function validasiPdfTunjanganV01() {
     { id:"S20", nama:"Tanggal pengesahan mengikuti jejak workflow bukan waktu unduh", valid:ada_("tanggalDokumenPenandatanganPdfTunjangan_") && ada_("summary.dicairkanPada || summary.diteruskanPada || summary.disetujuiPada") },
     { id:"S21", nama:"Blok tanda tangan tidak dipecah antarhalaman", valid:ada_("estimasiTinggiTandaTanganPdfTunjangan_") && ada_("top + needSign > PDF_TUNJANGAN_FOOTER_TOP_ - 8") },
     { id:"S22", nama:"XLSX disiapkan F4/Folio landscape", valid:ada_('<pageSetup orientation="landscape" paperSize="14" fitToWidth="1" fitToHeight="0"/>') },
-    { id:"S23", nama:"XLSX dan PDF sama-sama memiliki blok tanda tangan", valid:ada_("mergedPairLine_") && ada_("xlsxSigners") && ada_("gambarBlokTandaTanganPdfTunjangan_") }
+    { id:"S23", nama:"XLSX dan PDF sama-sama memiliki blok tanda tangan", valid:ada_("mergedPairLine_") && ada_("xlsxSigners") && ada_("gambarBlokTandaTanganPdfTunjangan_") },
+    { id:"S24", nama:"Nama penandatangan resmi dicetak kapital dengan gelar yang benar", valid:ada_("function namaFormalPenandatanganTunjangan_") && ada_("HERI SURANTO, S.Sn.") && ada_("EDI SUROTO, S.H.") && ada_("toLocaleUpperCase('id-ID')") },
+    { id:"S25", nama:"Pelaksana Kegiatan Penghasilan Tetap dan Tunjangan berasal dari Danarta", valid:signerServerSource.indexOf('role.kunci === \"KAUR_DANARTA\" && !hasil.pelaksanaKegiatan.nama') >= 0 && signerServerSource.indexOf('role.kunci === \"JAGABAYA\" && !hasil.pelaksanaKegiatan.nama') < 0 && ada_("tipe === 'pelaksanaKegiatan' && (j === 'kepala urusan danarta'") }
   ];
 
   checks.forEach(function (c) { if (!c.valid) issues.push(c.id + "_GAGAL: " + c.nama); });
@@ -71,7 +81,7 @@ function validasiPdfTunjanganV01() {
     statusReviewDiubah: false,
     statusTunjanganDiubah: false,
     schemaDiubah: false,
-    pesan: issues.length ? "PDF Export Resmi v0.2 belum lengkap." : "PDF Export Resmi Tunjangan v0.2 F4 + tanda tangan terpasang lengkap pada Index.html."
+    pesan: issues.length ? "PDF Export Resmi v0.2.1 belum lengkap." : "PDF Export Resmi Tunjangan v0.2.1 F4 + tanda tangan formal + Danarta terpasang lengkap."
   };
   Logger.log(JSON.stringify(result, null, 2));
   return result;

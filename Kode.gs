@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.28.06";
+var APP_VERSION = "2026.08.28.07";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3139,7 +3139,7 @@ function getBatchAktifTunjangan_(periode) {
 // 3) Diteruskan ke Bendahara -> Sudah Dicairkan.
 // Pada Kunci/Teruskan guard juga memastikan snapshot batch masih sama dengan
 // hasil hitung ulang dan tidak ada laporan relevan yang masih menunggu review.
-var CONSISTENCY_GUARD_TUNJANGAN_VERSION_ = "CGT-v0.1-2026.08.28.06";
+var CONSISTENCY_GUARD_TUNJANGAN_VERSION_ = "CGT-v0.1-2026.08.28.07";
 
 function tambahBlockerConsistencyGuardTunjangan_(out, code, pesan, detail) {
   var item = { code: String(code || "CONSISTENCY_ERROR"), pesan: String(pesan || "Konsistensi batch tidak valid.") };
@@ -4041,7 +4041,11 @@ function bangunPenandatanganTunjangan_() {
       var role = cariJabatanRole_(jabatan);
       if (!role) continue;
       if (role.kunci === "CARIK" && !hasil.carik.nama) hasil.carik.nama = nama;
-      if (role.kunci === "JAGABAYA" && !hasil.pelaksanaKegiatan.nama) hasil.pelaksanaKegiatan.nama = nama;
+      // Untuk kegiatan Penghasilan Tetap dan Tunjangan, Pelaksana Kegiatan
+      // ditetapkan dari Danarta (Urusan Keuangan). Danarta membantu Carik
+      // melaksanakan urusan keuangan, termasuk administrasi penghasilan
+      // Lurah dan Pamong Kalurahan (Perbup Sleman Nomor 2.9 Tahun 2020).
+      if (role.kunci === "KAUR_DANARTA" && !hasil.pelaksanaKegiatan.nama) hasil.pelaksanaKegiatan.nama = nama;
       if (role.kunci === "LURAH" && !hasil.lurah.nama) hasil.lurah.nama = nama;
       if (role.kunci === "KAUR_DANARTA" && !hasil.bendahara.nama) hasil.bendahara.nama = nama;
     }

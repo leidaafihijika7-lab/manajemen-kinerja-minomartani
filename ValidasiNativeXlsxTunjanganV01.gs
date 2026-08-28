@@ -1,11 +1,11 @@
 // ============================================================
-// VALIDASI NATIVE XLSX TUNJANGAN v0.2 — F4-READY + BLOK TANDA TANGAN
-// Target aplikasi: APP_VERSION 2026.08.28.06
-// READ-ONLY: hanya membaca source Index.html melalui HtmlService.
+// VALIDASI NATIVE XLSX TUNJANGAN v0.2.1 — F4-READY + TTD FORMAL + DANARTA
+// Target aplikasi: APP_VERSION 2026.08.28.07
+// READ-ONLY: membaca source Index.html dan source fungsi penandatangan di memori.
 // Tidak membaca/menulis Spreadsheet/Properties dan tidak memanggil endpoint bisnis.
 // ============================================================
 
-var VALIDASI_NATIVE_XLSX_TUNJANGAN_V01_VERSION_ = "XLSX-TUNJ-v0.2-F4-TTD-2026.08.28.06";
+var VALIDASI_NATIVE_XLSX_TUNJANGAN_V01_VERSION_ = "XLSX-TUNJ-v0.2.1-F4-TTD-FORMAL-DANARTA-2026.08.28.07";
 
 function validasiNativeXlsxTunjanganV01() {
   var source = "";
@@ -14,6 +14,14 @@ function validasiNativeXlsxTunjanganV01() {
     source = HtmlService.createHtmlOutputFromFile("Index").getContent();
   } catch (err) {
     issues.push("INDEX_HTML_TIDAK_DAPAT_DIBACA: " + String(err && err.message ? err.message : err));
+  }
+
+
+  var signerServerSource = "";
+  try {
+    signerServerSource = typeof bangunPenandatanganTunjangan_ === "function" ? String(bangunPenandatanganTunjangan_) : "";
+  } catch (eSigner) {
+    issues.push("SOURCE_PENANDATANGAN_SERVER_TIDAK_DAPAT_DIBACA: " + String(eSigner && eSigner.message ? eSigner.message : eSigner));
   }
 
   function ada_(marker) { return source.indexOf(marker) >= 0; }
@@ -38,7 +46,9 @@ function validasiNativeXlsxTunjanganV01() {
     { id:"S14", nama:"Tidak bergantung pada library XLSX eksternal", valid:!ada_("SheetJS") && !ada_("XLSX.write") && !ada_("cdn.sheetjs") },
     { id:"S15", nama:"Deklarasi XML tidak bertabrakan dengan parser template Apps Script", valid:source.indexOf("<?xml") < 0 && ada_("\\x3C?xml version=\"1.0\"") },
     { id:"S16", nama:"XLSX memakai Folio/F4-ready landscape", valid:ada_('<pageSetup orientation="landscape" paperSize="14" fitToWidth="1" fitToHeight="0"/>') },
-    { id:"S17", nama:"XLSX membawa Catatan Workflow dan blok tanda tangan empat pejabat", valid:ada_("mergedPairLine_") && ada_("xlsxSigners") && ada_("Telah dilakukan verifikasi") && ada_("Pelaksana Kegiatan") && ada_("Setuju untuk dibayarkan") && ada_("xlsxBendaharaHeader") }
+    { id:"S17", nama:"XLSX membawa Catatan Workflow dan blok tanda tangan empat pejabat", valid:ada_("mergedPairLine_") && ada_("xlsxSigners") && ada_("Telah dilakukan verifikasi") && ada_("Pelaksana Kegiatan") && ada_("Setuju untuk dibayarkan") && ada_("xlsxBendaharaHeader") },
+    { id:"S18", nama:"Nama penandatangan resmi dicetak kapital dengan gelar yang benar", valid:ada_("function namaFormalPenandatanganTunjangan_") && ada_("HERI SURANTO, S.Sn.") && ada_("EDI SUROTO, S.H.") && ada_("toLocaleUpperCase('id-ID')") },
+    { id:"S19", nama:"Pelaksana Kegiatan Penghasilan Tetap dan Tunjangan berasal dari Danarta", valid:signerServerSource.indexOf('role.kunci === \"KAUR_DANARTA\" && !hasil.pelaksanaKegiatan.nama') >= 0 && signerServerSource.indexOf('role.kunci === \"JAGABAYA\" && !hasil.pelaksanaKegiatan.nama') < 0 && ada_("tipe === 'pelaksanaKegiatan' && (j === 'kepala urusan danarta'") }
   ];
 
   checks.forEach(function (c) { if (!c.valid) issues.push(c.id + "_GAGAL: " + c.nama); });
@@ -65,7 +75,7 @@ function validasiNativeXlsxTunjanganV01() {
     statusReviewDiubah: false,
     statusTunjanganDiubah: false,
     schemaDiubah: false,
-    pesan: issues.length ? "Native XLSX Export v0.2 belum lengkap." : "Native XLSX Export v0.2 F4-ready + tanda tangan terpasang lengkap pada Index.html."
+    pesan: issues.length ? "Native XLSX Export v0.2.1 belum lengkap." : "Native XLSX Export v0.2.1 F4-ready + tanda tangan formal + Danarta terpasang lengkap."
   };
   Logger.log(JSON.stringify(result, null, 2));
   return result;
