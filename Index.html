@@ -8094,6 +8094,46 @@
   </div>
 
 
+  <div id="modalTandaiCairTunjangan" class="modal-overlay" onclick="if(event.target===this)tutupModalTandaiCairTunjangan_()">
+    <div class="modal-box" style="max-width:620px; width:95%; max-height:92vh; overflow:auto;" onclick="event.stopPropagation()">
+      <h3 style="display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="color:var(--success);">paid</span> Konfirmasi Pencairan Tunjangan</h3>
+      <div id="mCairRingkasanTunjangan" style="text-align:left; padding:12px 14px; border:1px solid #dbeafe; background:#f8fbff; border-radius:10px; font-size:13px; line-height:1.7; margin-bottom:14px;"></div>
+
+      <div class="form-group" style="text-align:left;">
+        <label>Tanggal Pencairan <span style="color:var(--danger);">*</span></label>
+        <input type="date" id="mTanggalCairTunjangan" required>
+        <small style="display:block; margin-top:5px; color:var(--text-muted);">Gunakan tanggal pembayaran yang benar-benar terjadi. Tanggal tidak boleh lebih awal dari penerusan ke Bendahara atau berada di masa depan.</small>
+      </div>
+
+      <div class="form-group" style="text-align:left;">
+        <label>No. Referensi/Bukti Pembayaran <span style="color:var(--text-muted); font-weight:500;">(opsional)</span></label>
+        <input type="text" id="mNomorBuktiCairTunjangan" maxlength="120" placeholder="Contoh: nomor transaksi bank, nomor SPP, atau nomor kwitansi">
+        <small style="display:block; margin-top:5px; color:var(--text-muted);">Isi bila bukti pembayaran memiliki nomor/referensi yang relevan. Portal Kinerja tidak membuat nomor ini secara otomatis.</small>
+      </div>
+
+      <div class="form-group" style="text-align:left;">
+        <label>Catatan Bendahara <span style="color:var(--danger);">*</span></label>
+        <textarea id="mCatatanCairTunjangan" rows="3" maxlength="500" placeholder="Contoh: Tunjangan periode Agustus 2026 telah dibayarkan kepada 19 pegawai."></textarea>
+      </div>
+
+      <label style="display:flex; gap:10px; align-items:flex-start; text-align:left; padding:10px 12px; border:1px solid #e2e8f0; border-radius:9px; margin-top:8px; cursor:pointer;">
+        <input type="checkbox" id="mKonfirmasiTotalCairTunjangan" style="width:auto; margin-top:3px;">
+        <span id="mLabelKonfirmasiTotalCairTunjangan" style="font-size:13px; line-height:1.5;">Saya telah memeriksa dan mengonfirmasi total pencairan.</span>
+      </label>
+
+      <label style="display:flex; gap:10px; align-items:flex-start; text-align:left; padding:10px 12px; border:1px solid #fecaca; background:#fffafa; border-radius:9px; margin-top:8px; cursor:pointer;">
+        <input type="checkbox" id="mKonfirmasiFinalCairTunjangan" style="width:auto; margin-top:3px;">
+        <span style="font-size:13px; line-height:1.5;"><b>Konfirmasi final:</b> setelah ditandai cair, batch menjadi <b>Sudah Dicairkan</b> dan tidak dapat diubah melalui workflow normal.</span>
+      </label>
+
+      <div id="mPesanCairTunjangan" style="display:none; margin-top:10px; padding:9px 11px; border-radius:8px; font-size:13px;"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-modal-cancel" onclick="tutupModalTandaiCairTunjangan_()">Batal</button>
+        <button type="button" id="btnSimpanCairTunjangan" class="btn-modal-save" style="background:linear-gradient(135deg,#15803d,#22c55e);" onclick="simpanTandaiSudahDicairkanUI_()">Tandai Sudah Dicairkan</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalFotoAdmin" class="modal-overlay" onclick="tutupModalFotoAdmin()">
     <div class="modal-foto-admin-box" onclick="event.stopPropagation()">
       <button type="button" class="modal-foto-admin-close" onclick="tutupModalFotoAdmin()"
@@ -12553,7 +12593,9 @@
       if (summary.catatanCarik) extra += '<div><b>Catatan Carik:</b> ' + escapeHTML(summary.catatanCarik) + '</div>';
       if (summary.catatanLurah) extra += '<div><b>Catatan Lurah:</b> ' + escapeHTML(summary.catatanLurah) + '</div>';
       if (summary.catatanBendahara) extra += '<div><b>Catatan Bendahara:</b> ' + escapeHTML(summary.catatanBendahara) + '</div>';
-      if (summary.nomorBuktiCair) extra += '<div><b>No. Bukti Cair:</b> ' + escapeHTML(summary.nomorBuktiCair) + '</div>';
+      if (summary.dicairkanPada) extra += '<div><b>Tanggal Pencairan:</b> ' + escapeHTML(String(summary.dicairkanPada).split(' ')[0]) + '</div>';
+      if (summary.nomorBuktiCair) extra += '<div><b>No. / Referensi Bukti Cair:</b> ' + escapeHTML(summary.nomorBuktiCair) + '</div>';
+      if (summary.status === 'Sudah Dicairkan') extra += '<div style="margin-top:7px; padding:8px 10px; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:8px; color:#166534;"><b>Final.</b> Batch sudah dicairkan dan dikunci dari perubahan workflow normal.</div>';
       var correction = payload.correction || null;
       if (correction && correction.eligible) {
         extra += '<div style="margin-top:8px; padding:9px 11px; border:1px solid #f59e0b; background:#fffbeb; border-radius:9px; color:#92400e;"><b>Koreksi batch diperlukan.</b> Hasil hitung ulang: ' + formatRupiahID(correction.oldTotal || 0) + ' → <b>' + formatRupiahID(correction.newTotal || 0) + '</b> (selisih ' + formatRupiahID(correction.delta || 0) + '). Batch belum dapat diteruskan ke Bendahara sebelum koreksi dibuat.</div>';
@@ -12777,16 +12819,144 @@
       }).teruskanKeBendahara(periode, catatan, sToken);
     }
 
+    function tanggalHariIniLokalTunjangan_() {
+      var d = new Date();
+      var y = d.getFullYear();
+      var m = String(d.getMonth() + 1).padStart(2, '0');
+      var t = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + t;
+    }
+
+    function setPesanModalCairTunjangan_(pesan, tipe) {
+      var el = document.getElementById('mPesanCairTunjangan');
+      if (!el) return;
+      if (!pesan) {
+        el.style.display = 'none';
+        el.textContent = '';
+        return;
+      }
+      el.style.display = 'block';
+      el.textContent = pesan;
+      if (tipe === 'sukses') {
+        el.style.background = '#f0fdf4';
+        el.style.border = '1px solid #bbf7d0';
+        el.style.color = '#166534';
+      } else {
+        el.style.background = '#fef2f2';
+        el.style.border = '1px solid #fecaca';
+        el.style.color = '#991b1b';
+      }
+    }
+
+    function bukaModalTandaiCairTunjangan_() {
+      var payload = tunjanganPayloadAktif || {};
+      var summary = payload.summary || {};
+      if (!summary || summary.status !== 'Diteruskan ke Bendahara') {
+        alert('Pencairan hanya dapat dikonfirmasi pada batch berstatus Diteruskan ke Bendahara.');
+        return;
+      }
+
+      var modal = document.getElementById('modalTandaiCairTunjangan');
+      var tanggalEl = document.getElementById('mTanggalCairTunjangan');
+      var nomorEl = document.getElementById('mNomorBuktiCairTunjangan');
+      var catatanEl = document.getElementById('mCatatanCairTunjangan');
+      var totalEl = document.getElementById('mKonfirmasiTotalCairTunjangan');
+      var finalEl = document.getElementById('mKonfirmasiFinalCairTunjangan');
+      var labelTotal = document.getElementById('mLabelKonfirmasiTotalCairTunjangan');
+      var ringkasan = document.getElementById('mCairRingkasanTunjangan');
+      if (!modal || !tanggalEl || !nomorEl || !catatanEl || !totalEl || !finalEl || !labelTotal || !ringkasan) return;
+
+      var total = Number(summary.totalNominal || 0) || 0;
+      var label = summary.labelPembayaran || summary.periode || periodeTunjanganAktif();
+      ringkasan.innerHTML = '<b>Periode:</b> ' + escapeHTML(label) + '<br>' +
+        '<b>Batch:</b> ' + escapeHTML(summary.batchId || '-') + '<br>' +
+        '<b>Jumlah Pegawai:</b> ' + escapeHTML(String(summary.jumlahPegawai || (payload.rows || []).length || 0)) + '<br>' +
+        '<b>Total yang akan dikonfirmasi:</b> <span style="font-size:16px; font-weight:800; color:#166534;">' + escapeHTML(formatRupiahID(total)) + '</span>';
+      labelTotal.textContent = 'Saya telah memeriksa dan mengonfirmasi total pencairan ' + formatRupiahID(total) + '.';
+      tanggalEl.value = tanggalHariIniLokalTunjangan_();
+      tanggalEl.max = tanggalHariIniLokalTunjangan_();
+      nomorEl.value = '';
+      catatanEl.value = '';
+      totalEl.checked = false;
+      finalEl.checked = false;
+      setPesanModalCairTunjangan_('', '');
+      modal.classList.add('active');
+      document.body.classList.add('modal-open');
+      setTimeout(function () { try { tanggalEl.focus(); } catch (e) {} }, 50);
+    }
+
+    function tutupModalTandaiCairTunjangan_() {
+      var modal = document.getElementById('modalTandaiCairTunjangan');
+      if (modal) modal.classList.remove('active');
+      document.body.classList.remove('modal-open');
+      setPesanModalCairTunjangan_('', '');
+    }
+
     function tandaiSudahDicairkanUI() {
+      bukaModalTandaiCairTunjangan_();
+    }
+
+    function simpanTandaiSudahDicairkanUI_() {
+      var payloadAktif = tunjanganPayloadAktif || {};
+      var summary = payloadAktif.summary || {};
       var periode = periodeTunjanganAktif();
-      var nomor = prompt('Masukkan nomor bukti pencairan:', '') || '';
-      var catatan = prompt('Catatan pencairan Bendahara:', '') || '';
+      var tanggal = String((document.getElementById('mTanggalCairTunjangan') || {}).value || '').trim();
+      var nomor = String((document.getElementById('mNomorBuktiCairTunjangan') || {}).value || '').trim();
+      var catatan = String((document.getElementById('mCatatanCairTunjangan') || {}).value || '').trim();
+      var konfirmasiTotal = !!((document.getElementById('mKonfirmasiTotalCairTunjangan') || {}).checked);
+      var konfirmasiFinal = !!((document.getElementById('mKonfirmasiFinalCairTunjangan') || {}).checked);
+      var total = Number(summary.totalNominal || 0) || 0;
+
+      if (!tanggal) { setPesanModalCairTunjangan_('Tanggal pencairan wajib diisi.', 'error'); return; }
+      if (nomor.length > 120) { setPesanModalCairTunjangan_('Nomor / referensi bukti pembayaran maksimal 120 karakter.', 'error'); return; }
+      if (catatan.length < 5) { setPesanModalCairTunjangan_('Catatan Bendahara wajib diisi minimal 5 karakter.', 'error'); return; }
+      if (!konfirmasiTotal) { setPesanModalCairTunjangan_('Centang konfirmasi total pencairan terlebih dahulu.', 'error'); return; }
+      if (!konfirmasiFinal) { setPesanModalCairTunjangan_('Centang konfirmasi final bahwa batch akan dikunci setelah dicairkan.', 'error'); return; }
+      if (!summary.batchId || summary.status !== 'Diteruskan ke Bendahara') {
+        setPesanModalCairTunjangan_('Data batch sudah berubah. Tutup dialog dan muat ulang halaman.', 'error');
+        return;
+      }
+
+      var pesan = 'KONFIRMASI FINAL PENCAIRAN\n\n' +
+        'Periode: ' + (summary.labelPembayaran || summary.periode || periode) + '\n' +
+        'Total: ' + formatRupiahID(total) + '\n' +
+        'Tanggal pencairan: ' + formatTanggalIndonesiaShort(tanggal) + '\n' +
+        (nomor ? ('Nomor / referensi: ' + nomor + '\n') : 'Nomor / referensi: tidak diisi\n') + '\n' +
+        'Setelah diproses, status menjadi Sudah Dicairkan dan batch tidak dapat diubah melalui workflow normal. Lanjutkan?';
+      if (!confirm(pesan)) return;
+
+      var btn = document.getElementById('btnSimpanCairTunjangan');
+      var oldText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
+      }
+      setPesanModalCairTunjangan_('', '');
+
+      var request = {
+        tanggalPencairan: tanggal,
+        nomorBukti: nomor,
+        catatan: catatan,
+        totalKonfirmasi: total,
+        konfirmasiTotal: true,
+        konfirmasiFinal: true,
+        expectedBatchId: summary.batchId || ''
+      };
+
       google.script.run.withSuccessHandler(function (res) {
-        alert((res && res.pesan) || 'Status pencairan diperbarui.');
+        if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
+        if (!res || !res.sukses) {
+          setPesanModalCairTunjangan_((res && res.pesan) || 'Pencairan gagal dikonfirmasi.', 'error');
+          return;
+        }
+        tutupModalTandaiCairTunjangan_();
+        var infoReferensi = (res.nomorBukti || nomor) ? ('\nReferensi: ' + (res.nomorBukti || nomor)) : '';
+        alert((res.pesan || 'Pencairan berhasil dikonfirmasi.') + '\n\nTotal: ' + formatRupiahID(res.totalPencairan || total) + '\nTanggal: ' + formatTanggalIndonesiaShort(res.tanggalPencairan || tanggal) + infoReferensi);
         muatTunjangan();
       }).withFailureHandler(function (err) {
-        alert('Gagal memperbarui pencairan: ' + ((err && err.message) || err));
-      }).tandaiSudahDicairkan(periode, nomor, catatan, sToken);
+        if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
+        setPesanModalCairTunjangan_('Gagal memperbarui pencairan: ' + ((err && err.message) || err), 'error');
+      }).tandaiSudahDicairkan(periode, request, '', sToken);
     }
 
     function teksCapaianKomponenCetakTunjangan_(r, tipe) {
@@ -12836,6 +13006,10 @@
       tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:11pt;">Periode Perhitungan: ' + escapeExcelHTML_(rentangLabel) + '</td></tr>';
       tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:11pt;">Cut-off Laporan: ' + escapeExcelHTML_(cutoffLabel) + '</td></tr>';
       tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:10pt;">Jumlah Pegawai: ' + (summary.jumlahPegawai || rowsData.length) + ' | Total Tunjangan: ' + escapeExcelHTML_(formatRupiahID(summary.totalNominal || 0)) + '</td></tr>';
+      if (summary.status === 'Sudah Dicairkan') {
+        tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:10pt;"><b>Tanggal Pencairan:</b> ' + escapeExcelHTML_(summary.dicairkanPada ? String(summary.dicairkanPada).split(' ')[0] : '-') + ' | <b>No. / Referensi Bukti:</b> ' + escapeExcelHTML_(summary.nomorBuktiCair || '-') + '</td></tr>';
+        if (summary.catatanBendahara) tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:9pt;"><b>Catatan Bendahara:</b> ' + escapeExcelHTML_(summary.catatanBendahara) + '</td></tr>';
+      }
       tableHTML += '<tr><td colspan="7"></td></tr>';
       tableHTML += '</table>';
 

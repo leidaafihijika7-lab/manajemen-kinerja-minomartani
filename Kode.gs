@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.27.04";
+var APP_VERSION = "2026.08.28.01";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3677,6 +3677,8 @@ function ambilRekapTunjanganBulanan(periode, token) {
       catatanCarik: data[0].catatanCarik,
       catatanLurah: data[0].catatanLurah,
       catatanBendahara: data[0].catatanBendahara,
+      diteruskanPada: data[0].diteruskanPada || "",
+      dicairkanPada: data[0].dicairkanPada || "",
       nomorBuktiCair: data[0].nomorBuktiCair
     };
 
@@ -3742,12 +3744,13 @@ function updateBatchTunjanganStatus_(periode, token, config) {
   batch.rows.forEach(function (item) {
     sh.getRange(item.rowIndex, 16).setValue(config.toStatus);
     if (config.catatanCol) sh.getRange(item.rowIndex, config.catatanCol).setValue(config.catatan || "");
-    if (config.dateCol) sh.getRange(item.rowIndex, config.dateCol).setValue(now);
+    if (config.dateCol) sh.getRange(item.rowIndex, config.dateCol).setValue(config.dateValue instanceof Date ? config.dateValue : now);
     if (config.extra && config.extra.nomorBuktiCair != null) sh.getRange(item.rowIndex, 28).setValue(config.extra.nomorBuktiCair);
   });
 
   var first = batch.rows[0] && batch.rows[0].values ? batch.rows[0].values : [];
-  logAuditTunjangan_(idUser, config.auditAction || "UPDATE_STATUS_TUNJANGAN", p, first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.ID_USER] || "", first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.NAMA] || "", statusLama, config.toStatus, config.catatan || "");
+  var auditDetail = config.auditDetail != null ? String(config.auditDetail) : (config.catatan || "");
+  logAuditTunjangan_(idUser, config.auditAction || "UPDATE_STATUS_TUNJANGAN", p, first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.ID_USER] || "", first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.NAMA] || "", statusLama, config.toStatus, auditDetail);
   return { sukses: true, pesan: config.successMessage || "Perubahan status berhasil disimpan." };
 }
 
@@ -3821,19 +3824,201 @@ function teruskanKeBendahara(periode, catatan, token) {
   });
 }
 
+function normalisasiInputPencairanTunjangan_(nomorBukti, catatan) {
+  // Hardening v0.1: endpoint tetap ber-arity 4 untuk kompatibilitas kontrak,
+  // tetapi UI baru wajib mengirim payload terstruktur pada argumen kedua.
+  if (!nomorBukti || typeof nomorBukti !== "object" || nomorBukti instanceof Date) {
+    return {
+      valid: false,
+      code: "FORM_PENCAIRAN_LAMA",
+      pesan: "Form pencairan versi lama tidak lagi didukung. Muat ulang Portal Kinerja sebelum menandai pencairan."
+    };
+  }
+
+  var payload = nomorBukti;
+  var nomor = String(payload.nomorBukti || payload.nomorReferensi || "").trim();
+  var catatanFinal = String(payload.catatan != null ? payload.catatan : (catatan || "")).trim();
+  var tanggal = String(payload.tanggalPencairan || "").trim();
+  var expectedBatchId = String(payload.expectedBatchId || "").trim();
+  var totalKonfirmasi = Number(payload.totalKonfirmasi);
+
+  // Nomor/referensi bukti bersifat opsional. Jika diisi, batasi panjangnya agar aman untuk audit/export.
+  if (nomor.length > 120) return { valid: false, code: "BUKTI_TERLALU_PANJANG", pesan: "Nomor / referensi bukti pembayaran maksimal 120 karakter." };
+  if (!tanggal) return { valid: false, code: "TANGGAL_WAJIB", pesan: "Tanggal pencairan wajib diisi." };
+  if (catatanFinal.length < 5) return { valid: false, code: "CATATAN_WAJIB", pesan: "Catatan Bendahara wajib diisi minimal 5 karakter." };
+  if (catatanFinal.length > 500) return { valid: false, code: "CATATAN_TERLALU_PANJANG", pesan: "Catatan Bendahara maksimal 500 karakter." };
+  if (!isFinite(totalKonfirmasi)) return { valid: false, code: "TOTAL_TIDAK_VALID", pesan: "Total konfirmasi pencairan tidak valid." };
+  if (payload.konfirmasiTotal !== true) return { valid: false, code: "KONFIRMASI_TOTAL_WAJIB", pesan: "Bendahara wajib mengonfirmasi total pencairan." };
+  if (payload.konfirmasiFinal !== true) return { valid: false, code: "KONFIRMASI_FINAL_WAJIB", pesan: "Konfirmasi final pencairan wajib dicentang." };
+
+  return {
+    valid: true,
+    nomorBukti: nomor,
+    catatan: catatanFinal,
+    tanggalPencairan: tanggal,
+    expectedBatchId: expectedBatchId,
+    totalKonfirmasi: totalKonfirmasi,
+    konfirmasiTotal: true,
+    konfirmasiFinal: true
+  };
+}
+
+function validasiBatchSebelumPencairanTunjangan_(batch, input) {
+  var out = { valid: false, code: "", pesan: "", totalBatch: 0, tanggalPencairan: null, batchId: "", jumlahPegawai: 0 };
+  if (!batch || !batch.rows || !batch.rows.length) {
+    out.code = "BATCH_NOT_FOUND";
+    out.pesan = "Batch aktif tidak ditemukan.";
+    return out;
+  }
+
+  var batchIds = {};
+  var total = 0;
+  var tanggalDiteruskan = [];
+  for (var i = 0; i < batch.rows.length; i++) {
+    var row = batch.rows[i].values || [];
+    var status = String(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.STATUS_REKAP] || "").trim();
+    if (status !== TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA) {
+      out.code = "STATUS_BATCH_TIDAK_KONSISTEN";
+      out.pesan = "Pencairan diblokir karena terdapat baris batch yang belum berstatus Diteruskan ke Bendahara.";
+      return out;
+    }
+
+    var batchId = String(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.BATCH_ID] || "").trim();
+    if (batchId) batchIds[batchId] = true;
+    total += Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_TOTAL]) || 0;
+
+    var diteruskan = row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DITERUSKAN_BENDAHARA_PADA];
+    if (diteruskan instanceof Date && !isNaN(diteruskan.getTime())) tanggalDiteruskan.push(diteruskan);
+  }
+
+  var ids = Object.keys(batchIds);
+  if (ids.length !== 1) {
+    out.code = "BATCH_ID_TIDAK_KONSISTEN";
+    out.pesan = "Pencairan diblokir karena batch aktif memiliki ID batch yang tidak konsisten.";
+    return out;
+  }
+  if (input.expectedBatchId && input.expectedBatchId !== ids[0]) {
+    out.code = "BATCH_BERUBAH";
+    out.pesan = "Batch aktif telah berubah. Muat ulang halaman sebelum menandai pencairan.";
+    return out;
+  }
+  if (tanggalDiteruskan.length !== batch.rows.length) {
+    out.code = "TANGGAL_DITERUSKAN_TIDAK_LENGKAP";
+    out.pesan = "Pencairan diblokir karena waktu penerusan ke Bendahara belum lengkap pada seluruh baris batch.";
+    return out;
+  }
+
+  var totalPembulatan = Math.round(total);
+  if (totalPembulatan <= 0) {
+    out.code = "TOTAL_BATCH_TIDAK_VALID";
+    out.pesan = "Total batch pencairan harus lebih besar dari Rp0.";
+    return out;
+  }
+  if (Math.round(Number(input.totalKonfirmasi) || 0) !== totalPembulatan) {
+    out.code = "TOTAL_KONFIRMASI_BERBEDA";
+    out.pesan = "Total yang dikonfirmasi tidak sama dengan total batch aktif. Muat ulang halaman dan periksa kembali.";
+    return out;
+  }
+
+  var tanggal = parseDateOnly_(input.tanggalPencairan);
+  if (!(tanggal instanceof Date) || isNaN(tanggal.getTime())) {
+    out.code = "TANGGAL_TIDAK_VALID";
+    out.pesan = "Format tanggal pencairan tidak valid.";
+    return out;
+  }
+  tanggal.setHours(12, 0, 0, 0);
+
+  var hariIni = new Date();
+  hariIni.setHours(23, 59, 59, 999);
+  if (tanggal.getTime() > hariIni.getTime()) {
+    out.code = "TANGGAL_MASA_DEPAN";
+    out.pesan = "Tanggal pencairan tidak boleh berada di masa depan.";
+    return out;
+  }
+
+  var pertamaDiteruskan = tanggalDiteruskan[0];
+  for (var j = 1; j < tanggalDiteruskan.length; j++) {
+    if (tanggalDiteruskan[j].getTime() < pertamaDiteruskan.getTime()) pertamaDiteruskan = tanggalDiteruskan[j];
+  }
+  var batasMulai = new Date(pertamaDiteruskan.getFullYear(), pertamaDiteruskan.getMonth(), pertamaDiteruskan.getDate(), 0, 0, 0, 0);
+  if (tanggal.getTime() < batasMulai.getTime()) {
+    out.code = "TANGGAL_SEBELUM_DITERUSKAN";
+    out.pesan = "Tanggal pencairan tidak boleh lebih awal dari tanggal batch diteruskan ke Bendahara.";
+    return out;
+  }
+
+  out.valid = true;
+  out.code = "OK";
+  out.pesan = "Validasi pencairan lulus.";
+  out.totalBatch = totalPembulatan;
+  out.tanggalPencairan = tanggal;
+  out.batchId = ids[0];
+  out.jumlahPegawai = batch.rows.length;
+  return out;
+}
+
 function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
-  return updateBatchTunjanganStatus_(periode, token, {
-    validator: cekHakAksesBendaharaTunjangan,
-    accessDenied: "Akses ditolak. Hanya Bendahara Danarta yang dapat menandai pencairan.",
-    allowedFrom: [TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA],
-    toStatus: TUNJANGAN_STATUS.SUDAH_DICAIRKAN,
-    catatanCol: 19,
-    dateCol: 27,
-    catatan: catatan,
-    extra: { nomorBuktiCair: nomorBukti || "" },
-    auditAction: "TANDAI_SUDAH_DICAIRKAN",
-    successMessage: "Status pencairan berhasil diperbarui."
-  });
+  try {
+    var idUser = validasiSession(token);
+    if (!idUser) return { sukses: false, pesan: "Sesi habis, silakan login ulang." };
+    if (!cekHakAksesBendaharaTunjangan(idUser)) {
+      return { sukses: false, pesan: "Akses ditolak. Hanya Bendahara Danarta yang dapat menandai pencairan." };
+    }
+
+    var p = normalizePeriode_(periode);
+    var batch = getBatchAktifTunjangan_(p);
+    if (!batch || !batch.rows || !batch.rows.length) return { sukses: false, pesan: "Batch aktif untuk periode ini tidak ditemukan." };
+    if (String(batch.status || "") !== TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA) {
+      return { sukses: false, pesan: "Pencairan hanya dapat dilakukan pada batch berstatus Diteruskan ke Bendahara. Status aktif: " + String(batch.status || "-") };
+    }
+
+    var input = normalisasiInputPencairanTunjangan_(nomorBukti, catatan);
+    if (!input.valid) return { sukses: false, code: input.code || "INPUT_TIDAK_VALID", pesan: input.pesan || "Data pencairan belum lengkap." };
+
+    var guard = validasiBatchSebelumPencairanTunjangan_(batch, input);
+    if (!guard.valid) return { sukses: false, code: guard.code || "VALIDASI_GAGAL", pesan: guard.pesan || "Validasi pencairan gagal." };
+
+    var auditDetail = JSON.stringify({
+      versiHardening: "TANDAI_CAIR_V0.1",
+      appVersion: typeof APP_VERSION !== "undefined" ? String(APP_VERSION) : "",
+      batchId: guard.batchId,
+      totalPencairan: guard.totalBatch,
+      jumlahPegawai: guard.jumlahPegawai,
+      tanggalPencairan: Utilities.formatDate(guard.tanggalPencairan, "GMT+7", "yyyy-MM-dd"),
+      nomorBukti: input.nomorBukti,
+      catatan: input.catatan,
+      konfirmasiTotal: true,
+      konfirmasiFinal: true,
+      immutableSetelahCair: true
+    });
+
+    var hasil = updateBatchTunjanganStatus_(p, token, {
+      validator: cekHakAksesBendaharaTunjangan,
+      accessDenied: "Akses ditolak. Hanya Bendahara Danarta yang dapat menandai pencairan.",
+      allowedFrom: [TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA],
+      toStatus: TUNJANGAN_STATUS.SUDAH_DICAIRKAN,
+      catatanCol: 19,
+      dateCol: 27,
+      dateValue: guard.tanggalPencairan,
+      catatan: input.catatan,
+      extra: { nomorBuktiCair: input.nomorBukti },
+      auditDetail: auditDetail,
+      auditAction: "TANDAI_SUDAH_DICAIRKAN",
+      successMessage: "Pencairan berhasil dikonfirmasi dan batch dikunci final."
+    });
+
+    if (hasil && hasil.sukses) {
+      hasil.batchId = guard.batchId;
+      hasil.totalPencairan = guard.totalBatch;
+      hasil.jumlahPegawai = guard.jumlahPegawai;
+      hasil.tanggalPencairan = Utilities.formatDate(guard.tanggalPencairan, "GMT+7", "yyyy-MM-dd");
+      hasil.nomorBukti = input.nomorBukti;
+      hasil.immutable = true;
+    }
+    return hasil;
+  } catch (e) {
+    return handleError("tandaiSudahDicairkan", e, { sukses: false, pesan: "" });
+  }
 }
 // ─── END MODUL REKAP TUNJANGAN ───────────────────────────────────────────────
 
