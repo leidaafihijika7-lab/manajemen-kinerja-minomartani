@@ -13335,7 +13335,7 @@
     }
 
     function stylesXmlTunjanganXlsx_() {
-      return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      return '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
         '<numFmts count="1"><numFmt numFmtId="164" formatCode="[$Rp-421] #,##0"/></numFmts>' +
         '<fonts count="5">' +
@@ -13457,7 +13457,7 @@
       var mergeXml = merges.length ? '<mergeCells count="' + merges.length + '">' + merges.map(function (m) { return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '';
       var filterRef = rowsData.length ? ('A' + headerRow + ':G' + lastDataRow) : ('A' + headerRow + ':G' + headerRow);
       var pane = '<pane ySplit="' + headerRow + '" topLeftCell="A' + firstDataRow + '" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A' + firstDataRow + '" sqref="A' + firstDataRow + '"/>';
-      var xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      var xml = '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
         '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
         '<dimension ref="A1:G' + lastRow + '"/>' +
@@ -13477,7 +13477,7 @@
     function buatNativeXlsxTunjangan_(payload, periode) {
       var sheet = bangunSheetRekapTunjanganXlsx_(payload, periode);
       var nowIso = new Date().toISOString();
-      var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      var contentTypes = '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
         '<Default Extension="xml" ContentType="application/xml"/>' +
@@ -13487,30 +13487,30 @@
         '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
         '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
         '</Types>';
-      var rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      var rootRels = '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
         '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
         '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
         '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
         '</Relationships>';
-      var workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      var workbook = '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
         '<bookViews><workbookView xWindow="0" yWindow="0" windowWidth="24000" windowHeight="15000"/></bookViews>' +
         '<sheets><sheet name="Rekap Tunjangan" sheetId="1" r:id="rId1"/></sheets>' +
         '<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">&apos;Rekap Tunjangan&apos;!$A$1:$G$' + sheet.lastRow + '</definedName></definedNames>' +
         '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>';
-      var workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      var workbookRels = '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
         '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
         '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
         '</Relationships>';
-      var core = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      var core = '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
         '<dc:creator>Portal Kinerja Minomartani</dc:creator><cp:lastModifiedBy>Portal Kinerja Minomartani</cp:lastModifiedBy>' +
         '<dc:title>Rekap Tunjangan Kinerja ' + xmlEscapeXlsxTunjangan_(sheet.labelPembayaran) + '</dc:title>' +
         '<dcterms:created xsi:type="dcterms:W3CDTF">' + nowIso + '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' + nowIso + '</dcterms:modified>' +
         '</cp:coreProperties>';
-      var app = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      var app = '\x3C?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
         '<Application>Portal Kinerja Minomartani</Application><AppVersion>1.0</AppVersion>' +
         '<TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>Rekap Tunjangan</vt:lpstr></vt:vector></TitlesOfParts>' +
