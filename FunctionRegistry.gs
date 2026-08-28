@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.28.01
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.28.04
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1e-2026.08.28.01";
+  "3B1B1j-2026.08.28.04";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.28.01",
+  baselineAppVersion: "2026.08.28.04",
 
   policy: {
     privateByDefault: true,
@@ -157,7 +157,11 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "statusGuardKontrakPraDeploy3B1B3",
       "validasiGuardKontrakPraDeploy3B1B3",
       "laporanGuardKontrakPraDeploy3B1B3",
-      "evaluasiPerubahanTerencanaPraDeploy3B1B3"
+      "evaluasiPerubahanTerencanaPraDeploy3B1B3",
+      "validasiConsistencyGuardTunjanganV01",
+      "validasiPreflightSeptember2026V01",
+      "validasiLoadingPeriodeTunjanganV01",
+      "validasiNativeXlsxTunjanganV01"
     ],
 
     blockedCompatibilityStubs: [

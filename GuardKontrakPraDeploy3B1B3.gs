@@ -1,8 +1,8 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
-// Baseline kontrak: 3B-1B Batch 2j — 173 binding aktif
-// Baseline produksi: APP_VERSION 2026.08.28.01
+// Baseline kontrak: 3B-1B Batch 2m — 173 binding aktif
+// Baseline produksi: APP_VERSION 2026.08.28.04
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,10 +11,10 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3f-2026.08.28.01";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.08.28.01";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3k-2026.08.28.04";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.08.28.04";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 173;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "f34cc453d8e8e81cd14cdc6377f7182be356aafd96ba819d3c835ba64639340d";
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "b04f16eb53ea616de973e7f539d04d25a8e802d5b26cd75b283ddb333a6a61d3";
 
 // Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 173 Batch 2g.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.
@@ -22,7 +22,11 @@ var PORTAL_PREDEPLOY_SELF_NAMES_3B1B3_ = [
   "statusGuardKontrakPraDeploy3B1B3",
   "validasiGuardKontrakPraDeploy3B1B3",
   "laporanGuardKontrakPraDeploy3B1B3",
-  "evaluasiPerubahanTerencanaPraDeploy3B1B3"
+  "evaluasiPerubahanTerencanaPraDeploy3B1B3",
+  "validasiConsistencyGuardTunjanganV01",
+  "validasiPreflightSeptember2026V01",
+  "validasiLoadingPeriodeTunjanganV01",
+  "validasiNativeXlsxTunjanganV01"
 ];
 
 function dependensiGuardPraDeploy3B1B3_() {

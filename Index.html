@@ -5480,6 +5480,11 @@
     .tunjangan-btn.warning { background:#d97706; color:white; border-color:#d97706; }
     .tunjangan-btn.neutral,.tunjangan-btn.secondary { background:white; color:#0f172a; }
     .tunjangan-btn[disabled], .tunjangan-btn.is-disabled { opacity:.45; cursor:not-allowed; box-shadow:none; transform:none; }
+    .tunjangan-loading-inline { display:inline-flex; align-items:center; justify-content:flex-end; gap:7px; color:#475569; font-weight:750; }
+    .tunjangan-loading-spin { display:inline-block; font-size:18px; animation:tunjangan-loading-spin .8s linear infinite; }
+    .tunjangan-page[aria-busy="true"] .tunjangan-summary-card { opacity:.72; }
+    .tunjangan-page[aria-busy="true"] .tunjangan-actions-card { opacity:.72; }
+    @keyframes tunjangan-loading-spin { to { transform:rotate(360deg); } }
     .tunjangan-rekap-card { overflow:hidden; }
     .tunjangan-rekap-head { padding:16px 18px; display:flex; justify-content:space-between; gap:16px; align-items:flex-start; border-bottom:1px solid #cbd5e1; }
     .tunjangan-rekap-head h3 { margin:0; font-family:var(--font-heading); font-size:20px; color:#0f172a; }
@@ -7519,10 +7524,10 @@
             </header>
 
             <div class="tunjangan-status-card" id="tunjanganStatusCard">
-              <div class="tunjangan-status-icon"><span class="material-symbols-outlined">info</span></div>
+              <div class="tunjangan-status-icon"><span class="material-symbols-outlined" id="tunjanganStatusIcon">info</span></div>
               <div>
                 <div class="tunjangan-label">Status Workflow Saat Ini</div>
-                <div class="tunjangan-status-title" id="tunjanganStatusWorkflow">Belum Digenerate</div>
+                <div class="tunjangan-status-title" id="tunjanganStatusWorkflow" aria-live="polite">Belum Digenerate</div>
               </div>
             </div>
 
@@ -7532,7 +7537,7 @@
                 <div class="tunjangan-form-grid">
                   <label class="tunjangan-field tunjangan-field-full">
                     <span>Periode Pembayaran</span>
-                    <input type="month" id="fPeriodeTunjangan" class="tunjangan-input" onchange="pengaturanPeriodeTunjanganDirty_ = false; sinkronkanRangeTunjanganDariPeriode(true); muatTunjangan()">
+                    <input type="month" id="fPeriodeTunjangan" class="tunjangan-input" onchange="gantiPeriodeTunjanganUI_()">
                   </label>
                   <label class="tunjangan-field">
                     <span>Tanggal Mulai</span>
@@ -7583,14 +7588,14 @@
                 <button type="button" id="btnKembalikanTunjangan" class="tunjangan-btn warning" style="display:none;" onclick="kembalikanRekapTunjanganUI()"><span class="material-symbols-outlined">undo</span> Kembalikan</button>
                 <button type="button" id="btnTeruskanTunjangan" class="tunjangan-btn secondary" style="display:none;" onclick="teruskanKeBendaharaUI()"><span class="material-symbols-outlined">forward_to_inbox</span> Teruskan</button>
                 <button type="button" id="btnCairTunjangan" class="tunjangan-btn success" style="display:none;" onclick="tandaiSudahDicairkanUI()"><span class="material-symbols-outlined">paid</span> Tandai Cair</button>
-                <button type="button" id="btnUnduhTunjangan" class="tunjangan-btn neutral" style="display:none;" onclick="unduhExcelTunjangan()"><span class="material-symbols-outlined">download</span> Unduh Excel</button>
+                <button type="button" id="btnUnduhTunjangan" class="tunjangan-btn neutral" style="display:none;" onclick="unduhExcelTunjangan()"><span class="material-symbols-outlined">download</span> Unduh Excel (.xlsx)</button>
               </div>
             </div>
 
             <div class="tunjangan-rekap-card">
               <div class="tunjangan-rekap-head">
                 <h3>Rekap Pegawai</h3>
-                <div id="ringkasanTunjangan" class="tunjangan-rekap-info">Pilih periode pembayaran dan tanggal cut-off untuk memuat rekap tunjangan.</div>
+                <div id="ringkasanTunjangan" class="tunjangan-rekap-info" aria-live="polite">Pilih periode pembayaran dan tanggal cut-off untuk memuat rekap tunjangan.</div>
               </div>
               <div class="tunjangan-table-wrap">
                 <table class="tunjangan-table">
@@ -12116,6 +12121,133 @@
 
     var tunjanganPayloadAktif = null;
 
+    // HARDENING LOADING PERIODE v0.1 — v2026.08.28.04
+    // Tujuan:
+    // 1) data periode lama langsung disembunyikan saat bulan berganti;
+    // 2) aksi workflow dinonaktifkan selama request berjalan;
+    // 3) respons async yang datang terlambat tidak boleh menimpa periode yang sedang aktif.
+    var tunjanganLoadSeq_ = 0;
+    var tunjanganLoading_ = false;
+    var tunjanganPeriodeRequestAktif_ = '';
+    var TUNJANGAN_ACTION_BUTTON_IDS_ = [
+      'btnSimpanCutoffTunjangan',
+      'btnGenerateTunjangan',
+      'btnKoreksiTunjangan',
+      'btnKunciTunjangan',
+      'btnAjukanTunjangan',
+      'btnSetujuiTunjangan',
+      'btnKembalikanTunjangan',
+      'btnTeruskanTunjangan',
+      'btnCairTunjangan',
+      'btnUnduhTunjangan'
+    ];
+
+    function aturIkonLoadingTunjangan_(loading) {
+      var icon = document.getElementById('tunjanganStatusIcon');
+      if (!icon) return;
+      icon.textContent = loading ? 'progress_activity' : 'info';
+      if (loading) icon.classList.add('tunjangan-loading-spin');
+      else icon.classList.remove('tunjangan-loading-spin');
+    }
+
+    function sembunyikanAksiTunjanganSelamaLoading_() {
+      TUNJANGAN_ACTION_BUTTON_IDS_.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = true;
+        el.style.display = 'none';
+      });
+    }
+
+    function kunciInputTunjanganSelamaLoading_() {
+      ['fTanggalMulaiTunjangan', 'fTanggalAkhirTunjangan', 'fJamCutoffTunjangan'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = true;
+        el.title = 'Menunggu data periode selesai dimuat.';
+      });
+      var periodeEl = document.getElementById('fPeriodeTunjangan');
+      if (periodeEl) {
+        periodeEl.disabled = false;
+        periodeEl.title = 'Periode tetap dapat diganti. Respons periode lama akan diabaikan otomatis.';
+      }
+    }
+
+    function mulaiLoadingTunjangan_(periode) {
+      var requestId = ++tunjanganLoadSeq_;
+      tunjanganLoading_ = true;
+      tunjanganPeriodeRequestAktif_ = String(periode || '');
+      tunjanganPayloadAktif = null;
+
+      var page = document.getElementById('halTunjangan');
+      if (page) page.setAttribute('aria-busy', 'true');
+      aturIkonLoadingTunjangan_(true);
+      sembunyikanAksiTunjanganSelamaLoading_();
+      kunciInputTunjanganSelamaLoading_();
+
+      var label = formatLabelPembayaranTunjangan_(periode, periode);
+      setTextTunjangan_('tunjanganStatusWorkflow', 'Memuat ' + label + '…');
+      setTextTunjangan_('tunjanganTotalNominal', '—');
+      setTextTunjangan_('tunjanganJumlahPegawai', '—');
+      setTextTunjangan_('tunjanganLaporanDisetujui', '—');
+      setTextTunjangan_('tunjanganMenungguPersetujuan', '—');
+
+      var info = document.getElementById('ringkasanTunjangan');
+      if (info) {
+        info.innerHTML = '<span class="tunjangan-loading-inline"><span class="material-symbols-outlined tunjangan-loading-spin">progress_activity</span> Memuat rekap <b>' + escapeHTML(label) + '</b>. Data periode sebelumnya sementara disembunyikan.</span>';
+      }
+      var tb = document.getElementById('tbTunjangan');
+      if (tb) {
+        tb.innerHTML = '<tr><td colspan="7" style="text-align:center; display:table-cell;"><span class="tunjangan-loading-inline"><span class="material-symbols-outlined tunjangan-loading-spin">progress_activity</span> Memuat rekap tunjangan…</span></td></tr>';
+      }
+      return requestId;
+    }
+
+    function requestTunjanganMasihAktif_(requestId, periode) {
+      return requestId === tunjanganLoadSeq_ &&
+        String(periode || '') === String(tunjanganPeriodeRequestAktif_ || '') &&
+        String(periode || '') === String(periodeTunjanganAktif() || '');
+    }
+
+    function selesaikanLoadingTunjangan_(requestId, periode) {
+      if (!requestTunjanganMasihAktif_(requestId, periode)) return false;
+      tunjanganLoading_ = false;
+      var page = document.getElementById('halTunjangan');
+      if (page) page.setAttribute('aria-busy', 'false');
+      aturIkonLoadingTunjangan_(false);
+      return true;
+    }
+
+    function tampilkanErrorLoadingTunjangan_(requestId, periode, pesan, kode) {
+      if (!requestTunjanganMasihAktif_(requestId, periode)) return false;
+      selesaikanLoadingTunjangan_(requestId, periode);
+      tunjanganPayloadAktif = null;
+      sembunyikanAksiTunjanganSelamaLoading_();
+      kunciInputTunjanganSelamaLoading_();
+
+      var label = formatLabelPembayaranTunjangan_(periode, periode);
+      setTextTunjangan_('tunjanganStatusWorkflow', 'Gagal memuat data');
+      setTextTunjangan_('tunjanganTotalNominal', '—');
+      setTextTunjangan_('tunjanganJumlahPegawai', '—');
+      setTextTunjangan_('tunjanganLaporanDisetujui', '—');
+      setTextTunjangan_('tunjanganMenungguPersetujuan', '—');
+
+      var info = document.getElementById('ringkasanTunjangan');
+      if (info) {
+        info.innerHTML = '<span class="badge bg-red">Error</span> <b style="margin-left:8px;">' + escapeHTML(label) + '</b><div style="margin-top:6px;">' + escapeHTML(pesan || 'Gagal memuat data.') + ' Data periode sebelumnya tidak ditampilkan.</div>';
+      }
+      var tb = document.getElementById('tbTunjangan');
+      if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center; display:table-cell;">Gagal memuat data periode ini. Silakan pilih periode kembali atau muat ulang halaman.</td></tr>';
+      if (kode) console.warn('[TUNJANGAN_LOADING] ' + kode + ': ' + (pesan || ''));
+      return true;
+    }
+
+    function gantiPeriodeTunjanganUI_() {
+      pengaturanPeriodeTunjanganDirty_ = false;
+      sinkronkanRangeTunjanganDariPeriode(true);
+      muatTunjangan();
+    }
+
     function formatRupiahID(n) {
       return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(n) || 0);
     }
@@ -12440,6 +12572,14 @@
     }
 
     function renderAksiTunjangan(summary) {
+      if (tunjanganLoading_) {
+        sembunyikanAksiTunjanganSelamaLoading_();
+        return;
+      }
+      TUNJANGAN_ACTION_BUTTON_IDS_.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
       var correction = (tunjanganPayloadAktif && tunjanganPayloadAktif.correction) || null;
       var pengaturanTerkunci = !!summary && statusKunciPengaturanPeriodeTunjangan_(summary.status);
       setBtnVisible('btnSimpanCutoffTunjangan', (userIsCarikTunjangan() || userIsAdminUtama()) && !pengaturanTerkunci);
@@ -12633,25 +12773,47 @@
       var tb = document.getElementById('tbTunjangan');
       if (!tb) return;
       if (!userCanAccessTunjangan()) {
-        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;">Anda tidak memiliki akses ke modul ini.</td></tr>';
+        tunjanganPayloadAktif = null;
+        setTextTunjangan_('tunjanganStatusWorkflow', 'Akses ditolak');
+        tb.innerHTML = '<tr><td colspan="7" style="text-align:center; display:table-cell;">Anda tidak memiliki akses ke modul ini.</td></tr>';
+        sembunyikanAksiTunjanganSelamaLoading_();
         return;
       }
+
       var periode = periodeTunjanganAktif();
-      tb.innerHTML = '<tr><td colspan="7" style="text-align:center;">Memuat rekap tunjangan...</td></tr>';
+      var requestId = mulaiLoadingTunjangan_(periode);
+
       google.script.run.withSuccessHandler(function (res) {
-        if (!res || res.sukses === false) {
-          tunjanganPayloadAktif = null;
-          document.getElementById('ringkasanTunjangan').innerHTML = '<span class="badge bg-red">Error</span> ' + escapeHTML((res && res.pesan) || 'Gagal memuat data.');
-          tb.innerHTML = '<tr><td colspan="7" style="text-align:center;">Gagal memuat data.</td></tr>';
-          renderAksiTunjangan(null);
+        // Respons lama boleh selesai di server, tetapi tidak boleh lagi menyentuh UI.
+        if (!requestTunjanganMasihAktif_(requestId, periode)) {
+          console.info('[TUNJANGAN_LOADING] Respons lama diabaikan untuk periode ' + periode + ' (request #' + requestId + ').');
           return;
         }
+
+        if (!res || res.sukses === false) {
+          tampilkanErrorLoadingTunjangan_(requestId, periode, (res && res.pesan) || 'Gagal memuat data.', 'RESPONS_GAGAL');
+          return;
+        }
+
+        var responsePeriode = res && res.summary ? String(res.summary.periode || '').trim() : '';
+        if (responsePeriode && responsePeriode !== String(periode || '')) {
+          tampilkanErrorLoadingTunjangan_(
+            requestId,
+            periode,
+            'Respons server tidak sesuai dengan periode yang sedang dipilih. Memuat ulang periode diperlukan.',
+            'RESPONS_PERIODE_TIDAK_COCOK'
+          );
+          return;
+        }
+
+        if (!selesaikanLoadingTunjangan_(requestId, periode)) return;
         renderTabelTunjangan(res);
       }).withFailureHandler(function (err) {
-        tunjanganPayloadAktif = null;
-        document.getElementById('ringkasanTunjangan').innerHTML = '<span class="badge bg-red">Error</span> ' + escapeHTML((err && err.message) || err || 'Gagal memuat data.');
-        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;">Gagal memuat data.</td></tr>';
-        renderAksiTunjangan(null);
+        if (!requestTunjanganMasihAktif_(requestId, periode)) {
+          console.info('[TUNJANGAN_LOADING] Error request lama diabaikan untuk periode ' + periode + ' (request #' + requestId + ').');
+          return;
+        }
+        tampilkanErrorLoadingTunjangan_(requestId, periode, (err && err.message) || err || 'Gagal memuat data.', 'REQUEST_GAGAL');
       }).ambilRekapTunjanganBulanan(periode, sToken);
     }
 
@@ -12712,10 +12874,35 @@
       }).generateDraftTunjanganBulanan(periode, range.tanggalMulaiPeriode, range.tanggalAkhirPeriode, range.jamCutoff || '18:00', sToken);
     }
 
+    function formatPesanConsistencyGuardTunjangan_(res, fallback) {
+      var g = res && res.consistencyGuard;
+      if (!g || g.valid !== false) return (res && res.pesan) || fallback || 'Proses tidak dapat dilanjutkan.';
+      var lines = ['CONSISTENCY GUARD TUNJANGAN', '', (res && res.pesan) || 'Proses diblokir karena ditemukan ketidaksesuaian.'];
+      var blockers = g.blockers || [];
+      if (blockers.length) {
+        lines.push('');
+        blockers.slice(0, 6).forEach(function (b, i) {
+          lines.push((i + 1) + '. [' + (b.code || 'BLOCK') + '] ' + (b.pesan || 'Ketidaksesuaian ditemukan.'));
+        });
+      }
+      if (g.totalHitungUlang != null && Number(g.totalHitungUlang) !== Number(g.totalSnapshot)) {
+        lines.push('');
+        lines.push('Total batch: ' + formatRupiahID(g.totalSnapshot || 0));
+        lines.push('Total hitung ulang: ' + formatRupiahID(g.totalHitungUlang || 0));
+        lines.push('Selisih: ' + formatRupiahID(g.delta || 0));
+      }
+      if (Number(g.pendingReviewCount || 0) > 0) lines.push('Laporan menunggu review: ' + Number(g.pendingReviewCount || 0));
+      return lines.join('\n');
+    }
+
     function kunciDraftTunjangan() {
       var periode = periodeTunjanganAktif();
       var catatan = prompt('Catatan Carik saat mengunci draft:', '') || '';
       google.script.run.withSuccessHandler(function (res) {
+        if (!res || !res.sukses) {
+          alert(formatPesanConsistencyGuardTunjangan_(res, 'Draft belum dapat dikunci.'));
+          return;
+        }
         alert((res && res.pesan) || 'Perubahan tersimpan.');
         muatTunjangan();
       }).withFailureHandler(function (err) {
@@ -12812,6 +12999,10 @@
       var periode = periodeTunjanganAktif();
       var catatan = prompt('Catatan saat diteruskan ke Bendahara:', '') || '';
       google.script.run.withSuccessHandler(function (res) {
+        if (!res || !res.sukses) {
+          alert(formatPesanConsistencyGuardTunjangan_(res, 'Rekap belum dapat diteruskan ke Bendahara.'));
+          return;
+        }
         alert((res && res.pesan) || 'Status diperbarui.');
         muatTunjangan();
       }).withFailureHandler(function (err) {
@@ -12836,6 +13027,7 @@
         return;
       }
       el.style.display = 'block';
+      el.style.whiteSpace = 'pre-line';
       el.textContent = pesan;
       if (tipe === 'sukses') {
         el.style.background = '#f0fdf4';
@@ -12946,7 +13138,7 @@
       google.script.run.withSuccessHandler(function (res) {
         if (btn) { btn.disabled = false; btn.innerHTML = oldText; }
         if (!res || !res.sukses) {
-          setPesanModalCairTunjangan_((res && res.pesan) || 'Pencairan gagal dikonfirmasi.', 'error');
+          setPesanModalCairTunjangan_(formatPesanConsistencyGuardTunjangan_(res, 'Pencairan gagal dikonfirmasi.'), 'error');
           return;
         }
         tutupModalTandaiCairTunjangan_();
@@ -12975,87 +13167,402 @@
       return 'Poin Periode: ' + poin + ' | Capaian: ' + persen + '% | Nominal: ' + nominal;
     }
 
-    function unduhExcelTunjangan() {
-      var periode = periodeTunjanganAktif();
-      var payload = tunjanganPayloadAktif || {};
-      var rowsData = payload.rows || [];
+    // ============================================================
+    // NATIVE XLSX EXPORT TUNJANGAN v0.1 — v2026.08.28.04
+    // OOXML dibuat langsung di browser tanpa library eksternal dan tanpa
+    // membuat file sementara di Google Drive. File .xlsx berisi angka
+    // rupiah native, formula total, print area, freeze pane, wrap text,
+    // autofilter, dan page setup landscape.
+    // ============================================================
 
-      if (!rowsData.length) {
-        alert('Belum ada data rekap tunjangan untuk diunduh.');
-        return;
+    var xlsxCrcTableTunjangan_ = null;
+
+    function xmlEscapeXlsxTunjangan_(value) {
+      return String(value == null ? '' : value)
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    function utf8BytesXlsxTunjangan_(value) {
+      var s = String(value == null ? '' : value);
+      if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(s);
+      var encoded = unescape(encodeURIComponent(s));
+      var out = new Uint8Array(encoded.length);
+      for (var i = 0; i < encoded.length; i++) out[i] = encoded.charCodeAt(i) & 255;
+      return out;
+    }
+
+    function crc32XlsxTunjangan_(bytes) {
+      if (!xlsxCrcTableTunjangan_) {
+        xlsxCrcTableTunjangan_ = new Uint32Array(256);
+        for (var n = 0; n < 256; n++) {
+          var c = n;
+          for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+          xlsxCrcTableTunjangan_[n] = c >>> 0;
+        }
       }
+      var crc = 0xFFFFFFFF;
+      for (var i = 0; i < bytes.length; i++) crc = xlsxCrcTableTunjangan_[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
 
+    function tulisU16XlsxTunjangan_(arr, value) {
+      arr.push(value & 255, (value >>> 8) & 255);
+    }
+
+    function tulisU32XlsxTunjangan_(arr, value) {
+      var v = value >>> 0;
+      arr.push(v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255);
+    }
+
+    function dosDateTimeXlsxTunjangan_(dateObj) {
+      var d = dateObj instanceof Date && !isNaN(dateObj.getTime()) ? dateObj : new Date();
+      var year = Math.max(1980, d.getFullYear());
+      return {
+        time: ((d.getHours() & 31) << 11) | ((d.getMinutes() & 63) << 5) | ((Math.floor(d.getSeconds() / 2)) & 31),
+        date: (((year - 1980) & 127) << 9) | (((d.getMonth() + 1) & 15) << 5) | (d.getDate() & 31)
+      };
+    }
+
+    function appendBytesXlsxTunjangan_(target, bytes) {
+      for (var i = 0; i < bytes.length; i++) target.push(bytes[i]);
+    }
+
+    function zipStoreXlsxTunjangan_(files) {
+      var local = [];
+      var central = [];
+      var offset = 0;
+      var stamp = dosDateTimeXlsxTunjangan_(new Date());
+
+      files.forEach(function (file) {
+        var nameBytes = utf8BytesXlsxTunjangan_(file.name);
+        var dataBytes = file.data instanceof Uint8Array ? file.data : utf8BytesXlsxTunjangan_(file.data);
+        var crc = crc32XlsxTunjangan_(dataBytes);
+        var localHeader = [];
+        tulisU32XlsxTunjangan_(localHeader, 0x04034b50);
+        tulisU16XlsxTunjangan_(localHeader, 20);
+        tulisU16XlsxTunjangan_(localHeader, 0);
+        tulisU16XlsxTunjangan_(localHeader, 0);
+        tulisU16XlsxTunjangan_(localHeader, stamp.time);
+        tulisU16XlsxTunjangan_(localHeader, stamp.date);
+        tulisU32XlsxTunjangan_(localHeader, crc);
+        tulisU32XlsxTunjangan_(localHeader, dataBytes.length);
+        tulisU32XlsxTunjangan_(localHeader, dataBytes.length);
+        tulisU16XlsxTunjangan_(localHeader, nameBytes.length);
+        tulisU16XlsxTunjangan_(localHeader, 0);
+        appendBytesXlsxTunjangan_(localHeader, nameBytes);
+        appendBytesXlsxTunjangan_(localHeader, dataBytes);
+        appendBytesXlsxTunjangan_(local, localHeader);
+
+        var cd = [];
+        tulisU32XlsxTunjangan_(cd, 0x02014b50);
+        tulisU16XlsxTunjangan_(cd, 20);
+        tulisU16XlsxTunjangan_(cd, 20);
+        tulisU16XlsxTunjangan_(cd, 0);
+        tulisU16XlsxTunjangan_(cd, 0);
+        tulisU16XlsxTunjangan_(cd, stamp.time);
+        tulisU16XlsxTunjangan_(cd, stamp.date);
+        tulisU32XlsxTunjangan_(cd, crc);
+        tulisU32XlsxTunjangan_(cd, dataBytes.length);
+        tulisU32XlsxTunjangan_(cd, dataBytes.length);
+        tulisU16XlsxTunjangan_(cd, nameBytes.length);
+        tulisU16XlsxTunjangan_(cd, 0);
+        tulisU16XlsxTunjangan_(cd, 0);
+        tulisU16XlsxTunjangan_(cd, 0);
+        tulisU16XlsxTunjangan_(cd, 0);
+        tulisU32XlsxTunjangan_(cd, 0);
+        tulisU32XlsxTunjangan_(cd, offset);
+        appendBytesXlsxTunjangan_(cd, nameBytes);
+        appendBytesXlsxTunjangan_(central, cd);
+
+        offset += localHeader.length;
+      });
+
+      var centralOffset = local.length;
+      var end = [];
+      tulisU32XlsxTunjangan_(end, 0x06054b50);
+      tulisU16XlsxTunjangan_(end, 0);
+      tulisU16XlsxTunjangan_(end, 0);
+      tulisU16XlsxTunjangan_(end, files.length);
+      tulisU16XlsxTunjangan_(end, files.length);
+      tulisU32XlsxTunjangan_(end, central.length);
+      tulisU32XlsxTunjangan_(end, centralOffset);
+      tulisU16XlsxTunjangan_(end, 0);
+
+      var out = new Uint8Array(local.length + central.length + end.length);
+      out.set(local, 0);
+      out.set(central, local.length);
+      out.set(end, local.length + central.length);
+      return out;
+    }
+
+    function cellStrXlsxTunjangan_(ref, value, style) {
+      return '<c r="' + ref + '" s="' + (style || 0) + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEscapeXlsxTunjangan_(value) + '</t></is></c>';
+    }
+
+    function cellNumXlsxTunjangan_(ref, value, style) {
+      var n = Number(value);
+      if (!isFinite(n)) n = 0;
+      return '<c r="' + ref + '" s="' + (style || 0) + '"><v>' + n + '</v></c>';
+    }
+
+    function cellFormulaXlsxTunjangan_(ref, formula, cachedValue, style) {
+      var n = Number(cachedValue);
+      if (!isFinite(n)) n = 0;
+      return '<c r="' + ref + '" s="' + (style || 0) + '"><f>' + xmlEscapeXlsxTunjangan_(formula) + '</f><v>' + n + '</v></c>';
+    }
+
+    function rowXlsxTunjangan_(rowNum, cells, height) {
+      var attrs = ' r="' + rowNum + '"';
+      if (height) attrs += ' ht="' + height + '" customHeight="1"';
+      return '<row' + attrs + '>' + cells.join('') + '</row>';
+    }
+
+    function teksCapaianKomponenXlsxTunjangan_(r, tipe) {
+      return teksCapaianKomponenCetakTunjangan_(r || {}, tipe).replace(/\s*\|\s*/g, '\n');
+    }
+
+    function estimasiTinggiBarisTunjanganXlsx_(r) {
+      var panjangJabatan = String(r && r.jabatan || '').length;
+      var prod = teksCapaianKomponenXlsxTunjangan_(r || {}, 'prod');
+      var tu = teksCapaianKomponenXlsxTunjangan_(r || {}, 'tu');
+      var lines = Math.max(2, Math.ceil(panjangJabatan / 30), prod.split('\n').length, tu.split('\n').length, Math.ceil(prod.length / 42), Math.ceil(tu.length / 42));
+      return Math.min(72, Math.max(32, lines * 15));
+    }
+
+    function stylesXmlTunjanganXlsx_() {
+      return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        '<numFmts count="1"><numFmt numFmtId="164" formatCode="[$Rp-421] #,##0"/></numFmts>' +
+        '<fonts count="5">' +
+          '<font><sz val="11"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
+          '<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
+          '<font><b/><sz val="16"/><name val="Calibri"/><family val="2"/></font>' +
+          '<font><b/><sz val="18"/><name val="Calibri"/><family val="2"/></font>' +
+          '<font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font>' +
+        '</fonts>' +
+        '<fills count="4">' +
+          '<fill><patternFill patternType="none"/></fill>' +
+          '<fill><patternFill patternType="gray125"/></fill>' +
+          '<fill><patternFill patternType="solid"><fgColor rgb="FFEAF0F8"/><bgColor indexed="64"/></patternFill></fill>' +
+          '<fill><patternFill patternType="solid"><fgColor rgb="FFE2F0D9"/><bgColor indexed="64"/></patternFill></fill>' +
+        '</fills>' +
+        '<borders count="2">' +
+          '<border><left/><right/><top/><bottom/><diagonal/></border>' +
+          '<border><left style="thin"><color rgb="FFB8C4D4"/></left><right style="thin"><color rgb="FFB8C4D4"/></right><top style="thin"><color rgb="FFB8C4D4"/></top><bottom style="thin"><color rgb="FFB8C4D4"/></bottom><diagonal/></border>' +
+        '</borders>' +
+        '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+        '<cellXfs count="13">' +
+          '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+          '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+          '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+          '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+          '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
+          '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
+          '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
+          '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>' +
+          '<xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>' +
+          '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
+          '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
+          '<xf numFmtId="164" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
+          '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
+        '</cellXfs>' +
+        '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+        '</styleSheet>';
+    }
+
+    function bangunSheetRekapTunjanganXlsx_(payload, periode) {
+      payload = payload || {};
+      var rowsData = Array.isArray(payload.rows) ? payload.rows : [];
       var summary = payload.summary || {};
       var labelPembayaran = formatLabelPembayaranTunjangan_(summary.labelPembayaran, summary.periode || periode);
       var tanggalMulai = summary.tanggalMulaiPeriode || '';
       var tanggalAkhir = summary.tanggalAkhirPeriode || '';
       var rentangLabel = '-';
-      if (tanggalMulai && tanggalAkhir) {
-        rentangLabel = formatTanggalIndonesiaPanjang(tanggalMulai) + ' s.d. ' + formatTanggalIndonesiaPanjang(tanggalAkhir);
-      }
+      if (tanggalMulai && tanggalAkhir) rentangLabel = formatTanggalIndonesiaPanjang(tanggalMulai) + ' s.d. ' + formatTanggalIndonesiaPanjang(tanggalAkhir);
       var cutoffLabel = summary.tanggalCutoff ? formatTanggalJamCutoffAdaptif3B04C1d_(summary.tanggalCutoff) : (formatTanggalIndonesiaShort(tanggalAkhir) + ' ' + (summary.jamCutoff || '18:00'));
 
-      var tableHTML = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><style>table.rekap{table-layout:auto;border-collapse:collapse;} table.rekap th,table.rekap td{white-space:normal;word-wrap:break-word;vertical-align:top;mso-height-source:auto;} table.rekap tr{mso-height-source:auto;height:auto;}</style></head><body>';
-      tableHTML += '<table border="0">';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:16pt; font-weight:bold;">PEMERINTAH KABUPATEN SLEMAN</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:16pt; font-weight:bold;">KAPANEWON NGAGLIK</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:18pt; font-weight:bold;">KALURAHAN MINOMARTANI</td></tr>';
-      tableHTML += '<tr><td colspan="7"></td></tr>';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:14pt; font-weight:bold;">REKAP TUNJANGAN KINERJA PEGAWAI</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:12pt;">Periode Pembayaran: ' + escapeExcelHTML_(labelPembayaran) + '</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:11pt;">Periode Perhitungan: ' + escapeExcelHTML_(rentangLabel) + '</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:11pt;">Cut-off Laporan: ' + escapeExcelHTML_(cutoffLabel) + '</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:10pt;">Jumlah Pegawai: ' + (summary.jumlahPegawai || rowsData.length) + ' | Total Tunjangan: ' + escapeExcelHTML_(formatRupiahID(summary.totalNominal || 0)) + '</td></tr>';
-      if (summary.status === 'Sudah Dicairkan') {
-        tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:10pt;"><b>Tanggal Pencairan:</b> ' + escapeExcelHTML_(summary.dicairkanPada ? String(summary.dicairkanPada).split(' ')[0] : '-') + ' | <b>No. / Referensi Bukti:</b> ' + escapeExcelHTML_(summary.nomorBuktiCair || '-') + '</td></tr>';
-        if (summary.catatanBendahara) tableHTML += '<tr><td colspan="7" style="text-align:center; font-size:9pt;"><b>Catatan Bendahara:</b> ' + escapeExcelHTML_(summary.catatanBendahara) + '</td></tr>';
+      var sheetRows = [];
+      var merges = [];
+      var r = 1;
+      function mergedLine_(text, style, height) {
+        sheetRows.push(rowXlsxTunjangan_(r, [cellStrXlsxTunjangan_('A' + r, text, style)], height));
+        merges.push('A' + r + ':G' + r);
+        r++;
       }
-      tableHTML += '<tr><td colspan="7"></td></tr>';
-      tableHTML += '</table>';
 
-      tableHTML += '<table class="rekap" border="1" style="border-collapse:collapse; font-size:10pt;"><colgroup><col style="width:160px"><col style="width:190px"><col style="width:90px"><col style="width:230px"><col style="width:230px"><col style="width:110px"><col style="width:120px"></colgroup>';
-      tableHTML += '<thead><tr>' +
-        '<th style="background-color:#f1f5f9; text-align:center;">Nama Pegawai</th>' +
-        '<th style="background-color:#f1f5f9; text-align:center;">Jabatan</th>' +
-        '<th style="background-color:#f1f5f9; text-align:center;">Laporan Disetujui</th>' +
-        '<th style="background-color:#f1f5f9; text-align:center;">Capaian Produktivitas</th>' +
-        '<th style="background-color:#f1f5f9; text-align:center;">Capaian Tugas Umum</th>' +
-        '<th style="background-color:#f1f5f9; text-align:center;">Total Tunjangan</th>' +
-        '<th style="background-color:#f1f5f9; text-align:center;">Status Rekap</th>' +
-        '</tr></thead><tbody>';
+      mergedLine_('PEMERINTAH KABUPATEN SLEMAN', 1, 24);
+      mergedLine_('KAPANEWON NGAGLIK', 1, 24);
+      mergedLine_('KALURAHAN MINOMARTANI', 2, 28);
+      mergedLine_('', 0, 8);
+      mergedLine_('REKAP TUNJANGAN KINERJA PEGAWAI', 3, 24);
+      mergedLine_('Periode Pembayaran: ' + labelPembayaran, 4, 20);
+      mergedLine_('Periode Perhitungan: ' + rentangLabel, 4, 20);
+      mergedLine_('Cut-off Laporan: ' + cutoffLabel, 4, 20);
+      mergedLine_('Jumlah Pegawai: ' + (summary.jumlahPegawai || rowsData.length) + ' | Total Tunjangan: ' + formatRupiahID(summary.totalNominal || 0), 4, 20);
 
-      rowsData.forEach(function (r) {
-        tableHTML += '<tr>' +
-          '<td>' + escapeExcelHTML_(r.nama || '-') + '</td>' +
-          '<td style="white-space:normal; word-wrap:break-word; vertical-align:top;">' + escapeExcelHTML_(r.jabatan || '-') + '</td>' +
-          '<td style="text-align:center;">' + escapeExcelHTML_((r.jumlahLaporanDisetujui || 0) + ' Laporan') + '</td>' +
-          '<td>' + escapeExcelHTML_(teksCapaianKomponenCetakTunjangan_(r, 'prod')) + '</td>' +
-          '<td>' + escapeExcelHTML_(teksCapaianKomponenCetakTunjangan_(r, 'tu')) + '</td>' +
-          '<td style="text-align:right; font-weight:bold;">' + escapeExcelHTML_(formatRupiahID(r.rpTotal || 0)) + '</td>' +
-          '<td style="text-align:center;">' + escapeExcelHTML_(labelStatusRekapCetak_(r.status)) + '</td>' +
-          '</tr>';
+      if (summary.status === 'Sudah Dicairkan') {
+        mergedLine_('Tanggal Pencairan: ' + (summary.dicairkanPada ? formatTanggalIndonesiaPanjang(String(summary.dicairkanPada).split(' ')[0]) : '-') + ' | No. / Referensi Bukti: ' + (summary.nomorBuktiCair || '-'), 4, 20);
+        if (summary.catatanBendahara) mergedLine_('Catatan Bendahara: ' + summary.catatanBendahara, 4, 30);
+      }
+
+      mergedLine_('', 0, 8);
+      var headerRow = r;
+      sheetRows.push(rowXlsxTunjangan_(r, [
+        cellStrXlsxTunjangan_('A' + r, 'Nama Pegawai', 5),
+        cellStrXlsxTunjangan_('B' + r, 'Jabatan', 5),
+        cellStrXlsxTunjangan_('C' + r, 'Laporan Disetujui', 5),
+        cellStrXlsxTunjangan_('D' + r, 'Capaian Produktivitas', 5),
+        cellStrXlsxTunjangan_('E' + r, 'Capaian Tugas Umum', 5),
+        cellStrXlsxTunjangan_('F' + r, 'Total Tunjangan', 5),
+        cellStrXlsxTunjangan_('G' + r, 'Status Rekap', 5)
+      ], 34));
+      r++;
+      var firstDataRow = r;
+
+      rowsData.forEach(function (row) {
+        sheetRows.push(rowXlsxTunjangan_(r, [
+          cellStrXlsxTunjangan_('A' + r, row.nama || '-', 6),
+          cellStrXlsxTunjangan_('B' + r, row.jabatan || '-', 6),
+          cellNumXlsxTunjangan_('C' + r, angkaTunjangan_(row.jumlahLaporanDisetujui), 7),
+          cellStrXlsxTunjangan_('D' + r, teksCapaianKomponenXlsxTunjangan_(row, 'prod'), 6),
+          cellStrXlsxTunjangan_('E' + r, teksCapaianKomponenXlsxTunjangan_(row, 'tu'), 6),
+          cellNumXlsxTunjangan_('F' + r, angkaTunjangan_(row.rpTotal), 8),
+          cellStrXlsxTunjangan_('G' + r, labelStatusRekapCetak_(row.status), 7)
+        ], estimasiTinggiBarisTunjanganXlsx_(row)));
+        r++;
       });
+      var lastDataRow = Math.max(firstDataRow, r - 1);
+      var totalRow = r;
+      var totalCached = angkaTunjangan_(summary.totalNominal);
+      if (!totalCached && rowsData.length) totalCached = rowsData.reduce(function (sum, row) { return sum + angkaTunjangan_(row.rpTotal); }, 0);
+      sheetRows.push(rowXlsxTunjangan_(r, [
+        cellStrXlsxTunjangan_('A' + r, 'TOTAL TUNJANGAN', 10),
+        cellFormulaXlsxTunjangan_('F' + r, 'SUM(F' + firstDataRow + ':F' + lastDataRow + ')', totalCached, 11),
+        cellStrXlsxTunjangan_('G' + r, '', 10)
+      ], 24));
+      merges.push('A' + r + ':E' + r);
+      r += 2;
 
-      tableHTML += '</tbody></table>';
+      mergedLine_('Keterangan:', 12, 18);
+      mergedLine_('1. Poin Periode adalah poin dari laporan yang dikirim atau direvisi pegawai sebelum atau tepat pada waktu cut-off dan telah memperoleh persetujuan Admin pada saat rekap tunjangan dibuat.', 9, 32);
+      mergedLine_('2. Capaian adalah persentase yang digunakan untuk menghitung nominal tunjangan pada periode pembayaran ini.', 9, 24);
+      mergedLine_('3. Untuk Lurah, capaian dihitung dari jumlah laporan yang disetujui pada periode berjalan, bukan dari poin evaluasi triwulan.', 9, 24);
+      var lastRow = r - 1;
 
-      tableHTML += '<table border="0">';
-      tableHTML += '<tr><td colspan="7"></td></tr>';
-      tableHTML += '<tr><td colspan="7" style="font-size:9pt;"><b>Keterangan:</b></td></tr>';
-      tableHTML += '<tr><td colspan="7" style="font-size:9pt;">1. Poin Periode adalah poin dari laporan yang dikirim atau direvisi pegawai sebelum atau tepat pada waktu cut-off dan telah memperoleh persetujuan Admin pada saat rekap tunjangan dibuat.</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="font-size:9pt;">2. Capaian adalah persentase yang digunakan untuk menghitung nominal tunjangan pada periode pembayaran ini.</td></tr>';
-      tableHTML += '<tr><td colspan="7" style="font-size:9pt;">3. Untuk Lurah, capaian dihitung dari jumlah laporan yang disetujui pada periode berjalan, bukan dari poin evaluasi triwulan.</td></tr>';
-      tableHTML += '</table>';
-      tableHTML += '</body></html>';
-
-      var blob = new Blob(['\ufeff', tableHTML], { type: 'application/vnd.ms-excel' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'Rekap_Tunjangan_Kinerja_' + labelPembayaran.replace(/\s+/g, '_') + '.xls';
-      a.click();
-      URL.revokeObjectURL(url);
+      var mergeXml = merges.length ? '<mergeCells count="' + merges.length + '">' + merges.map(function (m) { return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '';
+      var filterRef = rowsData.length ? ('A' + headerRow + ':G' + lastDataRow) : ('A' + headerRow + ':G' + headerRow);
+      var pane = '<pane ySplit="' + headerRow + '" topLeftCell="A' + firstDataRow + '" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A' + firstDataRow + '" sqref="A' + firstDataRow + '"/>';
+      var xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
+        '<dimension ref="A1:G' + lastRow + '"/>' +
+        '<sheetViews><sheetView workbookViewId="0" showGridLines="0">' + pane + '</sheetView></sheetViews>' +
+        '<sheetFormatPr defaultRowHeight="15"/>' +
+        '<cols><col min="1" max="1" width="24" customWidth="1"/><col min="2" max="2" width="30" customWidth="1"/><col min="3" max="3" width="16" customWidth="1"/><col min="4" max="5" width="38" customWidth="1"/><col min="6" max="6" width="18" customWidth="1"/><col min="7" max="7" width="22" customWidth="1"/></cols>' +
+        '<sheetData>' + sheetRows.join('') + '</sheetData>' +
+        '<autoFilter ref="' + filterRef + '"/>' + mergeXml +
+        '<printOptions horizontalCentered="1"/>' +
+        '<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>' +
+        '<pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/>' +
+        '<headerFooter><oddFooter>&amp;LPortal Kinerja Minomartani&amp;CRekap Tunjangan&amp;RHalaman &amp;P dari &amp;N</oddFooter></headerFooter>' +
+        '</worksheet>';
+      return { xml: xml, lastRow: lastRow, headerRow: headerRow, firstDataRow: firstDataRow, lastDataRow: lastDataRow, totalRow: totalRow, labelPembayaran: labelPembayaran };
     }
 
+    function buatNativeXlsxTunjangan_(payload, periode) {
+      var sheet = bangunSheetRekapTunjanganXlsx_(payload, periode);
+      var nowIso = new Date().toISOString();
+      var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+        '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+        '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+        '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+        '</Types>';
+      var rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
+        '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
+        '</Relationships>';
+      var workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        '<bookViews><workbookView xWindow="0" yWindow="0" windowWidth="24000" windowHeight="15000"/></bookViews>' +
+        '<sheets><sheet name="Rekap Tunjangan" sheetId="1" r:id="rId1"/></sheets>' +
+        '<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">&apos;Rekap Tunjangan&apos;!$A$1:$G$' + sheet.lastRow + '</definedName></definedNames>' +
+        '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>';
+      var workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+        '</Relationships>';
+      var core = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+        '<dc:creator>Portal Kinerja Minomartani</dc:creator><cp:lastModifiedBy>Portal Kinerja Minomartani</cp:lastModifiedBy>' +
+        '<dc:title>Rekap Tunjangan Kinerja ' + xmlEscapeXlsxTunjangan_(sheet.labelPembayaran) + '</dc:title>' +
+        '<dcterms:created xsi:type="dcterms:W3CDTF">' + nowIso + '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' + nowIso + '</dcterms:modified>' +
+        '</cp:coreProperties>';
+      var app = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
+        '<Application>Portal Kinerja Minomartani</Application><AppVersion>1.0</AppVersion>' +
+        '<TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>Rekap Tunjangan</vt:lpstr></vt:vector></TitlesOfParts>' +
+        '</Properties>';
+
+      return zipStoreXlsxTunjangan_([
+        { name: '[Content_Types].xml', data: contentTypes },
+        { name: '_rels/.rels', data: rootRels },
+        { name: 'docProps/core.xml', data: core },
+        { name: 'docProps/app.xml', data: app },
+        { name: 'xl/workbook.xml', data: workbook },
+        { name: 'xl/_rels/workbook.xml.rels', data: workbookRels },
+        { name: 'xl/styles.xml', data: stylesXmlTunjanganXlsx_() },
+        { name: 'xl/worksheets/sheet1.xml', data: sheet.xml }
+      ]);
+    }
+
+    function namaFileXlsxTunjangan_(labelPembayaran) {
+      var safe = String(labelPembayaran || 'Periode')
+        .replace(/[\\/:*?"<>|]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, '_');
+      return 'Rekap_Tunjangan_Kinerja_' + (safe || 'Periode') + '.xlsx';
+    }
+
+    function unduhExcelTunjangan() {
+      var periode = periodeTunjanganAktif();
+      var payload = tunjanganPayloadAktif || {};
+      var rowsData = payload.rows || [];
+      if (!rowsData.length) {
+        alert('Belum ada data rekap tunjangan untuk diunduh.');
+        return;
+      }
+
+      try {
+        var summary = payload.summary || {};
+        var labelPembayaran = formatLabelPembayaranTunjangan_(summary.labelPembayaran, summary.periode || periode);
+        var bytes = buatNativeXlsxTunjangan_(payload, periode);
+        var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = namaFileXlsxTunjangan_(labelPembayaran);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      } catch (err) {
+        console.error('Native XLSX export gagal', err);
+        alert('Gagal membuat file Excel .xlsx: ' + ((err && err.message) || err));
+      }
+    }
 
     var daftarPegawaiPinState_ = { loaded: false, loading: false };
 

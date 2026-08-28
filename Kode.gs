@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.28.01";
+var APP_VERSION = "2026.08.28.04";
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3132,6 +3132,430 @@ function getBatchAktifTunjangan_(periode) {
   };
 }
 
+
+// ===== CONSISTENCY GUARD TUNJANGAN v0.1 =====
+// Guard ini tidak mengubah data. Ia dijalankan otomatis pada tiga gerbang kritis:
+// 1) Draft -> Dikunci Carik, 2) Disetujui Lurah -> Diteruskan ke Bendahara,
+// 3) Diteruskan ke Bendahara -> Sudah Dicairkan.
+// Pada Kunci/Teruskan guard juga memastikan snapshot batch masih sama dengan
+// hasil hitung ulang dan tidak ada laporan relevan yang masih menunggu review.
+var CONSISTENCY_GUARD_TUNJANGAN_VERSION_ = "CGT-v0.1-2026.08.28.04";
+
+function tambahBlockerConsistencyGuardTunjangan_(out, code, pesan, detail) {
+  var item = { code: String(code || "CONSISTENCY_ERROR"), pesan: String(pesan || "Konsistensi batch tidak valid.") };
+  if (detail !== undefined && detail !== null && detail !== "") item.detail = detail;
+  out.blockers.push(item);
+}
+
+function nilaiAktifEksplisitTunjangan_(value) {
+  return value === true || value === "TRUE" || value === "true" || value === 1 || value === "1";
+}
+
+function metadataRawConsistencyTunjangan_(row) {
+  row = row || [];
+  return {
+    labelPembayaran: String(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.LABEL_PEMBAYARAN] || "").trim(),
+    tanggalMulaiPeriode: formatTanggalISO_(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.TANGGAL_MULAI_PERIODE]),
+    tanggalAkhirPeriode: formatTanggalISO_(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.TANGGAL_AKHIR_PERIODE]),
+    tanggalCutoff: formatTanggalJamClient_(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.TANGGAL_CUTOFF])
+  };
+}
+
+function snapshotRowConsistencyTunjangan_(row) {
+  row = row || [];
+  return {
+    idUser: normalizeId_(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.ID_USER]),
+    nama: String(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.NAMA] || ""),
+    jabatan: String(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.JABATAN] || ""),
+    jumlahLaporanDisetujui: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.JUMLAH_LAPORAN_DISETUJUI]) || 0,
+    poinProd: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.POIN_PROD]) || 0,
+    poinTU: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.POIN_TU]) || 0,
+    persenProd: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERSEN_PROD]) || 0,
+    persenTU: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERSEN_TU]) || 0,
+    maxProd: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.MAX_PROD]) || 0,
+    maxTU: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.MAX_TU]) || 0,
+    rpProd: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_PROD]) || 0,
+    rpTU: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_TU]) || 0,
+    rpTotal: Number(row[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_TOTAL]) || 0
+  };
+}
+
+function fingerprintBatchConsistencyTunjangan_(batch) {
+  if (!batch || !batch.rows || !batch.rows.length) return "";
+  var first = batch.rows[0].values || [];
+  var meta = metadataRawConsistencyTunjangan_(first);
+  var parts = batch.rows.map(function (item) {
+    var r = item.values || [];
+    var s = snapshotRowConsistencyTunjangan_(r);
+    return [
+      s.idUser, s.jumlahLaporanDisetujui, s.poinProd, s.poinTU,
+      s.persenProd, s.persenTU, s.maxProd, s.maxTU,
+      Math.round(s.rpProd), Math.round(s.rpTU), Math.round(s.rpTotal),
+      String(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.STATUS_REKAP] || "").trim()
+    ].join("|");
+  }).sort();
+  var raw = JSON.stringify({
+    versi: CONSISTENCY_GUARD_TUNJANGAN_VERSION_,
+    periode: periodeKeyTunjangan_(first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERIODE], false),
+    batchId: String(first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.BATCH_ID] || "").trim(),
+    meta: meta,
+    rows: parts
+  });
+  return sha256Hex(raw);
+}
+
+function cekLaporanMenungguReviewPeriodeTunjangan_(periode, meta) {
+  var p = normalizePeriode_(periode);
+  var window = buildDateRangeMeta_(p, meta.tanggalMulaiPeriode, meta.tanggalAkhirPeriode, meta.jamCutoff);
+  var data = getSheet_("Rekap_Kinerja").getDataRange().getValues();
+  var cutoffPolicyContext = typeof buatKonteksCutoff3B04C1c_ === "function"
+    ? buatKonteksCutoff3B04C1c_()
+    : null;
+  var out = { count: 0, contoh: [] };
+
+  for (var i = 1; i < data.length; i++) {
+    var tglLap = parseTanggal(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
+    if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
+    if (tglLap < window.start || tglLap >= window.end) continue;
+
+    var kebijakan = evaluasiKebijakanCutoffImbalan3C4_(data[i], cutoffPolicyContext);
+    if (kebijakan && kebijakan.tanpaImbalan) continue;
+
+    var status = String(data[i][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || "").trim();
+    if (!isPendingReviewStatus_(status)) continue;
+    out.count++;
+    if (out.contoh.length < 5) {
+      out.contoh.push({
+        idLaporan: String(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN] || ""),
+        nama: String(data[i][SHEET_COLUMNS.REKAP_KINERJA.NAMA] || ""),
+        status: status
+      });
+    }
+  }
+  return out;
+}
+
+function bandingkanSnapshotDenganHitungUlangTunjangan_(batch, hasilBaru) {
+  var out = { changedCount: 0, changedRows: [], oldTotal: 0, newTotal: 0, delta: 0 };
+  var lamaById = {};
+  var baruById = {};
+
+  (batch.rows || []).forEach(function (item) {
+    var oldRow = snapshotRowConsistencyTunjangan_(item.values || []);
+    if (oldRow.idUser) lamaById[oldRow.idUser] = oldRow;
+    out.oldTotal += Number(oldRow.rpTotal) || 0;
+  });
+
+  (hasilBaru || []).forEach(function (r) {
+    var id = normalizeId_(r.idUser);
+    if (!id) return;
+    baruById[id] = {
+      idUser: id,
+      nama: String(r.nama || ""),
+      jabatan: String(r.jabatan || ""),
+      jumlahLaporanDisetujui: Number(r.jumlahLaporanDisetujui) || 0,
+      poinProd: Number(r.poinProd) || 0,
+      poinTU: Number(r.poinTU) || 0,
+      persenProd: Number(r.persenProd) || 0,
+      persenTU: Number(r.persenTU) || 0,
+      maxProd: Number(r.maxProd) || 0,
+      maxTU: Number(r.maxTU) || 0,
+      rpProd: Number(r.rpProd) || 0,
+      rpTU: Number(r.rpTU) || 0,
+      rpTotal: Number(r.rpTotal) || 0
+    };
+    out.newTotal += Number(r.rpTotal) || 0;
+  });
+
+  var ids = {};
+  Object.keys(lamaById).forEach(function (id) { ids[id] = true; });
+  Object.keys(baruById).forEach(function (id) { ids[id] = true; });
+  var fields = [
+    "jumlahLaporanDisetujui", "poinProd", "poinTU", "persenProd", "persenTU",
+    "maxProd", "maxTU", "rpProd", "rpTU", "rpTotal"
+  ];
+
+  Object.keys(ids).forEach(function (id) {
+    var oldRow = lamaById[id] || null;
+    var newRow = baruById[id] || null;
+    var changed = !oldRow || !newRow;
+    if (!changed) {
+      for (var j = 0; j < fields.length; j++) {
+        var f = fields[j];
+        if (Math.abs((Number(oldRow[f]) || 0) - (Number(newRow[f]) || 0)) > 0.001) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) return;
+    out.changedCount++;
+    if (out.changedRows.length < 8) {
+      out.changedRows.push({
+        idUser: id,
+        nama: (newRow && newRow.nama) || (oldRow && oldRow.nama) || "",
+        oldTotal: oldRow ? Math.round(Number(oldRow.rpTotal) || 0) : null,
+        newTotal: newRow ? Math.round(Number(newRow.rpTotal) || 0) : null,
+        oldPoinProd: oldRow ? Number(oldRow.poinProd) || 0 : null,
+        newPoinProd: newRow ? Number(newRow.poinProd) || 0 : null
+      });
+    }
+  });
+
+  out.oldTotal = Math.round(out.oldTotal);
+  out.newTotal = Math.round(out.newTotal);
+  out.delta = out.newTotal - out.oldTotal;
+  return out;
+}
+
+function jalankanConsistencyGuardTunjangan_(batch, tahap, opsiSimulasi) {
+  // Test hook non-destruktif untuk validasi manual Consistency Guard.
+  // Hanya aktif bila dipanggil fungsi internal dengan token khusus; pemanggilan
+  // produksi tetap menggunakan jalur live yang sama seperti sebelumnya.
+  var simulasiCGT = opsiSimulasi &&
+    opsiSimulasi.modeSimulasi === true &&
+    String(opsiSimulasi.token || "") === "CGT_TEST_V01";
+  var tahapKey = String(tahap || "").toUpperCase();
+  var out = {
+    checked: true,
+    valid: false,
+    versi: CONSISTENCY_GUARD_TUNJANGAN_VERSION_,
+    appVersion: typeof APP_VERSION !== "undefined" ? String(APP_VERSION) : "",
+    tahap: tahapKey,
+    periode: "",
+    batchId: "",
+    status: "",
+    jumlahBaris: 0,
+    jumlahPegawaiUnik: 0,
+    totalSnapshot: 0,
+    totalHitungUlang: null,
+    delta: null,
+    pendingReviewCount: 0,
+    fingerprint: "",
+    blockers: [],
+    warnings: [],
+    pesan: ""
+  };
+
+  if (!batch || !batch.rows || !batch.rows.length) {
+    tambahBlockerConsistencyGuardTunjangan_(out, "BATCH_NOT_FOUND", "Batch aktif tidak ditemukan.");
+    out.pesan = "Consistency Guard memblokir proses karena batch aktif tidak ditemukan.";
+    return out;
+  }
+
+  out.jumlahBaris = batch.rows.length;
+  var first = batch.rows[0].values || [];
+  out.periode = periodeKeyTunjangan_(first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERIODE], false);
+  out.batchId = String(first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.BATCH_ID] || "").trim();
+  out.status = String(first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.STATUS_REKAP] || "").trim();
+
+  var expectedStatuses = [];
+  var requiredDateCols = [SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIBUAT_PADA];
+  var cekMenungguReview = false;
+  var cekHitungUlang = false;
+  if (tahapKey === "KUNCI_DRAFT") {
+    expectedStatuses = [TUNJANGAN_STATUS.DRAFT, TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH];
+    cekMenungguReview = true;
+    cekHitungUlang = true;
+  } else if (tahapKey === "TERUSKAN_BENDAHARA") {
+    expectedStatuses = [TUNJANGAN_STATUS.DISETUJUI_LURAH];
+    requiredDateCols = requiredDateCols.concat([
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKUNCI_PADA,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIAJUKAN_PADA,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DISETUJUI_PADA
+    ]);
+    cekMenungguReview = true;
+    cekHitungUlang = true;
+  } else if (tahapKey === "TANDAI_CAIR") {
+    expectedStatuses = [TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA];
+    requiredDateCols = requiredDateCols.concat([
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKUNCI_PADA,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIAJUKAN_PADA,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DISETUJUI_PADA,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DITERUSKAN_BENDAHARA_PADA
+    ]);
+  } else {
+    tambahBlockerConsistencyGuardTunjangan_(out, "TAHAP_GUARD_TIDAK_DIKENAL", "Tahap Consistency Guard tidak dikenali: " + tahapKey);
+  }
+
+  if (expectedStatuses.length && expectedStatuses.indexOf(out.status) === -1) {
+    tambahBlockerConsistencyGuardTunjangan_(out, "STATUS_TAHAP_TIDAK_SESUAI", "Status batch tidak sesuai untuk tahap " + tahapKey + ". Status aktif: " + (out.status || "-"));
+  }
+  if (!out.periode) tambahBlockerConsistencyGuardTunjangan_(out, "PERIODE_BATCH_KOSONG", "Periode batch tidak boleh kosong.");
+  if (!out.batchId) tambahBlockerConsistencyGuardTunjangan_(out, "BATCH_ID_KOSONG", "Batch ID tidak boleh kosong.");
+
+  var firstMeta = metadataRawConsistencyTunjangan_(first);
+  if (!firstMeta.labelPembayaran || !firstMeta.tanggalMulaiPeriode || !firstMeta.tanggalAkhirPeriode || !firstMeta.tanggalCutoff) {
+    tambahBlockerConsistencyGuardTunjangan_(out, "METADATA_PERIODE_TIDAK_LENGKAP", "Metadata periode batch belum lengkap.", firstMeta);
+  }
+
+  var batchIds = {};
+  var statuses = {};
+  var periodes = {};
+  var idsPegawai = {};
+  var duplicateIds = [];
+  var invalidActive = [];
+  var invalidIdentity = [];
+  var invalidMeta = [];
+  var invalidNumeric = [];
+  var invalidArithmetic = [];
+  var missingWorkflow = [];
+
+  batch.rows.forEach(function (item) {
+    var r = item.values || [];
+    var nama = String(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.NAMA] || "").trim();
+    var id = normalizeId_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.ID_USER]);
+    var periodRow = periodeKeyTunjangan_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERIODE], false);
+    var batchIdRow = String(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.BATCH_ID] || "").trim();
+    var statusRow = String(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.STATUS_REKAP] || "").trim();
+    if (periodRow) periodes[periodRow] = true;
+    if (batchIdRow) batchIds[batchIdRow] = true;
+    if (statusRow) statuses[statusRow] = true;
+
+    if (!nilaiAktifEksplisitTunjangan_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.IS_ACTIVE])) invalidActive.push(nama || id || ("row " + item.rowIndex));
+    if (!id || !nama || !String(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.JABATAN] || "").trim()) invalidIdentity.push(nama || id || ("row " + item.rowIndex));
+    if (id) {
+      if (idsPegawai[id]) duplicateIds.push(nama || id);
+      idsPegawai[id] = true;
+    }
+
+    var metaRow = metadataRawConsistencyTunjangan_(r);
+    if (metaRow.labelPembayaran !== firstMeta.labelPembayaran ||
+        metaRow.tanggalMulaiPeriode !== firstMeta.tanggalMulaiPeriode ||
+        metaRow.tanggalAkhirPeriode !== firstMeta.tanggalAkhirPeriode ||
+        metaRow.tanggalCutoff !== firstMeta.tanggalCutoff) {
+      invalidMeta.push(nama || id || ("row " + item.rowIndex));
+    }
+
+    var numericCols = [
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.JUMLAH_LAPORAN_DISETUJUI,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.POIN_PROD,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.POIN_TU,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERSEN_PROD,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.PERSEN_TU,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.MAX_PROD,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.MAX_TU,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_PROD,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_TU,
+      SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.RP_TOTAL
+    ];
+    var angkaMentahValid = true;
+    for (var ncol = 0; ncol < numericCols.length; ncol++) {
+      var rawNum = r[numericCols[ncol]];
+      if (rawNum === "" || rawNum === null || rawNum === undefined || !isFinite(Number(rawNum))) {
+        angkaMentahValid = false;
+        break;
+      }
+    }
+    if (!angkaMentahValid) invalidNumeric.push(nama || id || ("row " + item.rowIndex));
+
+    var s = snapshotRowConsistencyTunjangan_(r);
+    out.totalSnapshot += Number(s.rpTotal) || 0;
+    var aritmetikaValid = s.jumlahLaporanDisetujui >= 0 && s.poinProd >= 0 && s.poinTU >= 0 &&
+      isFinite(s.rpProd) && isFinite(s.rpTU) && isFinite(s.rpTotal) &&
+      isFinite(s.maxProd) && isFinite(s.maxTU) &&
+      s.rpProd >= 0 && s.rpTU >= 0 && s.rpTotal >= 0 && s.maxProd >= 0 && s.maxTU >= 0 &&
+      s.persenProd >= 0 && s.persenProd <= 100 && s.persenTU >= 0 && s.persenTU <= 100 &&
+      Math.abs(s.rpTotal - (s.rpProd + s.rpTU)) <= 0.01 &&
+      Math.abs(s.rpProd - ((s.persenProd / 100) * s.maxProd)) <= 0.01 &&
+      Math.abs(s.rpTU - ((s.persenTU / 100) * s.maxTU)) <= 0.01;
+    if (!aritmetikaValid) invalidArithmetic.push(nama || id || ("row " + item.rowIndex));
+
+    for (var d = 0; d < requiredDateCols.length; d++) {
+      var col = requiredDateCols[d];
+      if (!r[col]) {
+        missingWorkflow.push((nama || id || ("row " + item.rowIndex)) + "@" + col);
+        break;
+      }
+    }
+  });
+
+  out.totalSnapshot = Math.round(out.totalSnapshot);
+  out.jumlahPegawaiUnik = Object.keys(idsPegawai).length;
+  if (Object.keys(batchIds).length !== 1 || (out.batchId && !batchIds[out.batchId])) {
+    tambahBlockerConsistencyGuardTunjangan_(out, "BATCH_ID_TIDAK_KONSISTEN", "Batch aktif harus memiliki tepat satu Batch ID yang sama pada seluruh baris.", Object.keys(batchIds));
+  }
+  if (Object.keys(statuses).length !== 1) tambahBlockerConsistencyGuardTunjangan_(out, "STATUS_BATCH_TIDAK_KONSISTEN", "Status rekap tidak sama pada seluruh baris batch.", Object.keys(statuses));
+  if (Object.keys(periodes).length !== 1 || (out.periode && !periodes[out.periode])) tambahBlockerConsistencyGuardTunjangan_(out, "PERIODE_BATCH_TIDAK_KONSISTEN", "Periode tidak sama pada seluruh baris batch.", Object.keys(periodes));
+  if (invalidActive.length) tambahBlockerConsistencyGuardTunjangan_(out, "BARIS_BATCH_TIDAK_AKTIF", "Semua baris pada batch aktif harus memiliki is_active=TRUE.", invalidActive.slice(0, 5));
+  if (invalidIdentity.length) tambahBlockerConsistencyGuardTunjangan_(out, "IDENTITAS_PEGAWAI_TIDAK_LENGKAP", "Terdapat baris dengan ID, nama, atau jabatan pegawai yang tidak lengkap.", invalidIdentity.slice(0, 5));
+  if (duplicateIds.length) tambahBlockerConsistencyGuardTunjangan_(out, "PEGAWAI_DUPLIKAT", "Satu pegawai tidak boleh muncul lebih dari sekali dalam batch aktif.", duplicateIds.slice(0, 5));
+  if (invalidMeta.length) tambahBlockerConsistencyGuardTunjangan_(out, "METADATA_BARIS_TIDAK_KONSISTEN", "Metadata periode/cut-off tidak sama pada seluruh baris batch.", invalidMeta.slice(0, 5));
+  if (invalidNumeric.length) tambahBlockerConsistencyGuardTunjangan_(out, "NILAI_NUMERIK_TIDAK_VALID", "Terdapat kolom angka wajib yang kosong atau bukan angka pada batch aktif.", invalidNumeric.slice(0, 5));
+  if (invalidArithmetic.length) tambahBlockerConsistencyGuardTunjangan_(out, "ARITMETIKA_TUNJANGAN_TIDAK_KONSISTEN", "Terdapat baris tunjangan dengan persentase/nominal yang tidak konsisten.", invalidArithmetic.slice(0, 5));
+  if (missingWorkflow.length) tambahBlockerConsistencyGuardTunjangan_(out, "JEJAK_WORKFLOW_TIDAK_LENGKAP", "Timestamp workflow yang diwajibkan belum lengkap pada seluruh baris batch.", missingWorkflow.slice(0, 5));
+
+  out.fingerprint = fingerprintBatchConsistencyTunjangan_(batch);
+
+  var metaDeepValid = firstMeta.labelPembayaran && firstMeta.tanggalMulaiPeriode && firstMeta.tanggalAkhirPeriode && firstMeta.tanggalCutoff && out.periode;
+  if (metaDeepValid && cekMenungguReview) {
+    try {
+      var metaHitung = metadataBatchTunjanganDariRow_(first);
+      var pending;
+      if (simulasiCGT) {
+        if (!opsiSimulasi.pendingOverride || typeof opsiSimulasi.pendingOverride !== "object") {
+          throw new Error("SIMULASI_CGT_PENDING_OVERRIDE_WAJIB");
+        }
+        pending = {
+          count: Number(opsiSimulasi.pendingOverride.count) || 0,
+          contoh: Array.isArray(opsiSimulasi.pendingOverride.contoh)
+            ? opsiSimulasi.pendingOverride.contoh.slice(0, 5)
+            : []
+        };
+      } else {
+        pending = cekLaporanMenungguReviewPeriodeTunjangan_(out.periode, metaHitung);
+      }
+      out.pendingReviewCount = Number(pending.count) || 0;
+      if (out.pendingReviewCount > 0) {
+        tambahBlockerConsistencyGuardTunjangan_(out, "LAPORAN_MASIH_MENUNGGU_REVIEW", "Masih ada " + out.pendingReviewCount + " laporan pada periode ini yang belum selesai direview Admin.", pending.contoh || []);
+      }
+    } catch (pendingErr) {
+      tambahBlockerConsistencyGuardTunjangan_(out, "CEK_REVIEW_GAGAL", "Consistency Guard gagal memeriksa laporan yang menunggu review: " + (pendingErr && pendingErr.message ? pendingErr.message : pendingErr));
+    }
+  }
+
+  if (metaDeepValid && cekHitungUlang) {
+    try {
+      var metaRecalc = metadataBatchTunjanganDariRow_(first);
+      var hasilBaru;
+      if (simulasiCGT) {
+        if (!Array.isArray(opsiSimulasi.hitungUlangOverride)) {
+          throw new Error("SIMULASI_CGT_HITUNG_ULANG_OVERRIDE_WAJIB");
+        }
+        hasilBaru = JSON.parse(JSON.stringify(opsiSimulasi.hitungUlangOverride));
+      } else {
+        hasilBaru = hitungRekapTunjanganPeriode_(out.periode, metaRecalc.tanggalMulaiPeriode, metaRecalc.tanggalAkhirPeriode, metaRecalc.jamCutoff);
+      }
+      var diff = bandingkanSnapshotDenganHitungUlangTunjangan_(batch, hasilBaru);
+      out.totalHitungUlang = diff.newTotal;
+      out.delta = diff.delta;
+      if (diff.changedCount > 0 || diff.delta !== 0) {
+        var instruksi = tahapKey === "TERUSKAN_BENDAHARA"
+          ? "Buat Koreksi Batch terlebih dahulu sebelum meneruskan ke Bendahara."
+          : "Generate Draft ulang terlebih dahulu sebelum mengunci.";
+        tambahBlockerConsistencyGuardTunjangan_(out, "SNAPSHOT_BERUBAH", "Hasil hitung ulang tidak sama dengan snapshot batch. " + instruksi, {
+          totalSnapshot: diff.oldTotal,
+          totalHitungUlang: diff.newTotal,
+          selisih: diff.delta,
+          jumlahPegawaiBerubah: diff.changedCount,
+          contohPerubahan: diff.changedRows
+        });
+      }
+    } catch (recalcErr) {
+      tambahBlockerConsistencyGuardTunjangan_(out, "HITUNG_ULANG_GAGAL", "Consistency Guard gagal menghitung ulang rekap tunjangan: " + (recalcErr && recalcErr.message ? recalcErr.message : recalcErr));
+    }
+  }
+
+  out.valid = out.blockers.length === 0;
+  if (out.valid) {
+    out.pesan = "Consistency Guard Tunjangan lulus untuk tahap " + tahapKey + ".";
+  } else {
+    out.pesan = "Consistency Guard Tunjangan memblokir proses (" + out.blockers.length + " masalah). " + out.blockers[0].pesan;
+  }
+  return out;
+}
+// ===== END CONSISTENCY GUARD TUNJANGAN v0.1 =====
+
 function pengaturanPeriodeTunjanganTerkunci_(status) {
   var s = String(status || "").trim();
   return [
@@ -3729,12 +4153,18 @@ function updateBatchTunjanganStatus_(periode, token, config) {
     return { sukses: false, pesan: "Status saat ini tidak sesuai. Status aktif: " + statusLama };
   }
 
-  if (config.toStatus === TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA && statusLama === TUNJANGAN_STATUS.DISETUJUI_LURAH) {
-    var previewKoreksi = bangunPreviewKoreksiBatchTunjangan_(batch);
-    if (previewKoreksi && previewKoreksi.eligible) {
+  var consistencyGuard = null;
+  var consistencyTahap = "";
+  if (config.toStatus === TUNJANGAN_STATUS.DIKUNCI_CARIK) consistencyTahap = "KUNCI_DRAFT";
+  if (config.toStatus === TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA) consistencyTahap = "TERUSKAN_BENDAHARA";
+  if (consistencyTahap) {
+    consistencyGuard = jalankanConsistencyGuardTunjangan_(batch, consistencyTahap);
+    if (!consistencyGuard.valid) {
       return {
         sukses: false,
-        pesan: "Rekap belum dapat diteruskan ke Bendahara karena hasil hitung ulang berbeda sebesar " + previewKoreksi.delta + ". Buat Batch Koreksi terlebih dahulu."
+        code: "CONSISTENCY_GUARD_BLOCK",
+        pesan: consistencyGuard.pesan,
+        consistencyGuard: consistencyGuard
       };
     }
   }
@@ -3750,8 +4180,23 @@ function updateBatchTunjanganStatus_(periode, token, config) {
 
   var first = batch.rows[0] && batch.rows[0].values ? batch.rows[0].values : [];
   var auditDetail = config.auditDetail != null ? String(config.auditDetail) : (config.catatan || "");
+  if (consistencyGuard && consistencyGuard.valid) {
+    auditDetail += (auditDetail ? " | " : "") + "ConsistencyGuard=" + consistencyGuard.versi + "; PASS; fingerprint=" + consistencyGuard.fingerprint;
+  }
   logAuditTunjangan_(idUser, config.auditAction || "UPDATE_STATUS_TUNJANGAN", p, first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.ID_USER] || "", first[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.NAMA] || "", statusLama, config.toStatus, auditDetail);
-  return { sukses: true, pesan: config.successMessage || "Perubahan status berhasil disimpan." };
+  var response = { sukses: true, pesan: config.successMessage || "Perubahan status berhasil disimpan." };
+  if (consistencyGuard && consistencyGuard.valid) {
+    response.consistencyGuard = {
+      valid: true,
+      versi: consistencyGuard.versi,
+      tahap: consistencyGuard.tahap,
+      fingerprint: consistencyGuard.fingerprint,
+      totalSnapshot: consistencyGuard.totalSnapshot,
+      totalHitungUlang: consistencyGuard.totalHitungUlang,
+      pendingReviewCount: consistencyGuard.pendingReviewCount
+    };
+  }
+  return response;
 }
 
 function kunciDraftTunjanganBulanan(periode, catatan, token) {
@@ -3978,6 +4423,16 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
     var guard = validasiBatchSebelumPencairanTunjangan_(batch, input);
     if (!guard.valid) return { sukses: false, code: guard.code || "VALIDASI_GAGAL", pesan: guard.pesan || "Validasi pencairan gagal." };
 
+    var consistencyGuard = jalankanConsistencyGuardTunjangan_(batch, "TANDAI_CAIR");
+    if (!consistencyGuard.valid) {
+      return {
+        sukses: false,
+        code: "CONSISTENCY_GUARD_BLOCK",
+        pesan: consistencyGuard.pesan,
+        consistencyGuard: consistencyGuard
+      };
+    }
+
     var auditDetail = JSON.stringify({
       versiHardening: "TANDAI_CAIR_V0.1",
       appVersion: typeof APP_VERSION !== "undefined" ? String(APP_VERSION) : "",
@@ -3989,7 +4444,13 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
       catatan: input.catatan,
       konfirmasiTotal: true,
       konfirmasiFinal: true,
-      immutableSetelahCair: true
+      immutableSetelahCair: true,
+      consistencyGuard: {
+        versi: consistencyGuard.versi,
+        tahap: consistencyGuard.tahap,
+        fingerprint: consistencyGuard.fingerprint,
+        totalSnapshot: consistencyGuard.totalSnapshot
+      }
     });
 
     var hasil = updateBatchTunjanganStatus_(p, token, {
@@ -4014,6 +4475,13 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
       hasil.tanggalPencairan = Utilities.formatDate(guard.tanggalPencairan, "GMT+7", "yyyy-MM-dd");
       hasil.nomorBukti = input.nomorBukti;
       hasil.immutable = true;
+      hasil.consistencyGuard = {
+        valid: true,
+        versi: consistencyGuard.versi,
+        tahap: consistencyGuard.tahap,
+        fingerprint: consistencyGuard.fingerprint,
+        totalSnapshot: consistencyGuard.totalSnapshot
+      };
     }
     return hasil;
   } catch (e) {
