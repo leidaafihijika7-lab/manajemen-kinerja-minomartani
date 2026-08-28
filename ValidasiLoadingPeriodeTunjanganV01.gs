@@ -1,11 +1,11 @@
 // ============================================================
 // VALIDASI LOADING PERIODE TUNJANGAN v0.1
-// Target aplikasi: APP_VERSION 2026.08.28.04
+// Target aplikasi: APP_VERSION 2026.08.28.05
 // READ-ONLY: hanya membaca source Index.html melalui HtmlService.
 // Tidak membaca/menulis Spreadsheet/Properties dan tidak memanggil endpoint bisnis.
 // ============================================================
 
-var VALIDASI_LOADING_PERIODE_TUNJANGAN_V01_VERSION_ = "LOAD-TUNJ-v0.1-2026.08.28.04";
+var VALIDASI_LOADING_PERIODE_TUNJANGAN_V01_VERSION_ = "LOAD-TUNJ-v0.1-2026.08.28.05";
 
 function validasiLoadingPeriodeTunjanganV01() {
   var source = "";
