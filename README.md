@@ -1,3 +1,8 @@
+> **Kandidat CGT & Dashboard v0.2-RC2 (`2026.09.28.01`)**: baca
+> [catatan rilis](README_CGT_DASHBOARD_V02.md) dan [deployment](DEPLOYMENT.md).
+> Belum dideploy; temuan alias tarif lama harus diperiksa sebelum produksi.
+> Dokumen di bawah berasal dari baseline dan bukan panduan rilis terbaru.
+
 # Portal Kinerja Minomartani
 
 Sistem manajemen kinerja terpadu untuk Kalurahan Minomartani (Kabupaten Sleman), dibangun sebagai **Google Apps Script Web App** dengan database **Google Spreadsheet**.

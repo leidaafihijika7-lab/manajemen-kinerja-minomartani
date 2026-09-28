@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.08.28.07
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.28.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1l-2026.08.28.07";
+  "3B1B1l-2026.09.28.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.08.28.07",
+  baselineAppVersion: "2026.09.28.01",
 
   policy: {
     privateByDefault: true,
@@ -22,7 +22,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
     functionRemoved: false,
     featureFlagsChanged: false,
     governanceBaselineExclusion:
-      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 173 binding aktif."
+      "Kategori governanceToolsExcludedFromBaseline adalah tooling pra-deploy dan tidak mengubah snapshot 174 binding aktif."
   },
 
   categories: {
@@ -39,6 +39,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilDaftarPegawaiReviewAdmin",
       "ambilDaftarPegawaiUntukAdmin",
       "ambilDashboardAdminKinerja",
+      "ambilDiagnostikCakupanV02",
       "ambilDataRekapPaged",
       "ambilDetailPegawaiAdminKinerja",
       "ambilDetailRiwayatLaporan",
@@ -159,6 +160,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "laporanGuardKontrakPraDeploy3B1B3",
       "evaluasiPerubahanTerencanaPraDeploy3B1B3",
       "validasiConsistencyGuardTunjanganV01",
+      "validasiCakupanTunjanganV02",
       "validasiPreflightSeptember2026V01",
       "validasiLoadingPeriodeTunjanganV01",
       "validasiNativeXlsxTunjanganV01",

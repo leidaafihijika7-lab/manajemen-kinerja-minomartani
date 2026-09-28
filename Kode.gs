@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.08.28.07";
+var APP_VERSION = "2026.09.28.01"; // CGT & Dashboard v0.2-RC2
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3139,7 +3139,7 @@ function getBatchAktifTunjangan_(periode) {
 // 3) Diteruskan ke Bendahara -> Sudah Dicairkan.
 // Pada Kunci/Teruskan guard juga memastikan snapshot batch masih sama dengan
 // hasil hitung ulang dan tidak ada laporan relevan yang masih menunggu review.
-var CONSISTENCY_GUARD_TUNJANGAN_VERSION_ = "CGT-v0.1-2026.08.28.07";
+var CONSISTENCY_GUARD_TUNJANGAN_VERSION_ = "CGT-v0.2-RC2-2026.09.28.01";
 
 function tambahBlockerConsistencyGuardTunjangan_(out, code, pesan, detail) {
   var item = { code: String(code || "CONSISTENCY_ERROR"), pesan: String(pesan || "Konsistensi batch tidak valid.") };
@@ -3205,34 +3205,9 @@ function fingerprintBatchConsistencyTunjangan_(batch) {
 }
 
 function cekLaporanMenungguReviewPeriodeTunjangan_(periode, meta) {
-  var p = normalizePeriode_(periode);
-  var window = buildDateRangeMeta_(p, meta.tanggalMulaiPeriode, meta.tanggalAkhirPeriode, meta.jamCutoff);
-  var data = getSheet_("Rekap_Kinerja").getDataRange().getValues();
-  var cutoffPolicyContext = typeof buatKonteksCutoff3B04C1c_ === "function"
-    ? buatKonteksCutoff3B04C1c_()
-    : null;
-  var out = { count: 0, contoh: [] };
-
-  for (var i = 1; i < data.length; i++) {
-    var tglLap = parseTanggal(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
-    if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
-    if (tglLap < window.start || tglLap >= window.end) continue;
-
-    var kebijakan = evaluasiKebijakanCutoffImbalan3C4_(data[i], cutoffPolicyContext);
-    if (kebijakan && kebijakan.tanpaImbalan) continue;
-
-    var status = String(data[i][SHEET_COLUMNS.REKAP_KINERJA.STATUS_REVIEW] || "").trim();
-    if (!isPendingReviewStatus_(status)) continue;
-    out.count++;
-    if (out.contoh.length < 5) {
-      out.contoh.push({
-        idLaporan: String(data[i][SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN] || ""),
-        nama: String(data[i][SHEET_COLUMNS.REKAP_KINERJA.NAMA] || ""),
-        status: status
-      });
-    }
-  }
-  return out;
+  var result = evaluasiPendingLiveCgtV02_(periode, meta);
+  return { checked: result.checked, count: result.count, contoh: result.contoh,
+    ignoredPhlCount: result.ignoredPhlCount, ignoredLateCount: result.ignoredLateCount };
 }
 
 function bandingkanSnapshotDenganHitungUlangTunjangan_(batch, hasilBaru) {
@@ -3331,6 +3306,9 @@ function jalankanConsistencyGuardTunjangan_(batch, tahap, opsiSimulasi) {
     totalHitungUlang: null,
     delta: null,
     pendingReviewCount: 0,
+    pendingReviewChecked: false,
+    ignoredPhlCount: null,
+    ignoredLateCount: null,
     fingerprint: "",
     blockers: [],
     warnings: [],
@@ -3506,10 +3484,17 @@ function jalankanConsistencyGuardTunjangan_(batch, tahap, opsiSimulasi) {
         pending = cekLaporanMenungguReviewPeriodeTunjangan_(out.periode, metaHitung);
       }
       out.pendingReviewCount = Number(pending.count) || 0;
+      out.pendingReviewChecked = true;
+      out.ignoredPhlCount = Number(pending.ignoredPhlCount) || 0;
+      out.ignoredLateCount = Number(pending.ignoredLateCount) || 0;
+      if (out.ignoredPhlCount > 0) out.warnings.push({ code: 'PHL_REVIEW_TERPISAH',
+        pesan: out.ignoredPhlCount + ' laporan PHL masih menunggu review administrasi; tidak menjadi penghambat tunjangan.' });
       if (out.pendingReviewCount > 0) {
         tambahBlockerConsistencyGuardTunjangan_(out, "LAPORAN_MASIH_MENUNGGU_REVIEW", "Masih ada " + out.pendingReviewCount + " laporan pada periode ini yang belum selesai direview Admin.", pending.contoh || []);
       }
     } catch (pendingErr) {
+      out.pendingReviewCount = null;
+      out.pendingReviewChecked = false;
       tambahBlockerConsistencyGuardTunjangan_(out, "CEK_REVIEW_GAGAL", "Consistency Guard gagal memeriksa laporan yang menunggu review: " + (pendingErr && pendingErr.message ? pendingErr.message : pendingErr));
     }
   }
@@ -3598,8 +3583,7 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
     var jabatan = (pegawaiData[i][SHEET_COLUMNS.DATA_PEGAWAI.JABATAN] || "").toString();
     var akses = (pegawaiData[i][SHEET_COLUMNS.DATA_PEGAWAI.AKSES] || "").toString();
     var jLow = normalizeJabatan_(jabatan);
-    if (!idUser || !nama || !jabatan) continue;
-    if (jLow.indexOf("phl") !== -1 || jLow.indexOf("lepas") !== -1) continue;
+    if (kelasPegawaiTunjanganCgtV02_(idUser, nama, jabatan) !== 'TUNJANGAN') continue;
 
     map[idUser] = {
       periode: p,
@@ -3648,8 +3632,7 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
       var namaRow = (data[r][SHEET_COLUMNS.REKAP_KINERJA.NAMA] || "").toString();
       var jabatanRow = (data[r][SHEET_COLUMNS.REKAP_KINERJA.JABATAN] || "").toString();
       var jLowRow = normalizeJabatan_(jabatanRow);
-      if (!namaRow || !jabatanRow) continue;
-      if (jLowRow.indexOf("phl") !== -1 || jLowRow.indexOf("lepas") !== -1) continue;
+      if (kelasPegawaiTunjanganCgtV02_(idUserRow, namaRow, jabatanRow) !== 'TUNJANGAN') continue;
       map[idUserRow] = {
         periode: p,
         labelPembayaran: window.labelPembayaran,
@@ -10602,7 +10585,7 @@ function adminDashboardSafeKeyV2A2_(value) {
 }
 
 function adminDashboardProjectionBaseKeyV2A2_(generation) {
-  return 'ADM2A2_PROJ_' + adminDashboardSafeKeyV2A2_(generation);
+  return 'ADM2A2_CGTV02_PROJ_' + adminDashboardSafeKeyV2A2_(generation);
 }
 
 function bacaProjectionAdminDashboardCacheV2A2_(generation) {
@@ -10698,11 +10681,11 @@ function buatResolverPeriodeResmiAdminV2A2_() {
 }
 
 function adminDashboardBaseCacheKeyV2A2_(periode, generation) {
-  return 'ADM2A2_BASE_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(generation);
+  return 'ADM2A2_CGTV02_BASE_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(generation);
 }
 
 function adminDashboardDetailCacheKeyV2A2_(periode, idPegawai, generation) {
-  return 'ADM2A2_DETAIL_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(idPegawai) + '_' + adminDashboardSafeKeyV2A2_(generation);
+  return 'ADM2A2_CGTV02_DETAIL_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(idPegawai) + '_' + adminDashboardSafeKeyV2A2_(generation);
 }
 
 function bacaJsonCacheAdminV2A2_(key) {
@@ -10764,7 +10747,7 @@ function buatRowsPegawaiAdminV2A2_() {
     rowsById[idPeg] = {
       idUser: idPeg, username: username, nama: nama, jabatan: jabatan,
       kelompok: identifikasiKelompok_(jabatan), jumlahLaporan: 0,
-      jumlahDisetujui: 0, jumlahMenunggu: 0, totalPoin: 0,
+      jumlahDisetujui: 0, jumlahMenunggu: 0, jumlahDitolak: 0, jumlahStatusLain: 0, totalPoin: 0,
       poinProd: 0, poinTU: 0, estimasiTunjangan: 0,
       predikat: '-', warnaPredikat: 'bg-gray'
     };
@@ -10797,6 +10780,10 @@ function bangunBaseDashboardAdminV2A2_(meta) {
         } else if (kategori.indexOf(KATEGORI_LAP.TU) !== -1) row.poinTU += poin;
       } else if (isPendingReviewStatus_(status)) {
         row.jumlahMenunggu++;
+      } else if (status === REVIEW_STATUS.DITOLAK) {
+        row.jumlahDitolak++;
+      } else {
+        row.jumlahStatusLain++;
       }
     }
     if (triwulanPeriodeKeyV36_(periodeLaporanResmi) === meta.triwulanKey && isStatusApproved_(status)) row.totalPoin += poin;
@@ -10819,7 +10806,14 @@ function bangunBaseDashboardAdminV2A2_(meta) {
     return row;
   });
 
-  return { rows: rows, builtAt: Date.now(), periode: meta.periode };
+  var phlSummary;
+  try {
+    phlSummary = ringkasanPhlDashboardCgtV02_(data, getPegawaiDataCached_(), resolvePeriode, meta.periode);
+    delete phlSummary.items; // Detail hanya dikirim lewat endpoint berpaginasi.
+  } catch (phlError) {
+    phlSummary = { checked: false, menungguReview: null, pesan: 'Ringkasan PHL belum berhasil diperiksa.' };
+  }
+  return { rows: rows, phlSummary: phlSummary, builtAt: Date.now(), periode: meta.periode };
 }
 
 function getBaseDashboardAdminV2A2_(meta) {
@@ -10857,12 +10851,16 @@ function getBaseDashboardAdminV2A2_(meta) {
 function ringkasanDashboardAdminDariRowsV2A2_(rows) {
   var summary = {
     pegawaiAktif: rows.length, laporanMasuk: 0, menungguReview: 0,
+    laporanDisetujui: 0, laporanDitolak: 0, laporanStatusLain: 0,
     estimasiTunjangan: 0, belumUnggah: 0, topPerformer: '-', bottomPerformer: '-',
     distribusiPredikat: { sangatBaik: 0, baik: 0, cukup: 0, perluPembinaan: 0 }
   };
   rows.forEach(function (r) {
     summary.laporanMasuk += Number(r.jumlahLaporan || 0);
     summary.menungguReview += Number(r.jumlahMenunggu || 0);
+    summary.laporanDisetujui += Number(r.jumlahDisetujui || 0);
+    summary.laporanDitolak += Number(r.jumlahDitolak || 0);
+    summary.laporanStatusLain += Number(r.jumlahStatusLain || 0);
     summary.estimasiTunjangan += Number(r.estimasiTunjangan || 0);
     if (Number(r.jumlahLaporan || 0) === 0) summary.belumUnggah++;
     if (r.predikat === 'Sangat Baik') summary.distribusiPredikat.sangatBaik++;
@@ -10916,6 +10914,8 @@ function ambilDashboardAdminKinerja(periode, kelompok, keyword, token) {
     return {
       sukses: true,
       summary: ringkasanDashboardAdminDariRowsV2A2_(rows),
+      phlSummary: base.phlSummary || { checked: false, menungguReview: null },
+      cakupan: { mengecualikanLurah: true, mengecualikanPHL: true, mengikutiFilterPegawai: true },
       rows: rows,
       periode: meta.periode,
       periodeAktifResmi: meta.periodeAktifResmi,
@@ -15079,13 +15079,8 @@ ambilDashboardAdminKinerja = function (periode, kelompok, keyword, token) {
 
     var hasil = ambilDashboardAdminKinerja__SEBELUM_LURAH_CARIK_2026051211(periode, kelompok, keyword, token);
 
-    if (hasil && hasil.sukses && hasil.summary && Number(hasil.summary.pegawaiAktif || 0) > 0) {
-      return hasil;
-    }
-
-    var fallback = bangunDashboardAdminKinerjaFallback_(periode, kelompok, keyword);
-    if (fallback && fallback.sukses) return fallback;
-
+    // CGT v0.2: 0 pegawai adalah hasil filter yang sah, bukan alasan mengganti periode.
+    // Kegagalan baca/periode juga tidak boleh disamarkan dengan fallback kalender.
     return hasil || { sukses: false, pesan: 'Dashboard Admin Kinerja gagal dimuat.', summary: {}, rows: [] };
   } catch (e) {
     return handleError('ambilDashboardAdminKinerja_LurahCarikPatch', e, { sukses: false, pesan: '', summary: {}, rows: [] });

@@ -5438,6 +5438,36 @@
       }
     }
 
+    /* CGT v0.2: styles scoped to new diagnostics and dashboard count notes. */
+    .cgt-stat-note { display:block; color:var(--text-muted); font-size:12px; line-height:1.55; margin-top:9px; }
+    .cgt-panel { border:1px solid var(--border); border-radius:18px; background:var(--surface); padding:18px; margin:16px 0; min-width:0; }
+    .cgt-panel h3, .cgt-panel h4 { margin:0 0 10px; line-height:1.45; }
+    .cgt-panel p { margin:8px 0; }
+    .cgt-panel-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .cgt-panel-toolbar strong { font-size:24px; margin-left:10px; }
+    .cgt-button { border:1px solid var(--border); border-radius:10px; padding:10px 14px; min-height:42px; background:var(--surface-variant); color:var(--text-main); cursor:pointer; font:inherit; font-size:13px; font-weight:700; }
+    .cgt-button:disabled { opacity:0.55; cursor:not-allowed; }
+    .cgt-button:focus-visible { outline:3px solid var(--primary); outline-offset:2px; }
+    .cgt-note { color:var(--text-muted); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+    .cgt-error { color:var(--danger); font-size:13px; line-height:1.6; }
+    .cgt-results { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); min-width:0; overflow-wrap:anywhere; }
+    .cgt-results[hidden] { display:none; }
+    .cgt-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:10px 0; }
+    .cgt-metric { background:var(--surface-variant); border:1px solid var(--border); border-radius:10px; padding:12px; }
+    .cgt-metric span { display:block; font-size:12px; line-height:1.5; color:var(--text-muted); }
+    .cgt-metric strong { display:block; font-size:25px; margin-top:6px; }
+    .cgt-filter { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:12px 0; font-size:13px; }
+    .cgt-filter select { padding:9px; border:1px solid var(--border); border-radius:8px; max-width:100%; }
+    .cgt-report-list { display:grid; gap:8px; margin:12px 0; }
+    .cgt-report { display:flex; flex-direction:column; gap:5px; border:1px solid var(--border); padding:12px; border-radius:10px; min-width:0; }
+    .cgt-report code { font-size:11px; line-height:1.5; white-space:normal; overflow-wrap:anywhere; user-select:text; }
+    .cgt-status { font-size:12px; color:var(--primary); font-weight:700; }
+    .cgt-pager { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    #halAdminKinerja .stats-container { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
+    #halAdminKinerja .stat-card { min-width:0 !important; overflow-wrap:anywhere; }
+    @media(max-width:1100px) { #halAdminKinerja .stats-container { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:560px) { #halAdminKinerja .stats-container { grid-template-columns:1fr; } .cgt-panel { padding:14px; } }
+
   </style>
 
   <style id="ui-tunjangan-v1-style">
@@ -7593,6 +7623,13 @@
               </div>
             </div>
 
+            <section class="cgt-panel" aria-labelledby="cgtTunjTitle">
+              <h3 id="cgtTunjTitle">Pemeriksaan Laporan Penghambat</h3>
+              <p class="cgt-note">Baca-saja. Menggunakan periode dan cut-off batch tersimpan, bukan form yang belum disimpan. Tidak mengganti pemeriksaan nominal atau persetujuan.</p>
+              <button type="button" class="cgt-button" onclick="muatDiagnostikCgtV02_('tunjangan','TUNJANGAN',0,'SEMUA')">Lihat hasil pemeriksaan</button>
+              <div id="cgtTunjanganResults" class="cgt-results" aria-live="polite" hidden></div>
+            </section>
+
             <div class="tunjangan-rekap-card">
               <div class="tunjangan-rekap-head">
                 <h3>Rekap Pegawai</h3>
@@ -7870,22 +7907,39 @@
 
           <div class="stats-container">
             <div class="stat-card">
-              <div class="stat-title">Pegawai Aktif</div>
-              <div class="stat-value" id="admStatPegawaiAktif">0</div>
+              <div class="stat-title">Pegawai dalam Cakupan Dashboard</div>
+              <div class="stat-value" id="admStatPegawaiAktif">&mdash;</div>
+              <small class="cgt-stat-note">Selain Lurah dan PHL. Mengikuti filter golongan/nama.</small>
             </div>
             <div class="stat-card">
-              <div class="stat-title">Laporan Masuk Periode</div>
-              <div class="stat-value" id="admStatLaporanMasuk">0</div>
+              <div class="stat-title">Laporan Masuk dalam Cakupan</div>
+              <div class="stat-value" id="admStatLaporanMasuk">&mdash;</div>
+              <small class="cgt-stat-note" id="admRincianStatusV02">Menunggu data.</small>
             </div>
             <div class="stat-card">
-              <div class="stat-title">Menunggu Review</div>
-              <div class="stat-value" id="admStatMenunggu" style="color:var(--warning);">0</div>
+              <div class="stat-title">Menunggu Review dalam Cakupan</div>
+              <div class="stat-value" id="admStatMenunggu" style="color:var(--warning);">&mdash;</div>
+              <small class="cgt-stat-note">Tidak termasuk PHL. Bukan jumlah pengajuan tunjangan.</small>
             </div>
             <div class="stat-card" style="min-width:300px;">
-              <div class="stat-title">Estimasi Capaian Tunjangan Periode</div>
-              <div class="stat-value" id="admStatTunjangan" style="font-size:20px;">Rp 0</div>
+              <div class="stat-title">Estimasi Tunjangan dalam Cakupan</div>
+              <div class="stat-value" id="admStatTunjangan" style="font-size:20px;">&mdash;</div>
+              <small class="cgt-stat-note">Estimasi dashboard, bukan nominal batch tersimpan atau bukti pencairan.</small>
             </div>
           </div>
+
+          <div id="admInfoPeriodeCutoff" class="cgt-panel cgt-note" aria-live="polite">Menunggu data periode.</div>
+          <section class="cgt-panel" aria-labelledby="cgtDashTitle">
+            <h3 id="cgtDashTitle">Review PHL &amp; Pemeriksaan Tunjangan</h3>
+            <div class="cgt-panel-toolbar">
+              <div>PHL menunggu review <strong id="admStatMenungguPHLV02">&mdash;</strong></div>
+              <button type="button" id="btnCgtDaftarPhl" class="cgt-button" disabled onclick="muatDiagnostikCgtV02_('dashboard','PHL',0,'SEMUA')">Lihat daftar PHL</button>
+              <button type="button" class="cgt-button" onclick="muatDiagnostikCgtV02_('dashboard','TUNJANGAN',0,'SEMUA')">Periksa laporan penghambat tunjangan</button>
+            </div>
+            <p id="admPhlNoteV02" class="cgt-note">Menunggu ringkasan periode pelaporan resmi.</p>
+            <p class="cgt-note">Pemeriksaan tunjangan memakai rentang batch tersimpan, termasuk Lurah dan tidak termasuk PHL. Angka 0 pada dashboard tidak berarti seluruh antrean administrasi sudah selesai.</p>
+            <div id="cgtDashboardResults" class="cgt-results" aria-live="polite" hidden></div>
+          </section>
 
           <div class="stats-container">
             <div class="stat-card">
@@ -7917,7 +7971,6 @@
                 <option value="Kaur">Kaur</option>
                 <option value="Dukuh">Dukuh</option>
                 <option value="Staf Pamong Kalurahan">Staf Pamong Kalurahan</option>
-                <option value="Staf PHL">Staf PHL</option>
               </select>
               <input type="text" id="admCariNama" class="input-cari" placeholder="🔍 Cari nama pegawai...">
               <button id="btnMuatDashboardAdminKinerja" class="btn-unduh" type="button" onclick="muatDashboardAdminKinerja(true)">
@@ -12176,6 +12229,7 @@
     }
 
     function mulaiLoadingTunjangan_(periode) {
+      resetCgtDiagnosticsV02_('tunjangan');
       var requestId = ++tunjanganLoadSeq_;
       tunjanganLoading_ = true;
       tunjanganPeriodeRequestAktif_ = String(periode || '');
@@ -12713,6 +12767,7 @@
     }
 
     function renderTabelTunjangan(payload) {
+      resetCgtDiagnosticsV02_('tunjangan');
       var tb = document.getElementById('tbTunjangan');
       var info = document.getElementById('ringkasanTunjangan');
       if (!tb || !info) return;
@@ -12745,7 +12800,7 @@
       } else if (correction && correction.checked && correction.code && correction.code !== 'NO_DIFFERENCE') {
         extra += '<div style="margin-top:8px; padding:9px 11px; border:1px solid #ef4444; background:#fef2f2; border-radius:9px; color:#991b1b;"><b>Validasi koreksi belum aman.</b> ' + escapeHTML(correction.pesan || 'Preview koreksi belum dapat diverifikasi.') + ' Rekap tidak dapat diteruskan sebelum validasi berhasil.</div>';
       }
-      var labelPembayaran = summary.labelPembayaran || (summary.periode || periodeTunjanganAktif());
+      var labelPembayaran = formatLabelPembayaranTunjangan_(summary.labelPembayaran, summary.periode || periodeTunjanganAktif());
       var rentang = '';
       if (summary.tanggalMulaiPeriode && summary.tanggalAkhirPeriode) {
         var cutoffLabel = summary.tanggalCutoff ? formatTanggalJamCutoffAdaptif3B04C1d_(summary.tanggalCutoff) : (formatTanggalIndonesiaShort(summary.tanggalAkhirPeriode) + ' ' + (summary.jamCutoff || '18:00'));
@@ -12894,7 +12949,10 @@
         lines.push('Total hitung ulang: ' + formatRupiahID(g.totalHitungUlang || 0));
         lines.push('Selisih: ' + formatRupiahID(g.delta || 0));
       }
-      if (Number(g.pendingReviewCount || 0) > 0) lines.push('Laporan menunggu review: ' + Number(g.pendingReviewCount || 0));
+      if (g.pendingReviewCount === null) lines.push('Pemeriksaan laporan belum berhasil; bukan berarti 0 penghambat.');
+      else if (Number(g.pendingReviewCount || 0) > 0) lines.push('Laporan penghambat tunjangan: ' + Number(g.pendingReviewCount || 0));
+      if (Number(g.ignoredPhlCount || 0) > 0) lines.push('Review PHL terpisah (tidak menghambat): ' + Number(g.ignoredPhlCount));
+      lines.push('Gunakan Lihat hasil pemeriksaan untuk menelusuri daftar laporan.');
       return lines.join('\n');
     }
 
@@ -15982,26 +16040,183 @@ function updateAdminLatePeriodFilter3B04B1_(
         '<span class="badge ' + badgeClass + '">' + escapeHTML(statusLabel) + '</span> ' +
         '<b>' + escapeHTML(meta.labelPeriode || meta.labelPembayaran || meta.periode) + '</b>. ' +
         escapeHTML(meta.pesan || 'Mengikuti periode pelaporan resmi Admin Kinerja.') +
+        '<br>Rentang pelaporan resmi: ' + escapeHTML(meta.tanggalMulaiPeriodeJam || meta.tanggalMulaiPeriode || '-') +
+        ' s.d. ' + escapeHTML(meta.tanggalTutup || 'belum ditutup resmi') + ' WIB. Tidak selalu sama dengan rentang tunjangan.' +
         (meta.periodeAktifResmi && meta.periodeAktifResmi !== meta.periode
           ? '<br><span style="color:var(--text-muted);">Periode aktif resmi saat ini: ' + escapeHTML(meta.labelPeriodeAktifResmi || meta.periodeAktifResmi) + '.</span>'
           : '');
     }
 
+    // CGT v0.2: read-only diagnostics. Names/IDs from the server are rendered with textContent.
+    var cgtUiV02_ = {
+      dashboard: { request: 0, result: null, mode: '', offset: 0 },
+      tunjangan: { request: 0, result: null, mode: '', offset: 0 }
+    };
+
+    function elemenCgtV02_(tag, cls, text) {
+      var el = document.createElement(tag);
+      if (cls) el.className = cls;
+      if (text != null) el.textContent = String(text);
+      return el;
+    }
+
+    function resetCgtDiagnosticsV02_(view) {
+      var state = cgtUiV02_[view];
+      if (!state) return;
+      state.request++;
+      state.result = null;
+      var box = document.getElementById(view === 'dashboard' ? 'cgtDashboardResults' : 'cgtTunjanganResults');
+      if (box) { box.textContent = ''; box.hidden = true; }
+    }
+
+    function renderPhlRingkasanCgtV02_(data) {
+      var value = document.getElementById('admStatMenungguPHLV02');
+      var note = document.getElementById('admPhlNoteV02');
+      var btn = document.getElementById('btnCgtDaftarPhl');
+      var valid = !!(data && data.checked === true && data.menungguReview != null && isFinite(Number(data.menungguReview)));
+      if (value) value.textContent = valid ? String(data.menungguReview) : '\u2014';
+      if (note) note.textContent = valid
+        ? 'Antrean PHL periode pelaporan resmi ' + String(data.periode || '') + '. Terpisah dari filter golongan/nama di tabel utama.'
+        : 'Ringkasan PHL belum berhasil dimuat; tanda garis bukan berarti 0 laporan.';
+      if (btn) btn.disabled = !valid;
+    }
+
+    function muatDiagnostikCgtV02_(view, mode, offset, kelompok) {
+      var state = cgtUiV02_[view];
+      if (!state) return;
+      var box = document.getElementById(view === 'dashboard' ? 'cgtDashboardResults' : 'cgtTunjanganResults');
+      if (!box) return;
+      var periode = view === 'dashboard' ? admPeriodeAktif() : periodeTunjanganAktif();
+      if (view === 'tunjangan' && typeof tunjanganLoading_ !== 'undefined' && tunjanganLoading_) return;
+      var token = sToken;
+      var req = ++state.request;
+      var previous = state.result;
+      var pageOffset = Number(offset || 0);
+      var params = { mode: mode, offset: pageOffset, limit: 10, kelompok: kelompok || 'SEMUA' };
+      if (pageOffset > 0 && previous && previous.mode === mode) {
+        params.expectedFingerprint = previous.halaman && previous.halaman.fingerprint;
+        params.expectedBatchId = previous.batch && previous.batch.batchId;
+      }
+      state.mode = mode; state.offset = pageOffset; state.result = null;
+      box.hidden = false; box.textContent = 'Memeriksa sumber data. Belum ada kesimpulan...';
+      function current() {
+        return state.request === req && token === sToken && periode ===
+          (view === 'dashboard' ? admPeriodeAktif() : periodeTunjanganAktif());
+      }
+      function gagal(message) {
+        if (!current()) return;
+        state.result = null;
+        box.textContent = '';
+        box.appendChild(elemenCgtV02_('p', 'cgt-error', message || 'Pemeriksaan belum berhasil.'));
+        var retry = elemenCgtV02_('button', 'cgt-button', 'Ulangi pemeriksaan dari awal');
+        retry.type = 'button';
+        retry.addEventListener('click', function () { muatDiagnostikCgtV02_(view, mode, 0, params.kelompok); });
+        box.appendChild(retry);
+      }
+      google.script.run.withSuccessHandler(function (res) {
+        if (!current()) return;
+        if (!res || res.sukses !== true || res.checked !== true) {
+          gagal((res && res.pesan) || 'Pemeriksaan belum berhasil. Jangan menganggapnya sebagai 0 penghambat.');
+          return;
+        }
+        if (res.periode !== periode || res.mode !== mode) { gagal('Respons periode tidak sesuai. Muat ulang pemeriksaan.'); return; }
+        state.result = res;
+        renderDiagnostikCgtV02_(view, res);
+      }).withFailureHandler(function () {
+        gagal('Pemeriksaan belum berhasil karena koneksi atau layanan. Tidak ada keputusan review yang diubah.');
+      }).ambilDiagnostikCakupanV02(periode, params, token);
+    }
+
+    function renderDiagnostikCgtV02_(view, res) {
+      var box = document.getElementById(view === 'dashboard' ? 'cgtDashboardResults' : 'cgtTunjanganResults');
+      if (!box) return;
+      box.hidden = false; box.textContent = '';
+      var s = res.ringkasan || {}, page = res.halaman || {}, batch = res.batch || {};
+      var meta = batch.meta || res.periodeMeta || {};
+      box.appendChild(elemenCgtV02_('h4', '', res.mode === 'PHL' ? 'Daftar PHL menunggu review' : 'Hasil pemeriksaan laporan tunjangan'));
+      var metrics = elemenCgtV02_('div', 'cgt-metrics');
+      function metric(label, value) {
+        var item = elemenCgtV02_('div', 'cgt-metric');
+        item.appendChild(elemenCgtV02_('span', '', label));
+        item.appendChild(elemenCgtV02_('strong', '', value == null ? '\u2014' : value));
+        metrics.appendChild(item);
+      }
+      if (res.mode === 'PHL') {
+        metric('PHL menunggu review', s.menungguReviewPHL);
+        metric('Seluruh laporan PHL periode ini', s.totalLaporanPHL);
+      } else {
+        metric('Laporan penghambat tunjangan', s.penghambatTunjangan);
+        metric('PHL: review terpisah', s.menungguReviewPHL);
+        metric('Tanpa imbalan karena cut-off', s.tanpaImbalanCutoff);
+      }
+      box.appendChild(metrics);
+      if (res.mode === 'TUNJANGAN') {
+        box.appendChild(elemenCgtV02_('p', 'cgt-note', 'Batch ' + (batch.batchId || '-') + ' | ' + (batch.status || '-') +
+          ' | ' + batch.jumlahPegawai + ' baris pegawai (termasuk Lurah; tidak termasuk PHL). Nominal tersimpan: ' + formatRupiahID(batch.totalSnapshot) + '.'));
+        box.appendChild(elemenCgtV02_('p', 'cgt-note', 'Rentang tunjangan: ' + (meta.tanggalMulaiPeriode || '-') +
+          ' 00:00:00 s.d. ' + (meta.tanggalCutoff || '-') + ' WIB. Pemeriksaan memakai batch tersimpan, bukan perubahan form yang belum disimpan.'));
+      } else {
+        box.appendChild(elemenCgtV02_('p', 'cgt-note', 'Periode pelaporan resmi: ' + (meta.tanggalMulaiPeriodeJam || meta.tanggalMulaiPeriode || '-') +
+          ' s.d. ' + (meta.tanggalTutup || 'belum ditutup resmi') + ' WIB. Cakupan ini dapat berbeda dari rentang tunjangan.'));
+      }
+      box.appendChild(elemenCgtV02_('p', 'cgt-note', res.pesan || ''));
+      box.appendChild(elemenCgtV02_('p', 'cgt-note', 'Diperiksa: ' + (res.diperiksaPada || '-') + ' WIB. Pemeriksaan ini tidak menyetujui atau mencairkan tunjangan.'));
+      if (res.mode === 'TUNJANGAN') {
+        var filterWrap = elemenCgtV02_('label', 'cgt-filter', 'Tampilkan: ');
+        var select = document.createElement('select');
+        [['SEMUA', 'Semua hasil'], ['PENGHAMBAT', 'Penghambat tunjangan'], ['PHL', 'PHL'], ['LEWAT_CUTOFF', 'Tanpa imbalan cut-off']].forEach(function (opt) {
+          var option = elemenCgtV02_('option', '', opt[1]); option.value = opt[0]; select.appendChild(option);
+        });
+        select.value = page.kelompok || 'SEMUA';
+        select.addEventListener('change', function () { muatDiagnostikCgtV02_(view, res.mode, 0, select.value); });
+        filterWrap.appendChild(select); box.appendChild(filterWrap);
+      }
+      var list = elemenCgtV02_('div', 'cgt-report-list');
+      var labels = { PENGHAMBAT: 'Menghambat tunjangan', PHL: 'Review PHL terpisah', LEWAT_CUTOFF: 'Tanpa imbalan cut-off' };
+      (page.items || []).forEach(function (item) {
+        var row = elemenCgtV02_('article', 'cgt-report');
+        row.appendChild(elemenCgtV02_('strong', '', item.nama || '-'));
+        row.appendChild(elemenCgtV02_('span', 'cgt-note', (item.jabatan || '-') + ' | ' + (item.waktuLapor || '-') + ' WIB'));
+        row.appendChild(elemenCgtV02_('span', 'cgt-status', labels[item.kelompokPemeriksaan] || 'Perlu diperiksa'));
+        row.appendChild(elemenCgtV02_('span', 'cgt-note', (item.kategori || '-') + ' | Status: ' + (item.status || '-')));
+        row.appendChild(elemenCgtV02_('code', '', 'ID laporan: ' + (item.idLaporan || '-') + ' | Baris sumber: ' + item.nomorBaris));
+        list.appendChild(row);
+      });
+      if (!(page.items || []).length) list.appendChild(elemenCgtV02_('p', 'cgt-note', 'Tidak ada laporan pada halaman/filter hasil ini.'));
+      box.appendChild(list);
+      var nav = elemenCgtV02_('div', 'cgt-pager');
+      function button(label, off, disabled) {
+        var el = elemenCgtV02_('button', 'cgt-button', label); el.type = 'button'; el.disabled = !!disabled;
+        el.addEventListener('click', function () { muatDiagnostikCgtV02_(view, res.mode, off, page.kelompok); });
+        nav.appendChild(el);
+      }
+      button('Sebelumnya', Math.max(0, Number(page.offset) - Number(page.limit)), !page.offset);
+      var end = Math.min(Number(page.offset) + (page.items || []).length, Number(page.total));
+      nav.appendChild(elemenCgtV02_('span', 'cgt-note', (page.total ? Number(page.offset) + 1 : 0) + '-' + end + ' dari ' + Number(page.total || 0) + ' laporan'));
+      button('Berikutnya', Number(page.offset) + Number(page.limit), !page.hasMore);
+      button('Muat ulang', 0, false);
+      box.appendChild(nav);
+    }
+
+
     function renderRingkasanAdminKinerja(summary) {
       summary = summary || {};
-      var setText = function (id, val) {
-        var el = document.getElementById(id);
-        if (el) el.innerHTML = val;
-      };
-
-      setText('admStatPegawaiAktif', String(summary.pegawaiAktif || 0));
-      setText('admStatLaporanMasuk', String(summary.laporanMasuk || 0));
-      setText('admStatMenunggu', String(summary.menungguReview || 0));
-      setText('admStatTunjangan', formatRupiahID(summary.estimasiTunjangan || 0));
-      setText('admTopPerformer', escapeHTML(summary.topPerformer || '-'));
-      setText('admBottomPerformer', escapeHTML(summary.bottomPerformer || '-'));
-      setText('admBelumUnggah', String(summary.belumUnggah || 0));
-      setText('admDistribusiPredikat', formatDistribusiPredikat(summary.distribusiPredikat));
+      var valid = summary.pegawaiAktif != null && isFinite(Number(summary.pegawaiAktif));
+      function value(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
+      function number(key) { return valid && summary[key] != null && isFinite(Number(summary[key])) ? String(summary[key]) : '\u2014'; }
+      value('admStatPegawaiAktif', number('pegawaiAktif'));
+      value('admStatLaporanMasuk', number('laporanMasuk'));
+      value('admStatMenunggu', number('menungguReview'));
+      value('admStatTunjangan', valid ? formatRupiahID(summary.estimasiTunjangan || 0) : '\u2014');
+      value('admTopPerformer', valid ? (summary.topPerformer || '-') : '\u2014');
+      value('admBottomPerformer', valid ? (summary.bottomPerformer || '-') : '\u2014');
+      value('admBelumUnggah', number('belumUnggah'));
+      value('admRincianStatusV02', valid
+        ? 'Disetujui: ' + number('laporanDisetujui') + ' | Ditolak: ' + number('laporanDitolak') +
+          ' | Menunggu: ' + number('menungguReview') + (Number(summary.laporanStatusLain) > 0 ? ' | Status lain: ' + number('laporanStatusLain') : '')
+        : 'Data belum berhasil dimuat; tanda garis bukan angka 0.');
+      var dist = document.getElementById('admDistribusiPredikat');
+      if (dist) dist.innerHTML = valid ? formatDistribusiPredikat(summary.distribusiPredikat) : '&mdash;';
     }
 
     function renderTabelAdminKinerja(rows) {
@@ -16130,6 +16345,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       adminKinerjaPayloadAktif = res;
       terapkanPeriodeAktifResmiAdmin_(res.periodeAktifResmi || (res.periodeMeta && res.periodeMeta.periodeAktifResmi) || '');
       renderRingkasanAdminKinerja(res.summary || {});
+      renderPhlRingkasanCgtV02_(res.phlSummary || null);
       renderInfoPeriodeAdminKinerja(res.periodeMeta || {});
       renderTabelAdminKinerja(res.rows || []);
     }
@@ -16181,6 +16397,9 @@ function updateAdminLatePeriodFilter3B04B1_(
       var requestId = ++adminDashboardRequestId_;
       adminDashboardStateV2A2_.loading = true;
       adminDashboardStateV2A2_.activeKey = key;
+      resetCgtDiagnosticsV02_('dashboard');
+      renderPhlRingkasanCgtV02_(null);
+      renderRingkasanAdminKinerja({});
       setAdminDashboardLoadingV2A2_(true);
       var periode = admPeriodeAktif();
       var kelompok = (document.getElementById('admFilterKelompok') || {}).value || 'Semua';
