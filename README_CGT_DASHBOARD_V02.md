@@ -1,3 +1,5 @@
+> **Catatan RC3:** perbaikan CGT/dashboard RC2 di bawah tetap dipertahankan. Lookup tarif Kaur/staf diperbaiki pada 2026.09.28.02; nominal snapshot tidak lagi harus sama dengan RC2. Rujuk `README_TARIF_V03.md` dan laporan RC3, bukan batasan tarif historis RC2.
+
 # CGT & Dashboard v0.2-RC2
 
 Versi kode: `2026.09.28.01`. Status: kandidat terintegrasi, belum dideploy.

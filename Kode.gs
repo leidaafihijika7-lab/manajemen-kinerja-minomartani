@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.09.28.01"; // CGT & Dashboard v0.2-RC2
+var APP_VERSION = "2026.09.28.02"; // CGT & Dashboard v0.2-RC2
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -213,7 +213,7 @@ function cariJabatanRole_(jabatan) {
 // 3. Run initialization functions from Script Editor:
 //    → Run: maintenanceInitializeAppConstants3B0()
 //    → This saves all constants to PropertiesService
-//    → Run: refreshMasterTunjanganCache()  [NEW v2026.04.20.9]
+//    → Run: maintenanceRefreshMasterTunjanganV03()  [tarif v0.3]
 //    → This pre-caches Master Tunjangan data for performance
 // 4. Hard refresh web app in browser:
 //    → Windows: Ctrl+F5 or Ctrl+Shift+Delete
@@ -228,7 +228,7 @@ function cariJabatanRole_(jabatan) {
 //
 // If issues occur:
 // 1. Check browser console (F12) for errors
-// 2. Run: refreshMasterTunjanganCache() to rebuild cache
+// 2. Run: maintenanceRefreshMasterTunjanganV03() to rebuild cache
 // 3. Check Script Editor logs for detailed error messages
 
 // ===== SHARED APP CONSTANTS (v2026.04.20.9) =====
@@ -311,6 +311,8 @@ var PORTAL_MAINTENANCE_3B0_CONFIG = {
 
 var PORTAL_MAINTENANCE_PUBLIC_REGISTRY_3B0 = {
   maintenanceStatusPortal3B0: "OWNER_ONLY_READ",
+  auditTarifTunjanganV03: "OWNER_ONLY_READ",
+  maintenanceRefreshMasterTunjanganV03: "OWNER_ONLY_CACHE_PROPERTIES",
   maintenanceDiagnostikCacheDisposisi3B02: "OWNER_ONLY_READ",
   maintenanceDiagnostikCacheDisposisi3B01: "OWNER_ONLY_READ_COMPATIBILITY",
   maintenanceInitializeAppConstants3B0: "OWNER_ONLY_WRITE_PROPERTIES",
@@ -2090,7 +2092,7 @@ function parseTanggal(val) {
 //     C = Plafon Tunjangan Produktifitas  (40% dari Tunjangan Kinerja)
 //     D = Plafon Tunjangan Tugas Umum     (20% dari Tunjangan Kinerja)
 //   Baris 3+ : Data per jabatan
-// Lookup: nama Jabatan (exact, lalu fuzzy) → fallback {0,0,0}
+// Lookup: jabatan tepat/alias eksplisit; tarif tidak ditemukan menghentikan kalkulasi.
 
 function normalizeHeader_(s) {
   return (s || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
@@ -2112,196 +2114,53 @@ function toNumber_(v) {
   return isNaN(n) ? 0 : n;
 }
 
-function registerJabatanAlias_(mapObj, key, valueObj) {
-  if (!key) return;
-  mapObj[key] = valueObj;
-}
-
-// ===== MASTER TUNJANGAN CACHING (Performance Optimization v2026.04.20.9) =====
-// Problem: getMasterTunjanganMap_() was called 100+ times when processing 100+ employees
-// Solution: Cache the result using CacheService (fast) + PropertiesService (persistent)
-// Impact: 100x processing speed improvement from O(n²) to O(n)
-
-var MASTER_TUNJANGAN_CACHE_KEY = "MasterTunjanganMap";
+// Pencocokan dan cache diperketat dalam TarifTunjanganV03.gs.
+// Nama fungsi privat lama dipertahankan untuk pemanggil yang sudah ada.
+var MASTER_TUNJANGAN_CACHE_KEY = "MasterTunjanganMap_V03_2026092802";
 var MASTER_TUNJANGAN_CACHE_TTL = CONFIG.CACHE.MASTER_TUNJANGAN_TTL;
-
-function getMasterTunjanganMapCached_() {
-  // Try CacheService first (fastest, expires after 1 hour)
-  var scriptCache = CacheService.getScriptCache();
-  var cached = scriptCache.get(MASTER_TUNJANGAN_CACHE_KEY);
-
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch (e) {
-      Logger.log("⚠️ Cache parse error, rebuilding: " + e.message);
-    }
-  }
-
-  // Try PropertiesService as fallback
-  var props = PropertiesService.getScriptProperties();
-  var propsCached = props.getProperty(MASTER_TUNJANGAN_CACHE_KEY);
-
-  if (propsCached) {
-    try {
-      var result = JSON.parse(propsCached);
-      // Re-cache in CacheService for faster access next time
-      scriptCache.put(MASTER_TUNJANGAN_CACHE_KEY, propsCached, MASTER_TUNJANGAN_CACHE_TTL);
-      return result;
-    } catch (e) {
-      Logger.log("⚠️ Properties cache parse error: " + e.message);
-    }
-  }
-
-  // Build from scratch if not cached
-  Logger.log("🔨 Building Master Tunjangan map (not in cache)");
-  var map = getMasterTunjanganMap_();
-
-  // Store in both caches
-  try {
-    var mapJson = JSON.stringify(map);
-    scriptCache.put(MASTER_TUNJANGAN_CACHE_KEY, mapJson, MASTER_TUNJANGAN_CACHE_TTL);
-    props.setProperty(MASTER_TUNJANGAN_CACHE_KEY, mapJson);
-    Logger.log("✅ Master Tunjangan map cached");
-  } catch (e) {
-    Logger.log("⚠️ Cache storage error: " + e.message);
-  }
-
-  return map;
-}
-
-function refreshMasterTunjanganCache_() {
-  // Clear both caches and rebuild
-  try {
-    CacheService.getScriptCache().remove(MASTER_TUNJANGAN_CACHE_KEY);
-    PropertiesService.getScriptProperties().deleteProperty(MASTER_TUNJANGAN_CACHE_KEY);
-    invalidasiCacheAdminDashboardV2A2_();
-    getMasterTunjanganMapCached_(); // Rebuild immediately
-    return { sukses: true, pesan: "Master Tunjangan cache refreshed" };
-  } catch (e) {
-    return handleError("refreshMasterTunjanganCache_", e, { sukses: false, pesan: "" });
-  }
-}
-
-// Consolidate alias registration mapping
 var JABATAN_ALIAS_MAPPING = {
   "kepala urusan danarta": ["kepala urusan danarta", "kaur danarta", "ka ur danarta", "danarta"],
   "kepala urusan pangripta": ["kepala urusan pangripta", "kaur pangripta", "ka ur pangripta", "pangripta"],
   "kepala urusan tata laksana": ["kepala urusan tata laksana", "kaur tata laksana", "ka ur tata laksana", "tata laksana"],
   "staf kepala urusan danarta": ["staf kepala urusan danarta", "staf kaur danarta", "staf ka ur danarta"],
   "staf kepala urusan pangripta": ["staf kepala urusan pangripta", "staf kaur pangripta", "staf ka ur pangripta"],
-  "staf kepala urusan tata laksana": ["staf kepala urusan tata laksana", "staf kaur tata laksana", "staf ka ur tata laksana"]
+  "staf kepala urusan tata laksana": ["staf kepala urusan tata laksana", "staf kaur tata laksana", "staf ka ur tata laksana"],
+  "ulu-ulu": ["ulu-ulu", "ulu ulu"],
+  "staf ulu-ulu": ["staf ulu-ulu", "staf ulu ulu"]
 };
 
-function registerJabatanAliases_(byJabatan, canon, obj) {
-  // Register main canonicalized form
-  registerJabatanAlias_(byJabatan, canon, obj);
+function registerJabatanAlias_(mapObj, key, valueObj) {
+  registerAliasTepatTarifV03_(mapObj, key, valueObj);
+}
 
-  // Register additional aliases based on keyword matching
-  for (var keyword in JABATAN_ALIAS_MAPPING) {
-    if (canon.indexOf(keyword) !== -1) {
-      var aliases = JABATAN_ALIAS_MAPPING[keyword];
-      for (var i = 0; i < aliases.length; i++) {
-        registerJabatanAlias_(byJabatan, aliases[i], obj);
-      }
-    }
-  }
+function registerJabatanAliases_(byJabatan, canon, obj) {
+  aliasJabatanTarifV03_(canon).forEach(function (key) {
+    registerJabatanAlias_(byJabatan, key, obj);
+  });
 }
 
 function getMasterTunjanganMap_() {
-  try {
-    var sheet = getSS_().getSheetByName("Master_Tunjangan");
-    if (!sheet) return { byId: {}, byJabatan: {} };
-    var rawData = sheet.getDataRange().getValues();
-    if (!rawData || rawData.length < 2) return { byId: {}, byJabatan: {} };
+  var ss = getSS_();
+  var sheet = ss.getSheetByName("Master_Tunjangan");
+  if (!sheet) throw new Error("TARIF_SHEET_MASTER_TIDAK_DITEMUKAN");
+  return bangunMasterTarifV03_(sheet.getDataRange().getValues(), ss.getId());
+}
 
-    var headerRowIdx = -1;
-    for (var r = 0; r < rawData.length; r++) {
-      for (var c = 0; c < rawData[r].length; c++) {
-        if (normalizeHeader_(rawData[r][c]) === "jabatan") { headerRowIdx = r; break; }
-      }
-      if (headerRowIdx >= 0) break;
-    }
-    if (headerRowIdx < 0) {
-      Logger.log("getMasterTunjanganMap_: baris header tidak ditemukan di sheet Master_Tunjangan");
-      return { byId: {}, byJabatan: {} };
-    }
+function getMasterTunjanganMapCached_() {
+  return ambilMasterCacheTarifV03_();
+}
 
-    var headers = rawData[headerRowIdx];
-    var idxJabatan = findHeaderIndex_(headers, ["Jabatan", "jabatan"]);
-    var idxTotal = findHeaderIndex_(headers, [
-      "Jumlah Total Tunjangan Kinerja", "jumlah total tunjangan kinerja",
-      "Total Tunjangan Kinerja", "total tunjangan kinerja",
-      "Total Tunjangan", "total tunjangan",
-      "Siltap", "Besaran Siltap", "besaran siltap"
-    ]);
-    var idxMaxProd = findHeaderIndex_(headers, [
-      "Plafon Tunjangan Produktifitas", "plafon tunjangan produktifitas",
-      "Plafon Tunjangan Produktivitas", "plafon tunjangan produktivitas",
-      "Plafon Produktifitas", "plafon produktifitas",
-      "Maks Produktifitas", "Maks Produktivitas",
-      "maks produktifitas", "maks produktivitas", "Maks Prod"
-    ]);
-    var idxMaxTU = findHeaderIndex_(headers, [
-      "Plafon Tunjangan Tugas Umum", "plafon tunjangan tugas umum",
-      "Plafon Tugas Umum", "plafon tugas umum",
-      "Maks Tugas Umum", "maks tugas umum", "Maks TU", "maks tu"
-    ]);
-
-    var byId = {}, byJabatan = {};
-    for (var i = headerRowIdx + 1; i < rawData.length; i++) {
-      var row = rawData[i];
-      var jabatanRaw = idxJabatan >= 0 ? (row[idxJabatan] || "").toString().trim() : "";
-      var total = idxTotal >= 0 ? toNumber_(row[idxTotal]) : 0;
-      var maxProd = idxMaxProd >= 0 ? toNumber_(row[idxMaxProd]) : 0;
-      var maxTU = idxMaxTU >= 0 ? toNumber_(row[idxMaxTU]) : 0;
-      if (!jabatanRaw || jabatanRaw === "-") continue;
-      if ((!maxProd || !maxTU) && total > 0) {
-        maxProd = Math.round(total * 0.40);
-        maxTU = Math.round(total * 0.20);
-      }
-
-      var obj = { jabatan: jabatanRaw, siltap: total, maxProd: maxProd, maxTU: maxTU };
-      var canon = canonicalizeJabatan_(jabatanRaw);
-
-      // Register main + aliases using consolidated function (Performance: less code, faster)
-      registerJabatanAliases_(byJabatan, canon, obj);
-    }
-    return { byId: byId, byJabatan: byJabatan };
-  } catch (e) {
-    Logger.log("getMasterTunjanganMap_ error: " + e.message);
-    return { byId: {}, byJabatan: {} };
+function refreshMasterTunjanganCache_() {
+  try { return refreshCacheTarifInternalV03_(); }
+  catch (e) {
+    Logger.log(String(e && e.message ? e.message : e));
+    return { sukses: false, kode: "TARIF_REFRESH_GAGAL", pesan: String(e && e.message ? e.message : e), dataSpreadsheetDiubah: false };
   }
 }
 
 function getTunjanganPegawai_(idUser, jabatan) {
-  // Use cached version instead of building from scratch each time
-  var master = getMasterTunjanganMapCached_();  // ← PERFORMANCE FIX: Use cached version
-  var jabKey = canonicalizeJabatan_(jabatan);
-
-  if (jabKey && master.byJabatan[jabKey]) return master.byJabatan[jabKey];
-  for (var key in master.byJabatan) {
-    if (jabKey.indexOf(key) !== -1 || key.indexOf(jabKey) !== -1) {
-      return master.byJabatan[key];
-    }
-  }
-
-  if (jabKey.indexOf("danarta") !== -1) {
-    if (master.byJabatan["kepala urusan danarta"]) return master.byJabatan["kepala urusan danarta"];
-    if (master.byJabatan["kaur danarta"]) return master.byJabatan["kaur danarta"];
-    if (master.byJabatan["danarta"]) return master.byJabatan["danarta"];
-  }
-  if (jabKey.indexOf("pangripta") !== -1) {
-    if (master.byJabatan["kepala urusan pangripta"]) return master.byJabatan["kepala urusan pangripta"];
-    if (master.byJabatan["kaur pangripta"]) return master.byJabatan["kaur pangripta"];
-    if (master.byJabatan["pangripta"]) return master.byJabatan["pangripta"];
-  }
-  if (jabKey.indexOf("tata laksana") !== -1) {
-    if (master.byJabatan["kepala urusan tata laksana"]) return master.byJabatan["kepala urusan tata laksana"];
-    if (master.byJabatan["kaur tata laksana"]) return master.byJabatan["kaur tata laksana"];
-    if (master.byJabatan["tata laksana"]) return master.byJabatan["tata laksana"];
-  }
-  return { maxProd: 0, maxTU: 0, siltap: 0 };
+  if (jabatanPhlTarifV03_(jabatan)) return resolveTarifDariMasterV03_(null, jabatan);
+  return resolveTarifDariMasterV03_(getMasterTunjanganMapCached_(), jabatan);
 }
 // ─── END Master_Tunjangan helpers ─────────────────────────────────────────────
 
@@ -3571,7 +3430,7 @@ function buatBatchIdTunjangan_(periode) {
   return "TJG-" + p.replace("-", "") + "-" + timestamp + "-" + randomPart;
 }
 
-function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCutoff) {
+function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCutoff, konteksCutoffDraft) {
   var p = normalizePeriode_(periode);
   var window = buildDateRangeMeta_(p, tanggalMulai, tanggalAkhir, jamCutoff);
   var pegawaiData = getPegawaiDataCached_() || [];
@@ -3613,9 +3472,9 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
   }
 
   var data = getSheet_("Rekap_Kinerja").getDataRange().getValues();
-  var cutoffPolicyContext = typeof buatKonteksCutoff3B04C1c_ === "function"
+  var cutoffPolicyContext = konteksCutoffDraft || (typeof buatKonteksCutoff3B04C1c_ === "function"
     ? buatKonteksCutoff3B04C1c_()
-    : null;
+    : null);
   for (var r = 1; r < data.length; r++) {
     var tglLap = parseTanggal(data[r][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
     if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
@@ -3678,6 +3537,8 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
     }
   }
 
+  // Jangan gunakan cache untuk hasil yang dibandingkan/dikunci sebagai batch.
+  var masterTarifPeriode = getMasterTunjanganMap_();
   var hasil = Object.keys(map).map(function (key) {
     var item = map[key];
 
@@ -3685,7 +3546,7 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
     // Jangan menambahkan hak/potensi Pasal 33 secara sintetis di sini, karena nilai
     // Pasal 33 yang sah sudah masuk lewat POIN_FINAL laporan wajib jika laporannya dibuat
     // dan disetujui.
-    var tunjangan = getTunjanganPegawai_(item.idUser, item.jabatan);
+    var tunjangan = resolveTarifDariMasterV03_(masterTarifPeriode, item.jabatan);
     item.maxProd = Number(tunjangan.maxProd) || 0;
     item.maxTU = Number(tunjangan.maxTU) || 0;
     if (isLurah_(item.jabatan)) {
@@ -3980,17 +3841,19 @@ function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamC
     }
 
     var metaPeriode = buildDateRangeMeta_(p, tanggalMulai, tanggalAkhir, jamCutoff);
-    simpanCutoffTunjanganPeriode_(p, metaPeriode.tanggalMulaiPeriode, metaPeriode.tanggalAkhirPeriode, metaPeriode.jamCutoff);
     if (batchAktif) {
       var statusAktif = (batchAktif.status || "").toString();
       if (statusAktif !== TUNJANGAN_STATUS.DRAFT && statusAktif !== TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH) {
         return { sukses: false, pesan: "Periode " + p + " sudah memiliki batch aktif dengan status: " + statusAktif + "." };
       }
-      nonaktifkanBatchAktifTunjangan_(p);
     }
 
-    var hasil = hitungRekapTunjanganPeriode_(p, metaPeriode.tanggalMulaiPeriode, metaPeriode.tanggalAkhirPeriode, metaPeriode.jamCutoff);
+    // Hitung dengan cut-off yang diminta di memori sebelum menulis data apa pun.
+    var ctxDraft = konteksCutoffDraftTarifV03_(p, metaPeriode);
+    var hasil = hitungRekapTunjanganPeriode_(p, metaPeriode.tanggalMulaiPeriode, metaPeriode.tanggalAkhirPeriode, metaPeriode.jamCutoff, ctxDraft);
     if (!hasil.length) return { sukses: false, pesan: "Tidak ada data pegawai untuk dibuatkan draft." };
+    simpanCutoffTunjanganPeriode_(p, metaPeriode.tanggalMulaiPeriode, metaPeriode.tanggalAkhirPeriode, metaPeriode.jamCutoff);
+    if (batchAktif) nonaktifkanBatchAktifTunjangan_(p);
 
     var sh = ensureSheetRekapTunjanganBulanan_();
     var pembuat = getPegawaiById_(idUser) || {};
@@ -10681,11 +10544,11 @@ function buatResolverPeriodeResmiAdminV2A2_() {
 }
 
 function adminDashboardBaseCacheKeyV2A2_(periode, generation) {
-  return 'ADM2A2_CGTV02_BASE_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(generation);
+  return 'ADM2A2_CGTV02_BASE_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(generation) + tandaCacheTurunanTarifV03_();
 }
 
 function adminDashboardDetailCacheKeyV2A2_(periode, idPegawai, generation) {
-  return 'ADM2A2_CGTV02_DETAIL_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(idPegawai) + '_' + adminDashboardSafeKeyV2A2_(generation);
+  return 'ADM2A2_CGTV02_DETAIL_' + adminDashboardSafeKeyV2A2_(periode) + '_' + adminDashboardSafeKeyV2A2_(idPegawai) + '_' + adminDashboardSafeKeyV2A2_(generation) + tandaCacheTurunanTarifV03_();
 }
 
 function bacaJsonCacheAdminV2A2_(key) {
@@ -15373,7 +15236,7 @@ var KLASMEN_REKAP_CACHE_TTL_SECONDS_2026051214 = 300;
 function ambilDataRekapKlasemenCached_() {
   try {
     var cache = CacheService.getScriptCache();
-    var raw = cache.get(KLASMEN_REKAP_CACHE_KEY_2026051214);
+    var raw = cache.get(KLASMEN_REKAP_CACHE_KEY_2026051214 + tandaCacheTurunanTarifV03_());
     if (raw) {
       try { return JSON.parse(raw); } catch (eParse) { }
     }
@@ -15383,7 +15246,7 @@ function ambilDataRekapKlasemenCached_() {
       var json = JSON.stringify(rows);
       // CacheService limit aman sekitar 100KB per item; jika terlalu besar, abaikan cache.
       if (json && json.length < 90000) {
-        cache.put(KLASMEN_REKAP_CACHE_KEY_2026051214, json, KLASMEN_REKAP_CACHE_TTL_SECONDS_2026051214);
+        cache.put(KLASMEN_REKAP_CACHE_KEY_2026051214 + tandaCacheTurunanTarifV03_(), json, KLASMEN_REKAP_CACHE_TTL_SECONDS_2026051214);
       }
     } catch (eCache) { }
 
@@ -15419,7 +15282,7 @@ function ambilDataRekapKlasemenFastCached_() {
   var periodeAktif = periodeKinerjaAktifUntukLaporanWajibV34_(new Date());
   var sh = getSheet_("Rekap_Kinerja");
   var lastRow = sh.getLastRow();
-  var cacheKey = "KLASEMEN_FAST_3C4_" + periodeAktif + "_R" + lastRow + "_G" + rekapDisposisiGenerationV2A1B_();
+  var cacheKey = "KLASEMEN_FAST_3C4_" + periodeAktif + "_R" + lastRow + "_G" + rekapDisposisiGenerationV2A1B_() + tandaCacheTurunanTarifV03_();
 
   try {
     var cache = CacheService.getScriptCache();
@@ -15664,7 +15527,7 @@ function refreshKlasemenKinerjaCache(token) {
   try {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
-    try { CacheService.getScriptCache().remove(KLASMEN_REKAP_CACHE_KEY_2026051214); } catch (e) { }
+    try { CacheService.getScriptCache().remove(KLASMEN_REKAP_CACHE_KEY_2026051214 + tandaCacheTurunanTarifV03_()); } catch (e) { }
     var rows = ambilDataRekapKlasemenCached_();
     return { sukses: true, pesan: 'Cache Klasemen Kinerja diperbarui.', jumlah: rows.length };
   } catch (e2) {

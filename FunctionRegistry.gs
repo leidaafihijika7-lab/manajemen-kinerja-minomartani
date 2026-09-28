@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.28.01
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.28.02
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1l-2026.09.28.01";
+  "3B1B1l-2026.09.28.02";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.09.28.01",
+  baselineAppVersion: "2026.09.28.02",
 
   policy: {
     privateByDefault: true,
@@ -106,6 +106,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
     ],
 
     maintenanceOwnerOnly: [
+      "auditTarifTunjanganV03",
+      "maintenanceRefreshMasterTunjanganV03",
       "maintenanceStatusPortal3B0",
       "maintenanceInitializeAppConstants3B0",
       "maintenanceSiapkanKolomKeamananPin3B0",
@@ -161,6 +163,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "evaluasiPerubahanTerencanaPraDeploy3B1B3",
       "validasiConsistencyGuardTunjanganV01",
       "validasiCakupanTunjanganV02",
+      "validasiTarifTunjanganV03",
       "validasiPreflightSeptember2026V01",
       "validasiLoadingPeriodeTunjanganV01",
       "validasiNativeXlsxTunjanganV01",

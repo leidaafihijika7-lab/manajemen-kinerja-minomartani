@@ -1,32 +1,39 @@
-# Deployment kandidat CGT & Dashboard v0.2-RC2
+# Deployment kandidat 2026.09.28.02
 
-Versi kode `2026.09.28.01`; belum dideploy. Sumber baseline `2026.08.28.07`.
+Ini versi **kandidat**, bukan pernyataan versi yang sudah aktif di produksi.
+Baca `../PANDUAN_PEMASANGAN.txt` untuk instruksi penuh dan perubahan nominal.
 
-Panduan terbaru ada di `../MULAI_DI_SINI.md` pada paket rilis. Untuk repository
-mandiri, simpan panduan itu sebagai dokumentasi rilis bersama perubahan ini.
-Baca juga `README_CGT_DASHBOARD_V02.md`.
+## Staging dahulu
 
-Ganti Kode.gs, Index.html, FunctionRegistry.gs, BindingAktif3B1B2.gs,
-GuardKontrakPraDeploy3B1B3.gs; tambahkan CakupanTunjanganV02.gs dan
-ValidasiCakupanTunjanganV02.gs. Semua skrip aktif lama lainnya tetap diperlukan.
-Jangan deploy archive/, laporan pengujian, file ZIP/DOCX, atau tests/ ke Apps Script.
+Cadangkan kode dan catat versi/deployment saat ini. Verifikasi sumber aktif
+terhadap sumber paket; gabungkan perubahan yang belum ada sebelum menimpa kode.
+Gunakan proyek Apps Script dan salinan database uji terpisah. SPREADSHEET_ID
+harus menunjuk database uji; pertahankan manifest/OAuth yang benar. Jangan
+menjalankan trigger atau menulis ke folder/database produksi selama pengujian.
 
-Buat salinan proyek/database untuk pengujian dan verifikasi SPREADSHEET_ID,
-folder bukti, trigger, manifest, runtime, serta zona waktu sendiri. Jangan
-menyalin credential ke GitHub. Paket tidak menyediakan manifest pengganti.
+Folder ini berisi 26 berkas .gs + Index.html. Jangan deploy `archive/`, tests,
+reports, berkas docx/md/txt, atau .github. Manifest tidak ada dalam ZIP sumber.
 
-Jalankan tiga suite memori: validasiCakupanTunjanganV02 (27),
-validasiConsistencyGuardTunjanganV01 (8), validasiPreflightSeptember2026V01 (14).
-Jalankan validasiBindingAktif3B1B2 dan validasiGuardKontrakPraDeploy3B1B3 dengan
-maintainer yang sah. Target 174 kontrak cocok. ALLOW kontrak bukan persetujuan
-produksi/pencairan. Inisialisasi setup, migrasi, dan koreksi data tidak diperlukan
-untuk menempelkan patch; jangan jalankan nama fungsi setup lama secara membabi buta.
-Cache dashboard memiliki namespace baru sehingga data ringkasan schema lama
-bukan dasar hasil RC2.
+Jalankan suite tarif/cakupan/guard/preflight dan pemeriksaan 176 kontrak. Jalankan
+audit master langsung dan refresh cache dari akun maintainer. Tidak perlu
+menjalankan fungsi setup schema atau stub maintenance lama untuk patch ini.
 
-Tahan penerapan produksi sampai benturan alias Kaur/staf yang tercatat dalam
-README rilis diperiksa dan seluruh uji staging lulus. Setelah disetujui, buat
-versi baru dan edit deployment aktif untuk mempertahankan URL. Catat versi
-sebelumnya agar dapat diarahkan kembali bila terjadi regresi.
+## Sesudah pemilik menyetujui hasil
 
-Rujukan: https://developers.google.com/apps-script/concepts/deployments
+Deploy > Manage deployments > pilih deployment aktif > Edit > New version > Deploy.
+Versi kode baru pada deployment yang sama mempertahankan URL. Jalankan audit dan
+refresh cache pada proyek yang benar, muat ulang browser, periksa versi.
+
+Perbedaan tarif membuat Draft lama terblokir SNAPSHOT_BERUBAH. Jangan mengubah
+status/nominal manual. Periksa per pegawai lalu lakukan Generate Draft ulang atau
+alur koreksi sesuai status, setelah disetujui. Batch sudah dicairkan tidak disentuh
+oleh patch. Lulus guard bukan izin membayar.
+
+Pemulihan: arahkan deployment ke nomor versi lama yang dicatat. Kode lama masih
+memiliki bug tarif; pemulihan tidak membatalkan data yang sudah ditulis sesudah
+deploy dan tidak membenarkan pembayaran dengan tarif salah.
+
+Sumber resmi Google, diperiksa 28 September 2026:
+- https://developers.google.com/apps-script/concepts/deployments
+- https://developers.google.com/apps-script/reference/cache/cache
+- https://developers.google.com/apps-script/reference/properties

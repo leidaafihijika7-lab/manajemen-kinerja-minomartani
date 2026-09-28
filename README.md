@@ -1,3 +1,5 @@
+> **Kandidat RC3 / 2026.09.28.02:** baca `README_TARIF_V03.md` dan `DEPLOYMENT.md`. Belum diterapkan ke produksi. Dokumentasi historis di bawah dipertahankan sebagai konteks.
+
 > **Kandidat CGT & Dashboard v0.2-RC2 (`2026.09.28.01`)**: baca
 > [catatan rilis](README_CGT_DASHBOARD_V02.md) dan [deployment](DEPLOYMENT.md).
 > Belum dideploy; temuan alias tarif lama harus diperiksa sebelum produksi.
