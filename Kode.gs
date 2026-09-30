@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.09.28.02"; // CGT & Dashboard v0.2-RC2
+var APP_VERSION = "2026.09.30.01"; // OHIC v1.0.1-RC1 Maintenance Hardening di atas baseline stabil 2026.09.28.03
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -18571,6 +18571,7 @@ buildDriveLampiranMeta_ = function (url, label, cache, skipDriveFetch) {
 
 var ambilTimelinePublik__SEBELUM_OPTIMASI_2026051237 = ambilTimelinePublik;
 ambilTimelinePublik = function (token, offset, limit) {
+  if (typeof ambilTimelinePublikV02_ === 'function') return ambilTimelinePublikV02_(token, offset, limit);
   try {
     var idUser = validasiSession(token);
     if (!idUser) {

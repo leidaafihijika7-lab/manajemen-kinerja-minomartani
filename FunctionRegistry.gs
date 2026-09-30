@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.28.02
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.30.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1l-2026.09.28.02";
+  "3B1B1o-2026.09.30.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.09.28.02",
+  baselineAppVersion: "2026.09.30.01",
 
   policy: {
     privateByDefault: true,
@@ -55,6 +55,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilLaporanAdminPerPegawai3C1",
       "ambilLaporanDitolakUntukRevisi",
       "ambilMetadataLampiranAdminLazy",
+      "ambilOperationalHealthCenterV10",
       "ambilRekapTunjanganBulanan",
       "ambilRingkasanDisposisiBaru",
       "ambilRiwayatKuPaged",
@@ -108,6 +109,9 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
     maintenanceOwnerOnly: [
       "auditTarifTunjanganV03",
       "maintenanceRefreshMasterTunjanganV03",
+      "auditMaintenanceOHICV101",
+      "maintenanceRekonsiliasiQueueIndexV101",
+      "maintenanceBersihkanMetadataBatchResiduV101",
       "maintenanceStatusPortal3B0",
       "maintenanceInitializeAppConstants3B0",
       "maintenanceSiapkanKolomKeamananPin3B0",
@@ -164,6 +168,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiConsistencyGuardTunjanganV01",
       "validasiCakupanTunjanganV02",
       "validasiTarifTunjanganV03",
+      "validasiOperationalHealthV101",
       "validasiPreflightSeptember2026V01",
       "validasiLoadingPeriodeTunjanganV01",
       "validasiNativeXlsxTunjanganV01",

@@ -1,3 +1,7 @@
+> **OHIC v1.0.1-RC1 / `2026.09.30.01`:** Maintenance Hardening di atas OHIC v1.0. Lihat `DEPLOYMENT.md` dan `../PANDUAN_PEMASANGAN.txt`.
+
+> **Kandidat OHIC v1.0-RC1 / `2026.09.28.04`:** baseline produksi stabil adalah `2026.09.28.03`. Kandidat ini hanya menambahkan Operational Health & Integrity Center baca-saja. Lihat `DEPLOYMENT.md`. Dokumentasi historis di bawah dipertahankan sebagai konteks.
+
 > **Kandidat RC3 / 2026.09.28.02:** baca `README_TARIF_V03.md` dan `DEPLOYMENT.md`. Belum diterapkan ke produksi. Dokumentasi historis di bawah dipertahankan sebagai konteks.
 
 > **Kandidat CGT & Dashboard v0.2-RC2 (`2026.09.28.01`)**: baca

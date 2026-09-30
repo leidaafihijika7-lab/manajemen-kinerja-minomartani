@@ -1,39 +1,60 @@
-# Deployment kandidat 2026.09.28.02
+# Deployment kandidat 2026.09.30.01 — OHIC v1.0.1 Maintenance Hardening
 
-Ini versi **kandidat**, bukan pernyataan versi yang sudah aktif di produksi.
-Baca `../PANDUAN_PEMASANGAN.txt` untuk instruksi penuh dan perubahan nominal.
+Baseline langsung: 2026.09.28.04. Baseline stabil rollback: 2026.09.28.03.
 
-## Staging dahulu
+Tambahkan `MaintenanceOHICV101.gs`, ganti Kode/Index/OperationalHealth/Registry/Binding/Guard dari paket. Validasi 177/177 dan guard ALLOW sebelum deployment. Cleanup metadata batch residu harus tetap diblokir selama batch September belum snapshot final.
 
-Cadangkan kode dan catat versi/deployment saat ini. Verifikasi sumber aktif
-terhadap sumber paket; gabungkan perubahan yang belum ada sebelum menimpa kode.
-Gunakan proyek Apps Script dan salinan database uji terpisah. SPREADSHEET_ID
-harus menunjuk database uji; pertahankan manifest/OAuth yang benar. Jangan
-menjalankan trigger atau menulis ke folder/database produksi selama pengujian.
+# Deployment kandidat 2026.09.28.04 — Operational Health & Integrity Center v1.0-RC1
 
-Folder ini berisi 26 berkas .gs + Index.html. Jangan deploy `archive/`, tests,
-reports, berkas docx/md/txt, atau .github. Manifest tidak ada dalam ZIP sumber.
+Baseline produksi stabil sebelum perubahan ini adalah **2026.09.28.03**.
+Kandidat ini menambahkan pusat kesehatan sistem baca-saja dan tidak mengubah schema
+spreadsheet, aturan tunjangan, Timeline v0.2, status review, poin, atau workflow
+pembayaran.
 
-Jalankan suite tarif/cakupan/guard/preflight dan pemeriksaan 176 kontrak. Jalankan
-audit master langsung dan refresh cache dari akun maintainer. Tidak perlu
-menjalankan fungsi setup schema atau stub maintenance lama untuk patch ini.
+Baca `../PANDUAN_PEMASANGAN.txt` pada paket OHIC untuk urutan lengkap.
 
-## Sesudah pemilik menyetujui hasil
+## Berkas yang berubah dari baseline 2026.09.28.03
 
-Deploy > Manage deployments > pilih deployment aktif > Edit > New version > Deploy.
-Versi kode baru pada deployment yang sama mempertahankan URL. Jalankan audit dan
-refresh cache pada proyek yang benar, muat ulang browser, periksa versi.
+Ganti seluruh isi:
+- `Kode.gs`
+- `Index.html`
+- `FunctionRegistry.gs`
+- `BindingAktif3B1B2.gs`
+- `GuardKontrakPraDeploy3B1B3.gs`
 
-Perbedaan tarif membuat Draft lama terblokir SNAPSHOT_BERUBAH. Jangan mengubah
-status/nominal manual. Periksa per pegawai lalu lakukan Generate Draft ulang atau
-alur koreksi sesuai status, setelah disetujui. Batch sudah dicairkan tidak disentuh
-oleh patch. Lulus guard bukan izin membayar.
+Tambahkan:
+- `OperationalHealthV10.gs`
 
-Pemulihan: arahkan deployment ke nomor versi lama yang dicatat. Kode lama masih
-memiliki bug tarif; pemulihan tidak membatalkan data yang sudah ditulis sesudah
-deploy dan tidak membenarkan pembayaran dengan tarif salah.
+Berkas aplikasi lain dari baseline stabil tetap dipertahankan, termasuk
+`TimelineV02.gs`, `TarifTunjanganV03.gs`, `CakupanTunjanganV02.gs`, dan seluruh
+validator yang sudah lulus pada 2026.09.28.03.
 
-Sumber resmi Google, diperiksa 28 September 2026:
-- https://developers.google.com/apps-script/concepts/deployments
-- https://developers.google.com/apps-script/reference/cache/cache
-- https://developers.google.com/apps-script/reference/properties
+## Validasi sebelum deployment
+
+1. `getAppVersion()` -> `2026.09.28.04`.
+2. `validasiBindingAktif3B1B2()` -> 177 kontrak cocok.
+3. `validasiGuardKontrakPraDeploy3B1B3()` -> keputusan `ALLOW`, blocker 0.
+4. Buka halaman **Kesehatan Sistem** dengan akun Lurah/Carik dan klik
+   **Periksa Sekarang**. Halaman bersifat baca-saja; warning adalah temuan
+   operasional, bukan alasan untuk mengedit data secara manual.
+5. Lakukan smoke test Timeline, Dashboard Admin Kinerja, dan Rekap Tunjangan tanpa
+   menjalankan ulang Draft/pembayaran hanya demi menguji OHIC.
+
+## Deployment
+
+Gunakan deployment Web App yang sudah ada agar URL tetap sama:
+`Deploy > Manage deployments > deployment aktif > Edit > New version > Deploy`.
+Catat nomor versi Apps Script sebelum dan sesudah deployment.
+
+## Pemulihan
+
+Jika terjadi regresi UI/runtime, arahkan deployment kembali ke versi Apps Script
+yang memuat baseline `2026.09.28.03`. OHIC v1.0 tidak memiliki migrasi data, jadi
+rollback kode tidak membutuhkan rollback spreadsheet.
+
+## Catatan keamanan
+
+Endpoint OHIC memeriksa sesi dan kewenangan Lurah/Carik. Respons UI tidak memuat
+PIN, salt PIN, token sesi, checksum/hash sumber, atau fingerprint guard. Jangan
+menambahkan fungsi koreksi otomatis ke OHIC v1.0; koreksi tetap melalui modul
+resmi dan prosedur audit yang sesuai.

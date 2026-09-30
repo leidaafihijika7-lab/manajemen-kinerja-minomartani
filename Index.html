@@ -5828,6 +5828,126 @@
       padding: 18px 20px;
     }
 
+    #halTimeline .timeline-toolbar-v02 {
+      display: block;
+    }
+
+    #halTimeline .timeline-toolbar-head-v02 {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    #halTimeline .timeline-toolbar-title-v02 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #1e3a8a;
+      min-width: 0;
+    }
+
+    #halTimeline .timeline-toolbar-title-v02 > span {
+      color: var(--primary);
+    }
+
+    #halTimeline .timeline-toolbar-title-v02 strong,
+    #halTimeline .timeline-toolbar-title-v02 small {
+      display: block;
+    }
+
+    #halTimeline .timeline-toolbar-title-v02 strong {
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    #halTimeline .timeline-toolbar-title-v02 small {
+      color: var(--text-muted);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    #halTimeline .timeline-filter-grid-v02 {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.15fr) minmax(200px, 1fr) minmax(220px, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    #halTimeline .timeline-filter-field-v02 span {
+      display: block;
+      margin-bottom: 6px;
+      color: #475569;
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: .035em;
+    }
+
+    #halTimeline .timeline-filter-field-v02 input,
+    #halTimeline .timeline-filter-field-v02 select {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid #dbe4ef;
+      border-radius: 12px;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+      outline: none;
+    }
+
+    #halTimeline .timeline-filter-field-v02 input:focus,
+    #halTimeline .timeline-filter-field-v02 select:focus {
+      border-color: #93c5fd;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
+    }
+
+    #halTimeline .timeline-reset-v02 {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1px solid #dbe4ef;
+      border-radius: 12px;
+      padding: 8px 12px;
+      background: #fff;
+      color: #475569;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    #halTimeline .timeline-reset-v02 .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    #halTimeline .timeline-group-chips-v02 {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    #halTimeline .timeline-group-chip-v02 {
+      border: 1px solid #dbe4ef;
+      background: #fff;
+      color: #475569;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    #halTimeline .timeline-group-chip-v02.active {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+      box-shadow: inset 0 0 0 1px rgba(59,130,246,.08);
+    }
+
     #halTimeline #btnRefreshTimeline,
     #halTimeline #btnTimelineMore,
     #halAdminKinerja .table-container .btn-unduh,
@@ -6217,6 +6337,30 @@
       .stitch-page-hero-pill {
         width: 100%;
         justify-content: center;
+      }
+
+      #halTimeline .timeline-filter-grid-v02 {
+        grid-template-columns: 1fr;
+      }
+
+      #halTimeline .timeline-toolbar-head-v02 {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      #halTimeline #btnRefreshTimeline,
+      #halTimeline .timeline-reset-v02 {
+        width: 100%;
+      }
+
+      #halTimeline .timeline-group-chips-v02 {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 2px;
+      }
+
+      #halTimeline .timeline-group-chip-v02 {
+        flex: 0 0 auto;
       }
 
       #halTimeline .timeline-intro-card {
@@ -6679,7 +6823,48 @@
         grid-template-columns: 1fr;
       }
     }
-  </style>
+  
+
+    /* Operational Health & Integrity Center v1.0.1 */
+    #halOperationalHealth .ohic-hero { background:linear-gradient(135deg,#0f172a,#1e3a8a 58%,#2563eb); color:white; }
+    #halOperationalHealth .ohic-hero .stitch-page-hero-kicker,
+    #halOperationalHealth .ohic-hero .stitch-page-hero-subtitle { color:rgba(255,255,255,.82); }
+    .ohic-toolbar { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+    .ohic-readonly-note { display:flex; gap:10px; align-items:flex-start; padding:13px 15px; border-radius:14px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:13px; line-height:1.55; }
+    .ohic-summary-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin:18px 0; }
+    .ohic-summary-card { background:white; border:1px solid #e2e8f0; border-radius:18px; padding:18px; box-shadow:var(--shadow-sm); min-width:0; }
+    .ohic-summary-label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:800; color:#64748b; }
+    .ohic-summary-value { margin-top:7px; font-size:27px; line-height:1.1; font-weight:900; font-family:var(--font-heading); color:#0f172a; overflow-wrap:anywhere; }
+    .ohic-summary-sub { margin-top:7px; font-size:12px; line-height:1.5; color:#64748b; }
+    .ohic-overall-SEHAT .ohic-summary-value { color:#15803d; }
+    .ohic-overall-PERLU_PERHATIAN .ohic-summary-value { color:#b45309; }
+    .ohic-overall-KRITIS .ohic-summary-value { color:#b91c1c; }
+    .ohic-group { margin-top:18px; }
+    .ohic-group-title { display:flex; align-items:center; gap:9px; margin:0 0 10px; font-size:17px; font-weight:900; color:#172033; }
+    .ohic-check-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .ohic-check { background:white; border:1px solid #e2e8f0; border-radius:18px; padding:17px; position:relative; min-width:0; }
+    .ohic-check::before { content:''; position:absolute; inset:0 auto 0 0; width:5px; border-radius:18px 0 0 18px; background:#16a34a; }
+    .ohic-check.WARN::before { background:#f59e0b; }
+    .ohic-check.CRITICAL::before { background:#dc2626; }
+    .ohic-check.INFO::before { background:#3b82f6; }
+    .ohic-check-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .ohic-check-title { font-weight:900; font-size:15px; color:#0f172a; }
+    .ohic-badge { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; white-space:nowrap; }
+    .ohic-badge.PASS { background:#dcfce7; color:#166534; }
+    .ohic-badge.WARN { background:#fef3c7; color:#92400e; }
+    .ohic-badge.CRITICAL { background:#fee2e2; color:#991b1b; }
+    .ohic-badge.INFO { background:#dbeafe; color:#1d4ed8; }
+    .ohic-check-headline { margin:9px 0 0; font-size:13px; line-height:1.55; color:#475569; }
+    .ohic-metrics { display:flex; gap:7px; flex-wrap:wrap; margin-top:11px; }
+    .ohic-metric { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:6px 8px; font-size:11px; color:#475569; }
+    .ohic-metric b { color:#0f172a; }
+    .ohic-samples { margin-top:10px; padding:9px 11px; background:#f8fafc; border-radius:11px; font-size:11px; line-height:1.55; color:#475569; }
+    .ohic-recommendation { margin-top:10px; padding:9px 11px; border-radius:11px; background:#fff7ed; color:#9a3412; font-size:12px; line-height:1.55; }
+    .ohic-loading { padding:28px; text-align:center; color:#64748b; font-weight:700; }
+    @media(max-width:1100px){ .ohic-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));} }
+    @media(max-width:760px){ .ohic-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .ohic-check-list{grid-template-columns:1fr;} }
+    @media(max-width:520px){ .ohic-summary-grid{grid-template-columns:1fr;} .ohic-summary-value{font-size:23px;} }
+</style>
 
 </head>
 
@@ -6760,6 +6945,9 @@
       <div id="menuAdminKinerja" class="menu-item" style="display:none;"
         onclick="bukaHalaman(event, 'halAdminKinerja', 'Dashboard Admin Kinerja')"><span
           class="material-symbols-outlined">analytics</span><span>Admin Kinerja</span></div>
+      <div id="menuOperationalHealth" class="menu-item" style="display:none;"
+        onclick="bukaHalaman(event, 'halOperationalHealth', 'Kesehatan & Integritas Sistem')"><span
+          class="material-symbols-outlined">health_and_safety</span><span>Kesehatan Sistem</span></div>
       <div id="menuDebugPasal33" class="menu-item" style="display:none;"
         onclick="bukaHalaman(event, 'halDebugPasal33', 'Debug Test Pasal 33')"><span
           class="material-symbols-outlined">bug_report</span><span>Debug Ps33</span></div>
@@ -6816,20 +7004,31 @@
               <div class="timeline-intro-icon"><span class="material-symbols-outlined">dynamic_feed</span></div>
               <div style="flex:1; min-width:0;">
                 <div class="timeline-intro-title">Timeline Aktivitas Semua Pegawai</div>
-                <div class="timeline-intro-subtitle">Menampilkan laporan yang sudah disetujui agar semua akun dapat
-                  melihat aktivitas terbaru rekan kerja di Kalurahan Minomartani.</div>
+                <div class="timeline-intro-subtitle">Menampilkan laporan yang sudah disetujui dengan urutan berimbang, pencarian, dan filter agar aktivitas PHL maupun pegawai lain mudah ditemukan.</div>
               </div>
             </div>
           </div>
 
           <div class="table-container">
-            <div class="toolbar-aksi">
-              <div style="display:flex; align-items:center; gap:10px; width:100%; flex-wrap:wrap;">
-                <span class="material-symbols-outlined" style="color:var(--primary);">groups</span>
-                <strong style="color:#1e3a8a; font-size:14px; flex-grow:1;">Feed aktivitas terbaru seluruh akun</strong>
+            <div class="toolbar-aksi timeline-toolbar-v02">
+              <div class="timeline-toolbar-head-v02">
+                <div class="timeline-toolbar-title-v02"><span class="material-symbols-outlined">groups</span><div><strong>Feed aktivitas berimbang</strong><small>Memprioritaskan pegawai berbeda di antara laporan terbaru.</small></div></div>
                 <button type="button" id="btnRefreshTimeline" class="btn-unduh"
                   style="background: linear-gradient(135deg, #2563eb, #1d4ed8);" onclick="muatTimeline(true)"><span
                     class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat Ulang</button>
+              </div>
+              <div class="timeline-filter-grid-v02">
+                <label class="timeline-filter-field-v02"><span>Cari nama / jabatan</span><input id="timelineSearchV02" type="search" placeholder="Contoh: Faisal atau PHL" oninput="jadwalkanFilterTimelineV02_()"></label>
+                <label class="timeline-filter-field-v02"><span>Pegawai</span><select id="timelinePegawaiV02" onchange="terapkanFilterTimelineV02_()"><option value="">Semua pegawai</option></select></label>
+                <label class="timeline-filter-field-v02"><span>Kategori laporan</span><select id="timelineKategoriV02" onchange="terapkanFilterTimelineV02_()"><option value="">Semua kategori</option></select></label>
+                <button type="button" class="timeline-reset-v02" onclick="resetFilterTimelineV02_()"><span class="material-symbols-outlined">filter_alt_off</span> Reset filter</button>
+              </div>
+              <div class="timeline-group-chips-v02" aria-label="Filter kelompok pegawai">
+                <button type="button" class="timeline-group-chip-v02 active" data-group="SEMUA" onclick="setKelompokTimelineV02_('SEMUA')">Semua</button>
+                <button type="button" class="timeline-group-chip-v02" data-group="PAMONG" onclick="setKelompokTimelineV02_('PAMONG')">Pamong</button>
+                <button type="button" class="timeline-group-chip-v02" data-group="DUKUH" onclick="setKelompokTimelineV02_('DUKUH')">Dukuh</button>
+                <button type="button" class="timeline-group-chip-v02" data-group="STAF" onclick="setKelompokTimelineV02_('STAF')">Staf</button>
+                <button type="button" class="timeline-group-chip-v02" data-group="PHL" onclick="setKelompokTimelineV02_('PHL')">PHL</button>
               </div>
             </div>
             <div id="timelineSummary" class="timeline-summary">Memuat timeline aktivitas...</div>
@@ -8004,6 +8203,36 @@
               Pilih pegawai dari tabel untuk melihat detail capaian.
             </div>
           </div>
+        </div>
+
+        <div id="halOperationalHealth" class="page-section">
+          <div class="stitch-page-hero ohic-hero">
+            <div class="stitch-page-hero-main">
+              <div class="stitch-page-hero-icon"><span class="material-symbols-outlined">health_and_safety</span></div>
+              <div>
+                <div class="stitch-page-hero-kicker">Operational Health &amp; Integrity Center v1.0.1</div>
+                <h2 class="stitch-page-hero-title">Kesehatan &amp; Integritas Sistem</h2>
+                <div class="stitch-page-hero-subtitle">Mendeteksi anomali data, kontrak aplikasi, antrean review, index, periode, dan batch tunjangan sebelum menjadi masalah operasional.</div>
+              </div>
+            </div>
+            <div class="stitch-page-hero-pill"><span class="material-symbols-outlined" style="font-size:18px;">visibility</span> Baca Saja</div>
+          </div>
+
+          <div class="ohic-toolbar">
+            <div class="ohic-readonly-note" style="flex:1; min-width:260px;">
+              <span class="material-symbols-outlined" style="font-size:21px;">verified_user</span>
+              <div><b>Pemeriksaan non-destruktif.</b> Halaman ini tidak mengubah spreadsheet, poin, status review, atau workflow tunjangan. Tindak lanjut tetap dilakukan melalui modul resmi yang sesuai.</div>
+            </div>
+            <button type="button" id="btnMuatOperationalHealth" class="btn-unduh" onclick="muatOperationalHealthV10(true)">
+              <span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Periksa Sekarang
+            </button>
+          </div>
+
+          <div id="ohicSummary" class="ohic-summary-grid" aria-live="polite">
+            <div class="ohic-summary-card"><div class="ohic-summary-label">Status Sistem</div><div class="ohic-summary-value">&mdash;</div><div class="ohic-summary-sub">Menunggu pemeriksaan.</div></div>
+          </div>
+          <div id="ohicCheckedAt" class="disposisi-muted-box" style="margin-bottom:14px;">Belum diperiksa.</div>
+          <div id="ohicChecks"><div class="ohic-loading">Membuka pusat kesehatan sistem...</div></div>
         </div>
 
         <div id="halDebugPasal33" class="page-section">
@@ -10446,12 +10675,14 @@
       var mAdmin = document.getElementById('menuAdmin');
       var mTunj = document.getElementById('menuTunjangan');
       var mAdminKinerja = document.getElementById('menuAdminKinerja');
+      var mOperationalHealth = document.getElementById('menuOperationalHealth');
       var btnUnduhPredikat = document.getElementById('btnUnduhPredikat');
 
       if (mDisposisi) mDisposisi.style.display = "none";
       if (mAdmin) mAdmin.style.display = "none";
       if (mTunj) mTunj.style.display = "none";
       if (mAdminKinerja) mAdminKinerja.style.display = "none";
+      if (mOperationalHealth) mOperationalHealth.style.display = "none";
       if (btnUnduhPredikat) btnUnduhPredikat.style.display = "none";
 
       document.getElementById('aplikasiUtama').style.display = "none";
@@ -11014,7 +11245,8 @@
         'halRekap': 'leaderboard',
         'halTunjangan': 'payments',
         'halAdmin': 'verified_user',
-        'halAdminKinerja': 'analytics'
+        'halAdminKinerja': 'analytics',
+        'halOperationalHealth': 'health_and_safety'
       };
       var iconName = iconMap[id] || 'label';
       document.getElementById('judulHal').innerHTML =
@@ -11035,6 +11267,7 @@
       if (id === 'halTunjangan') muatTunjangan();
       if (id === 'halAdmin') muatAdmin();
       if (id === 'halAdminKinerja') muatDashboardAdminKinerja();
+      if (id === 'halOperationalHealth') muatOperationalHealthV10(false);
     }
 
     var dashboardRequestState_ = {
@@ -12154,12 +12387,14 @@
       var menuAdmin = document.getElementById('menuAdmin');
       var menuTunjangan = document.getElementById('menuTunjangan');
       var menuAdminKinerja = document.getElementById('menuAdminKinerja');
+      var menuOperationalHealth = document.getElementById('menuOperationalHealth');
       var btnUnduhPredikat = document.getElementById('btnUnduhPredikat');
 
       if (menuDisposisi) menuDisposisi.style.display = userCanAccessDisposisi() ? 'flex' : 'none';
       if (menuAdmin) menuAdmin.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
+      if (menuOperationalHealth) menuOperationalHealth.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (btnUnduhPredikat) btnUnduhPredikat.style.display = userIsAdminUtama() ? 'inline-flex' : 'none';
     }
 
@@ -16469,12 +16704,17 @@ function updateAdminLatePeriodFilter3B04B1_(
     }
 
     var timelineItemsCache = [];
+    var timelineFilterDebounceV02_ = null;
     var timelineState = {
       offset: 0,
       limit: 12,
       hasMore: true,
       totalApproved: 0,
-      loading: false
+      totalMatched: 0,
+      loading: false,
+      kelompok: 'SEMUA',
+      filterOptionsReady: false,
+      requestSeq: 0
     };
 
     function resetTimelineState_() {
@@ -16482,7 +16722,67 @@ function updateAdminLatePeriodFilter3B04B1_(
       timelineState.offset = 0;
       timelineState.hasMore = true;
       timelineState.totalApproved = 0;
+      timelineState.totalMatched = 0;
       timelineState.loading = false;
+    }
+
+    function timelineRequestV02_() {
+      var q = ((document.getElementById('timelineSearchV02') || {}).value || '').trim();
+      var pegawai = ((document.getElementById('timelinePegawaiV02') || {}).value || '').trim();
+      var kategori = ((document.getElementById('timelineKategoriV02') || {}).value || '').trim();
+      return { offset: timelineState.offset, limit: timelineState.limit, q: q, pegawai: pegawai, kategori: kategori, kelompok: timelineState.kelompok || 'SEMUA' };
+    }
+
+    function sinkronChipKelompokTimelineV02_() {
+      document.querySelectorAll('#halTimeline .timeline-group-chip-v02').forEach(function (btn) {
+        btn.classList.toggle('active', String(btn.getAttribute('data-group') || '') === String(timelineState.kelompok || 'SEMUA'));
+      });
+    }
+
+    function setKelompokTimelineV02_(kelompok) {
+      timelineState.kelompok = String(kelompok || 'SEMUA').toUpperCase();
+      sinkronChipKelompokTimelineV02_();
+      muatTimeline(true);
+    }
+
+    function terapkanFilterTimelineV02_() { muatTimeline(true); }
+
+    function jadwalkanFilterTimelineV02_() {
+      if (timelineFilterDebounceV02_) clearTimeout(timelineFilterDebounceV02_);
+      timelineFilterDebounceV02_ = setTimeout(function () { muatTimeline(true); }, 350);
+    }
+
+    function resetFilterTimelineV02_() {
+      var q = document.getElementById('timelineSearchV02');
+      var p = document.getElementById('timelinePegawaiV02');
+      var k = document.getElementById('timelineKategoriV02');
+      if (q) q.value = '';
+      if (p) p.value = '';
+      if (k) k.value = '';
+      timelineState.kelompok = 'SEMUA';
+      sinkronChipKelompokTimelineV02_();
+      muatTimeline(true);
+    }
+
+    function isiOpsiTimelineV02_(options) {
+      options = options || {};
+      var pegawaiEl = document.getElementById('timelinePegawaiV02');
+      var kategoriEl = document.getElementById('timelineKategoriV02');
+      if (pegawaiEl && Array.isArray(options.pegawai)) {
+        var currentP = pegawaiEl.value || '';
+        pegawaiEl.innerHTML = '<option value="">Semua pegawai</option>' + options.pegawai.map(function (p) {
+          return '<option value="' + escapeHTML(p.value || '') + '">' + escapeHTML(p.label || p.nama || '-') + '</option>';
+        }).join('');
+        if ([].slice.call(pegawaiEl.options).some(function(o){ return o.value === currentP; })) pegawaiEl.value = currentP;
+      }
+      if (kategoriEl && Array.isArray(options.kategori)) {
+        var currentK = kategoriEl.value || '';
+        kategoriEl.innerHTML = '<option value="">Semua kategori</option>' + options.kategori.map(function (x) {
+          return '<option value="' + escapeHTML(x) + '">' + escapeHTML(x) + '</option>';
+        }).join('');
+        if ([].slice.call(kategoriEl.options).some(function(o){ return o.value === currentK; })) kategoriEl.value = currentK;
+      }
+      timelineState.filterOptionsReady = true;
     }
 
     function ambilInisialNama_(nama) {
@@ -16552,12 +16852,16 @@ function updateAdminLatePeriodFilter3B04B1_(
 
       var shown = timelineItemsCache.length;
       var total = Number(timelineState.totalApproved || 0);
+      var matched = Number(timelineState.totalMatched || 0);
       if (!shown) {
-        el.innerHTML = '<span class="badge bg-gray">Timeline kosong</span> Belum ada laporan disetujui yang bisa ditampilkan.';
+        el.innerHTML = '<span class="badge bg-gray">Tidak ada hasil</span> Tidak ada laporan disetujui yang cocok dengan filter saat ini.';
         return;
       }
 
-      el.innerHTML = '<span class="badge bg-green">Disetujui: ' + total + '</span> <b style="margin-left:8px;">Menampilkan ' + shown + ' laporan terbaru</b><div style="margin-top:6px; color:var(--text-muted);">Feed ini hanya menampilkan laporan yang sudah final agar aman dilihat oleh semua akun.</div>';
+      el.innerHTML = '<span class="badge bg-green">Disetujui: ' + total + '</span>' +
+        '<span class="badge bg-gray">Sesuai filter: ' + matched + '</span>' +
+        '<b style="margin-left:8px;">Menampilkan ' + shown + ' laporan</b>' +
+        '<div style="margin-top:6px; color:var(--text-muted);">Urutan berimbang memprioritaskan pegawai berbeda di dalam jendela laporan terbaru. Semua laporan tetap dapat ditelusuri melalui Muat Lagi atau filter.</div>';
     }
 
     function buatPreviewTimeline_(item) {
@@ -16604,6 +16908,9 @@ function updateAdminLatePeriodFilter3B04B1_(
       var badgePoin = Number(item.poinFinal || 0) > 0
         ? '<span class="badge bg-gray">' + Number(item.poinFinal || 0) + ' Poin</span>'
         : '';
+      var badgeKelompok = item.kelompokLabel
+        ? '<span class="badge bg-gray">' + escapeHTML(item.kelompokLabel) + '</span>'
+        : '';
 
       return '' +
         '<div class="timeline-card" data-report-id="' + escapeHTML(item.idLaporan || '') + '">' +
@@ -16614,6 +16921,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         '<div class="timeline-name">' + nama + '</div>' +
         '<span class="badge bg-green">' + status + '</span>' +
         badgePoin +
+        badgeKelompok +
         '</div>' +
         '<div class="timeline-meta">' + jabatan + ' • ' + waktu + '</div>' +
         '</div>' +
@@ -16665,7 +16973,8 @@ function updateAdminLatePeriodFilter3B04B1_(
 
     function muatTimeline(reset) {
       var wrap = document.getElementById('timelineFeed');
-      if (!wrap || timelineState.loading) return;
+      if (!wrap) return;
+      if (timelineState.loading && !reset) return;
 
       if (reset) {
         resetTimelineState_();
@@ -16673,10 +16982,12 @@ function updateAdminLatePeriodFilter3B04B1_(
         updateTimelineSummary_();
       }
 
+      var requestId = ++timelineState.requestSeq;
       timelineState.loading = true;
       setLoadingTimelineButton_(true, !!reset);
 
       google.script.run.withSuccessHandler(function (res) {
+        if (requestId !== timelineState.requestSeq) return;
         timelineState.loading = false;
         setLoadingTimelineButton_(false, !!reset);
 
@@ -16693,14 +17004,17 @@ function updateAdminLatePeriodFilter3B04B1_(
         timelineState.offset = Number(res.nextOffset || timelineItemsCache.length || 0);
         timelineState.hasMore = !!res.hasMore;
         timelineState.totalApproved = Number(res.totalApproved || timelineItemsCache.length || 0);
+        timelineState.totalMatched = Number(res.totalMatched != null ? res.totalMatched : timelineState.totalApproved);
+        if (reset && res.filterOptions) isiOpsiTimelineV02_(res.filterOptions);
         renderTimelineFeed_(!reset, items);
       }).withFailureHandler(function (err) {
+        if (requestId !== timelineState.requestSeq) return;
         timelineState.loading = false;
         timelineState.hasMore = false;
         setLoadingTimelineButton_(false, !!reset);
         wrap.innerHTML = '<div class="timeline-empty">Gagal memuat timeline: ' + escapeHTML((err && err.message) ? err.message : err) + '</div>';
         updateTimelineSummary_();
-      }).ambilTimelinePublik(sToken, timelineState.offset, timelineState.limit);
+      }).ambilTimelinePublik(sToken, timelineRequestV02_(), timelineState.limit);
     }
 
     function muatAdmin(forceReloadList, appendMode) {
@@ -19903,12 +20217,14 @@ function updateAdminLatePeriodFilter3B04B1_(
       var menuAdmin = document.getElementById('menuAdmin');
       var menuTunjangan = document.getElementById('menuTunjangan');
       var menuAdminKinerja = document.getElementById('menuAdminKinerja');
+      var menuOperationalHealth = document.getElementById('menuOperationalHealth');
       var btnUnduhPredikat = document.getElementById('btnUnduhPredikat');
 
       if (menuDisposisi) menuDisposisi.style.display = userCanAccessDisposisi() ? 'flex' : 'none';
       if (menuAdmin) menuAdmin.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
+      if (menuOperationalHealth) menuOperationalHealth.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (btnUnduhPredikat) btnUnduhPredikat.style.display = userIsAdminUtama() ? 'inline-flex' : 'none';
     };
 
@@ -22607,6 +22923,117 @@ function updateAdminLatePeriodFilter3B04B1_(
       outputProfesionalV3_scheduleApply_(100);
     }
 
+
+
+    // ===== Operational Health & Integrity Center v1.0.1 =====
+    var operationalHealthStateV10_ = { loading:false, requestSeq:0, loaded:false };
+
+    function ohicStatusLabelV10_(s) {
+      s = String(s || '').toUpperCase();
+      return s === 'CRITICAL' ? 'KRITIS' : (s === 'WARN' ? 'PERINGATAN' : (s === 'INFO' ? 'INFO' : 'LULUS'));
+    }
+
+    function ohicMetricLabelV10_(key) {
+      var map = {
+        appVersion:'Versi', contractTotal:'Kontrak', activeBindings:'Binding aktif', registryValid:'Registry valid', checksumMatch:'Checksum cocok', missing:'Hilang', mismatch:'Berbeda',
+        required:'Sheet wajib', missingRequired:'Wajib hilang', optional:'Sheet pendukung', missingOptional:'Pendukung hilang',
+        active:'Pegawai aktif', inactive:'Nonaktif', activePHL:'PHL aktif', duplicateIds:'ID duplikat', duplicateUsernames:'Username duplikat', incompleteActive:'Aktif tidak lengkap', inactiveIncomplete:'Nonaktif tidak lengkap', vacantPositions:'Posisi kosong', unknownStatus:'Status lain',
+        masterRows:'Baris master', activeNonPHLChecked:'Non-PHL dicek', excludedPHL:'PHL dikecualikan', unresolved:'Jabatan tanpa tarif', warnings:'Peringatan tarif', tariffVersion:'Versi tarif',
+        totalReports:'Total laporan', duplicateReportIds:'ID laporan duplikat', missingReportId:'Tanpa ID laporan', missingUserId:'Tanpa ID user', invalidDates:'Tanggal rusak', approved:'Disetujui', rejected:'Ditolak', pendingAllPeriods:'Pending seluruh periode', legacyLateApproved:'Legacy lewat cut-off', latestReport:'Laporan terbaru',
+        period:'Periode', totalPending:'Pending', PHL:'PHL', pamong:'Pamong', dukuh:'Dukuh', staf:'Staf',
+        sourceIds:'ID sumber', indexedIds:'ID index', missingInIndex:'Tidak terindex', orphanIndex:'Orphan index', duplicateIndex:'Index duplikat', queueTotal:'Antrean index', queuePending:'Antrean pending', queueFailed:'Antrean gagal', queueStale:'Antrean stale', queueNeedsSync:'Perlu sinkron',
+        activePeriod:'Periode aktif', activeLabel:'Label periode', status:'Status', latestConfiguredClosedPeriod:'Tutup terbaru', configuredClosures:'Konfigurasi tutup',
+        employees:'Pegawai batch', totalNominal:'Total nominal', batchId:'Batch', activeBatchIds:'Batch ID aktif', duplicateEmployees:'Pegawai duplikat', arithmeticIssues:'Aritmetika bermasalah', snapshotDelta:'Selisih snapshot', changedEmployees:'Pegawai berubah', pendingRelevant:'Pending penghambat', pendingPHL:'Pending PHL', residualMetadataRows:'Metadata sisa', frozenSnapshot:'Snapshot beku', activePeriods:'Periode batch aktif'
+      };
+      return map[key] || key.replace(/([A-Z])/g,' $1').replace(/^./,function(x){return x.toUpperCase();});
+    }
+
+    function ohicMetricValueV10_(key, value) {
+      if (value === null || value === undefined || value === '') return '&mdash;';
+      if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak';
+      if (key === 'totalNominal' || key === 'snapshotDelta') return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
+      if (typeof value === 'number') return Number(value).toLocaleString('id-ID');
+      return escapeHTML(String(value));
+    }
+
+    function renderOperationalHealthV10_(res) {
+      var summaryEl = document.getElementById('ohicSummary');
+      var checkedEl = document.getElementById('ohicCheckedAt');
+      var checksEl = document.getElementById('ohicChecks');
+      if (!summaryEl || !checkedEl || !checksEl) return;
+      if (!res || res.sukses === false) {
+        summaryEl.innerHTML = '<div class="ohic-summary-card ohic-overall-KRITIS"><div class="ohic-summary-label">Status Sistem</div><div class="ohic-summary-value">GAGAL DIPERIKSA</div><div class="ohic-summary-sub">Pemeriksaan tidak menghasilkan status aman.</div></div>';
+        checkedEl.innerHTML = '<span style="color:var(--danger);font-weight:800;">' + escapeHTML((res && res.pesan) || 'Pemeriksaan gagal.') + '</span>';
+        checksEl.innerHTML = '';
+        return;
+      }
+      var sm = res.ringkasan || {}, overall = String(res.statusKeseluruhan || 'SEHAT');
+      summaryEl.className = 'ohic-summary-grid ohic-overall-' + overall;
+      summaryEl.innerHTML =
+        '<div class="ohic-summary-card"><div class="ohic-summary-label">Status Sistem</div><div class="ohic-summary-value">' + escapeHTML(overall.replace(/_/g,' ')) + '</div><div class="ohic-summary-sub">' + Number(sm.totalChecks || 0) + ' pemeriksaan.</div></div>' +
+        '<div class="ohic-summary-card"><div class="ohic-summary-label">Lulus</div><div class="ohic-summary-value" style="color:#15803d;">' + Number(sm.pass || 0) + '</div><div class="ohic-summary-sub">Tidak memerlukan tindakan.</div></div>' +
+        '<div class="ohic-summary-card"><div class="ohic-summary-label">Peringatan</div><div class="ohic-summary-value" style="color:#b45309;">' + Number(sm.warning || 0) + '</div><div class="ohic-summary-sub">Perlu ditinjau.</div></div>' +
+        '<div class="ohic-summary-card"><div class="ohic-summary-label">Kritis</div><div class="ohic-summary-value" style="color:#b91c1c;">' + Number(sm.critical || 0) + '</div><div class="ohic-summary-sub">Tahan proses terkait.</div></div>' +
+        '<div class="ohic-summary-card"><div class="ohic-summary-label">Versi Aplikasi</div><div class="ohic-summary-value" style="font-size:20px;">' + escapeHTML(res.appVersion || '-') + '</div><div class="ohic-summary-sub">Server ' + Number(sm.durasiServerMs || 0).toLocaleString('id-ID') + ' ms.</div></div>';
+      checkedEl.innerHTML = '<b>Diperiksa:</b> ' + escapeHTML(res.diperiksaPada || '-') + ' &middot; <b>Mode:</b> ' + escapeHTML(res.mode || 'BACA_SAJA') + ' &middot; ' + escapeHTML(res.versi || '');
+      var groups = [
+        ['GOVERNANCE','Fondasi & Kontrak','shield'],
+        ['MASTER_DATA','Master Data & Identitas','badge'],
+        ['REPORTS_INDEX','Laporan, Review & Index','fact_check'],
+        ['PERIOD_ALLOWANCE','Periode & Tunjangan','payments']
+      ];
+      var checks = Array.isArray(res.checks) ? res.checks : [];
+      var html = '';
+      groups.forEach(function(g){
+        var list = checks.filter(function(c){ return c.group === g[0]; });
+        if (!list.length) return;
+        html += '<section class="ohic-group"><h3 class="ohic-group-title"><span class="material-symbols-outlined">' + g[2] + '</span>' + g[1] + '</h3><div class="ohic-check-list">';
+        list.forEach(function(c){
+          var st = String(c.status || 'PASS').toUpperCase();
+          var metrics = c.metrics || {}, metricHtml = '';
+          Object.keys(metrics).forEach(function(k){ metricHtml += '<span class="ohic-metric">' + escapeHTML(ohicMetricLabelV10_(k)) + ': <b>' + ohicMetricValueV10_(k, metrics[k]) + '</b></span>'; });
+          var samples = Array.isArray(c.samples) ? c.samples : [];
+          html += '<article class="ohic-check ' + st + '">' +
+            '<div class="ohic-check-head"><div class="ohic-check-title">' + escapeHTML(c.title || '-') + '</div><span class="ohic-badge ' + st + '">' + escapeHTML(ohicStatusLabelV10_(st)) + '</span></div>' +
+            '<p class="ohic-check-headline">' + escapeHTML(c.headline || '') + '</p>' +
+            (metricHtml ? '<div class="ohic-metrics">' + metricHtml + '</div>' : '') +
+            (samples.length ? '<div class="ohic-samples"><b>Contoh/temuan:</b><br>' + samples.map(function(x){return '&bull; ' + escapeHTML(String(x));}).join('<br>') + '</div>' : '') +
+            (c.recommendation ? '<div class="ohic-recommendation"><b>Tindak lanjut:</b> ' + escapeHTML(c.recommendation) + '</div>' : '') +
+            '</article>';
+        });
+        html += '</div></section>';
+      });
+      checksEl.innerHTML = html || '<div class="ohic-loading">Tidak ada hasil pemeriksaan.</div>';
+    }
+
+    function muatOperationalHealthV10(force) {
+      if (!userIsAdminUtama()) {
+        alert('Akses ditolak. Fitur ini hanya untuk Lurah/Carik.');
+        return;
+      }
+      if (!sToken || !window.google || !google.script || !google.script.run) return;
+      if (operationalHealthStateV10_.loading) return;
+      if (operationalHealthStateV10_.loaded && force !== true) return;
+      operationalHealthStateV10_.loading = true;
+      var req = ++operationalHealthStateV10_.requestSeq;
+      var btn = document.getElementById('btnMuatOperationalHealth');
+      var checksEl = document.getElementById('ohicChecks');
+      if (btn) btn.disabled = true;
+      if (checksEl) checksEl.innerHTML = '<div class="ohic-loading">Memeriksa integritas sistem. Tidak ada data yang diubah...</div>';
+      google.script.run.withSuccessHandler(function(res){
+        if (req !== operationalHealthStateV10_.requestSeq) return;
+        operationalHealthStateV10_.loading = false; operationalHealthStateV10_.loaded = !!(res && res.sukses);
+        if (btn) btn.disabled = false;
+        if (tanganiResponsSesiTidakValid_(res)) return;
+        renderOperationalHealthV10_(res);
+      }).withFailureHandler(function(err){
+        if (req !== operationalHealthStateV10_.requestSeq) return;
+        operationalHealthStateV10_.loading = false;
+        if (btn) btn.disabled = false;
+        renderOperationalHealthV10_({sukses:false,pesan:(err && err.message) ? err.message : String(err || 'Pemeriksaan gagal.')});
+      }).ambilOperationalHealthCenterV10(sToken);
+    }
+    // ===== END Operational Health & Integrity Center v1.0.1 =====
 </script>
 </body>
 
