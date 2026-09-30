@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.09.30.01"; // OHIC v1.0.1-RC1 Maintenance Hardening di atas baseline stabil 2026.09.28.03
+var APP_VERSION = "2026.09.30.02"; // Review Center Admin v1.0-RC1 di atas Stable Baseline 2026.09.30.01
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
