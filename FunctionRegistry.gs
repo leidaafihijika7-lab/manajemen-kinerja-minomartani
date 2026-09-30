@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.30.02
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.30.03
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1p-2026.09.30.02";
+  "3B1B1q-2026.09.30.03";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.09.30.02",
+  baselineAppVersion: "2026.09.30.03",
 
   policy: {
     privateByDefault: true,
