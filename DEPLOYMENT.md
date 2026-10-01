@@ -1,7 +1,7 @@
-# Deployment — 2026.10.01.01
+# Deployment — 2026.10.01.02
 
 1. Ganti 6 source file yang tercantum pada `PANDUAN_PEMASANGAN.txt`.
-2. Jalankan `getAppVersion()` → `2026.10.01.01`.
+2. Jalankan `getAppVersion()` → `2026.10.01.02`.
 3. Jalankan `validasiReviewCenterAdminV10()` → 12/12.
 4. Jalankan `validasiBindingAktif3B1B2()` → 178/178 + checksum cocok.
 5. Jalankan `validasiGuardKontrakPraDeploy3B1B3()` → ALLOW, blocker 0.

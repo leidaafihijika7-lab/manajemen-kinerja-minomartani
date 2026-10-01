@@ -2,7 +2,7 @@
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
 // Baseline kontrak: Review Center v1.2 Legacy Retirement — 178 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.01.01
+// Baseline kode kandidat: APP_VERSION 2026.10.01.02
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,8 +11,8 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3t-2026.10.01.01";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.01.01";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3u-2026.10.01.02";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.01.02";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 178;
 var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "ab66775079f1c382ebe0cab2d461fdb08bcccb605e15459aca82171bef15ef8d";
 

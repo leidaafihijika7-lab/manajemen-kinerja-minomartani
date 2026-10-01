@@ -1,4 +1,4 @@
-# Portal Kinerja Minomartani — 2026.10.01.01
+# Portal Kinerja Minomartani — 2026.10.01.02
 
 Release candidate: **Review Center Admin v1.2 Legacy Retirement**.
 
