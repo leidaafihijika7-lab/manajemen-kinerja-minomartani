@@ -1,11 +1,11 @@
 // ============================================================
-// REVIEW CENTER ADMIN v1.1-RC1 — UNIFIED REVIEW WORKSPACE
-// APP_VERSION 2026.09.30.03
+// REVIEW CENTER ADMIN v1.2-RC1 — LEGACY RETIREMENT
+// APP_VERSION 2026.10.01.01
 // Antrean review lintas pegawai berbasis Index_Laporan.
 // Detail/aksi dipersatukan di Pusat Review; keputusan tetap memakai prosesReviewAdmin yang stabil.
 // ============================================================
 
-var REVIEW_CENTER_ADMIN_V10_VERSION_ = 'REVIEW-CENTER-v1.1-RC1-2026.09.30.03';
+var REVIEW_CENTER_ADMIN_V10_VERSION_ = 'REVIEW-CENTER-v1.2-RC1-2026.10.01.01';
 var REVIEW_CENTER_ADMIN_V10_DEFAULT_LIMIT_ = 20;
 var REVIEW_CENTER_ADMIN_V10_MAX_LIMIT_ = 30;
 
@@ -350,7 +350,7 @@ function validasiReviewCenterAdminV10() {
   var groupAllowed = ['SEMUA','PAMONG','DUKUH','STAF','PHL'];
   add('Status filter invalid ditolak', statusAllowed.indexOf('WRITE') === -1);
   add('Kelompok invalid ditolak', groupAllowed.indexOf('LAIN') === -1);
-  add('Versi Unified Review v1.1 tersedia', REVIEW_CENTER_ADMIN_V10_VERSION_.indexOf('v1.1') !== -1);
+  add('Versi Legacy Retirement v1.2 tersedia', REVIEW_CENTER_ADMIN_V10_VERSION_.indexOf('v1.2') !== -1);
   var passed = scenarios.filter(function(s){return s.lulus;}).length;
   var result = { sukses:passed===scenarios.length, valid:passed===scenarios.length, versi:REVIEW_CENTER_ADMIN_V10_VERSION_, appVersion:String(APP_VERSION||''), jumlah:scenarios.length, lulus:passed, gagal:scenarios.length-passed, skenario:scenarios, maintainerVerified:!!maintainer, dataDiubah:false };
   Logger.log(JSON.stringify(result,null,2));

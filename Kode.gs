@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.09.30.03"; // Review Center Admin v1.1 Unified Review Workspace di atas Stable Baseline 2026.09.30.01
+var APP_VERSION = "2026.10.01.01"; // Review Center Admin v1.2 Legacy Retirement di atas rollback point 2026.09.30.03
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {

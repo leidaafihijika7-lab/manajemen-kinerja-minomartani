@@ -5656,10 +5656,9 @@
   </style>
 
   <style id="ui-stitch-polish-admin-timeline-v1">
-    /* UI Stitch polish v1 - Timeline, Review Admin, Dashboard Admin Kinerja.
+    /* UI Stitch polish v1 - Timeline, Unified Review, Dashboard Admin Kinerja.
        Layout-only: tidak mengubah ID elemen, nama fungsi, payload, role, atau workflow. */
     #halTimeline,
-    #halAdmin,
     #halAdminKinerja {
       --stitch-blue: #2563eb;
       --stitch-blue-dark: #0f3ea8;
@@ -5807,7 +5806,6 @@
     }
 
     #halTimeline > .table-container,
-    #halAdmin > .table-container,
     #halAdminKinerja > .table-container {
       border-radius: 24px;
       border-color: var(--stitch-line);
@@ -5817,7 +5815,6 @@
     }
 
     #halTimeline .toolbar-aksi,
-    #halAdmin .toolbar-aksi,
     #halAdminKinerja .toolbar-aksi {
       border-radius: 24px 24px 0 0;
       border-bottom-color: var(--stitch-line);
@@ -5950,8 +5947,7 @@
 
     #halTimeline #btnRefreshTimeline,
     #halTimeline #btnTimelineMore,
-    #halAdminKinerja .table-container .btn-unduh,
-    #halAdmin .toolbar-aksi .btn-unduh {
+    #halAdminKinerja .table-container .btn-unduh {
       border-radius: 12px;
       min-height: 42px;
       box-shadow: 0 10px 22px rgba(37, 99, 235, .18);
@@ -5960,8 +5956,7 @@
 
     #halTimeline #btnRefreshTimeline:hover,
     #halTimeline #btnTimelineMore:hover,
-    #halAdminKinerja .table-container .btn-unduh:hover,
-    #halAdmin .toolbar-aksi .btn-unduh:hover {
+    #halAdminKinerja .table-container .btn-unduh:hover {
       transform: translateY(-1px);
       box-shadow: 0 14px 28px rgba(37, 99, 235, .22);
     }
@@ -6042,148 +6037,6 @@
     #halTimeline .timeline-loadmore-wrap {
       padding: 2px 18px 20px;
       background: #fff;
-    }
-
-    /* Review Bukti Admin */
-    #halAdmin > .table-container {
-      overflow: visible;
-    }
-
-    #halAdmin .toolbar-aksi {
-      display: grid !important;
-      grid-template-columns: minmax(250px, 1.25fr) minmax(150px, .58fr) minmax(150px, .58fr) minmax(170px, .68fr);
-      gap: 12px;
-      align-items: center;
-      padding: 16px;
-    }
-
-    #halAdmin #adminPegawaiSelect,
-    #halAdmin #adminTanggalMulai,
-    #halAdmin #adminTanggalAkhir,
-    #halAdmin #adminFilterStatus,
-    #halAdmin #adminSearchInput {
-      width: 100% !important;
-      max-width: none !important;
-      min-width: 0 !important;
-      border-radius: 14px !important;
-      border-color: #dbe4ef !important;
-      min-height: 48px;
-      box-shadow: 0 1px 0 rgba(15, 23, 42, .02);
-      font-family: var(--font-body);
-    }
-
-    #halAdmin .toolbar-aksi .btn-unduh {
-      grid-column: 1 / 2;
-      width: max-content;
-      max-width: 100%;
-      background: linear-gradient(135deg, #334155, #475569) !important;
-    }
-
-    #halAdmin #adminSearchInput {
-      grid-column: 2 / -1;
-    }
-
-    #halAdmin #adminReviewSummary {
-      padding: 14px 16px !important;
-      background: #f8fafc !important;
-      border-bottom: 1px solid var(--stitch-line) !important;
-      color: var(--stitch-muted) !important;
-      line-height: 1.6;
-    }
-
-    #halAdmin #adminReviewSummary .badge,
-    #halAdmin .admin-review-chip-row .badge {
-      border-radius: 999px;
-      padding: 6px 11px;
-      font-weight: 850;
-    }
-
-    #halAdmin #tbAdmin {
-      padding: 16px 18px 18px !important;
-      background: linear-gradient(180deg, #f8fafc 0%, #ffffff 42%);
-    }
-
-    #halAdmin .admin-review-group {
-      border-radius: 22px;
-      border-color: var(--stitch-line);
-      box-shadow: 0 12px 28px rgba(15, 23, 42, .055);
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-
-    #halAdmin .admin-review-group-header {
-      padding: 18px 20px;
-      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-      border-bottom: 1px solid #eef2f7;
-    }
-
-    #halAdmin .admin-review-group-title {
-      font-size: 19px;
-      font-weight: 900;
-      letter-spacing: -.01em;
-    }
-
-    #halAdmin .admin-review-body {
-      padding: 0 18px 18px;
-      background: #fcfdff;
-    }
-
-    #halAdmin .admin-review-report {
-      padding: 16px;
-      margin-top: 16px;
-      border-radius: 22px;
-      border-color: var(--stitch-line);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, .055);
-    }
-
-    #halAdmin .admin-review-report-grid {
-      grid-template-columns: minmax(150px, .78fr) minmax(300px, 1.7fr) minmax(170px, .82fr) minmax(190px, .9fr);
-      gap: 14px;
-    }
-
-    #halAdmin .admin-review-report-grid > div {
-      min-width: 0;
-      border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      background: #f8fafc;
-      padding: 12px;
-    }
-
-    #halAdmin .admin-review-report-grid > div:nth-child(2) {
-      background: #fff;
-    }
-
-    #halAdmin .admin-review-report-grid > div:nth-child(4) {
-      background: linear-gradient(180deg, #fffdfa 0%, #fff7ed 100%);
-      border-color: #fde68a;
-    }
-
-    #halAdmin .admin-review-report-label {
-      color: #475569;
-      font-size: 10.5px;
-      letter-spacing: .08em;
-    }
-
-    #halAdmin .admin-review-title {
-      font-size: 17px;
-      font-weight: 900;
-    }
-
-    #halAdmin .admin-review-desc {
-      color: #1f2937;
-      line-height: 1.7;
-    }
-
-    #halAdmin .admin-review-action-buttons,
-    #halAdmin .btn-action {
-      border-radius: 12px;
-    }
-
-    #halAdmin .admin-review-empty {
-      border: 1px dashed #cbd5e1;
-      border-radius: 18px;
-      background: #f8fafc;
-      padding: 24px 18px;
     }
 
     /* Dashboard Admin Kinerja */
@@ -6300,16 +6153,8 @@
       #halAdminKinerja .stats-container {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
-
-      #halAdminKinerja .table-container .toolbar-aksi,
-      #halAdmin .toolbar-aksi {
+      #halAdminKinerja .table-container .toolbar-aksi {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      #halAdmin #adminSearchInput,
-      #halAdmin .toolbar-aksi .btn-unduh {
-        grid-column: auto;
-        width: 100%;
       }
     }
 
@@ -6371,27 +6216,12 @@
       #halTimeline .timeline-intro-title {
         font-size: 20px;
       }
-
-      #halAdmin .toolbar-aksi,
       #halAdminKinerja .table-container .toolbar-aksi {
         grid-template-columns: 1fr;
       }
 
-      #halAdmin #adminSearchInput,
-      #halAdmin .toolbar-aksi .btn-unduh {
-        grid-column: auto;
-      }
-
       #halAdminKinerja .stats-container {
         grid-template-columns: 1fr;
-      }
-
-      #halAdmin .admin-review-report-grid {
-        grid-template-columns: 1fr;
-      }
-
-      #halAdmin #tbAdmin {
-        padding: 12px !important;
       }
     }
 
@@ -6971,9 +6801,6 @@
       <div id="menuReviewCenter" class="menu-item" style="display:none;"
         onclick="bukaHalaman(event, 'halReviewCenter', 'Pusat Review')"><span
           class="material-symbols-outlined">fact_check</span><span>Pusat Review</span></div>
-      <div id="menuAdmin" class="menu-item" style="display:none;"
-        onclick="bukaHalaman(event, 'halAdmin', 'Review Bukti (Admin)')"><span
-          class="material-symbols-outlined">verified_user</span><span>Admin</span></div>
       <div id="menuAdminKinerja" class="menu-item" style="display:none;"
         onclick="bukaHalaman(event, 'halAdminKinerja', 'Dashboard Admin Kinerja')"><span
           class="material-symbols-outlined">analytics</span><span>Admin Kinerja</span></div>
@@ -7891,7 +7718,7 @@
             <div class="stitch-page-hero-main">
               <div class="stitch-page-hero-icon"><span class="material-symbols-outlined">fact_check</span></div>
               <div>
-                <div class="stitch-page-hero-kicker">Review Center Admin v1.1</div>
+                <div class="stitch-page-hero-kicker">Review Center Admin v1.2</div>
                 <h2 class="stitch-page-hero-title">Pusat Review</h2>
                 <div class="stitch-page-hero-subtitle">Unified Review Workspace: antrean lintas pegawai dan pemeriksaan bukti lengkap dalam satu halaman, menggunakan mesin review Admin yang sama.</div>
               </div>
@@ -7935,72 +7762,7 @@
         </div>
 
         <!-- Review Admin memakai dropdown native seperti Ganti PIN Pegawai, sengaja tidak menggunakan custom picker. -->
-        <div id="halAdmin" class="page-section">
-
-          <div class="stitch-page-hero stitch-admin-review-hero">
-            <div class="stitch-page-hero-main">
-              <div class="stitch-page-hero-icon"><span class="material-symbols-outlined">fact_check</span></div>
-              <div>
-                <div class="stitch-page-hero-kicker">Review & Validasi</div>
-                <h2 class="stitch-page-hero-title">Review Bukti Laporan Pegawai</h2>
-                <div class="stitch-page-hero-subtitle">Pilih pegawai, periode review atau rentang pengiriman, dan status review untuk memeriksa bukti serta memberi keputusan admin secara lebih fokus.</div>
-              </div>
-            </div>
-            <div class="stitch-page-hero-pill"><span class="material-symbols-outlined" style="font-size:18px;">verified_user</span> Khusus Admin</div>
-          </div>
-          <div class="table-container">
-            <div class="toolbar-aksi">
-              <select id="adminPegawaiSelect" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                style="min-width:280px; flex:1; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-                <option value="">-- Pilih Pegawai --</option>
-              </select>
-              <select id="adminDasarPeriode" onchange="ubahDasarPeriodeAdmin3B04C1b_(); simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                style="min-width:190px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-                <option value="periode_review">Periode Review</option>
-                <option value="pengiriman">Rentang Pengiriman</option>
-              </select>
-              <div id="adminPeriodeReviewWrap" style="display:flex; flex-direction:column; gap:4px; min-width:175px;">
-                <label for="adminPeriodeReview" style="margin:0; font-size:10px; text-transform:uppercase; color:var(--text-muted);">Periode Review</label>
-                <input type="month" id="adminPeriodeReview" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                  style="padding:10px 12px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-              </div>
-              <div id="adminRentangPengirimanWrap" style="display:none; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                  <label for="adminTanggalMulai" style="margin:0; font-size:10px; text-transform:uppercase; color:var(--text-muted);">Dikirim mulai</label>
-                  <input type="date" id="adminTanggalMulai" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                    style="max-width:180px; padding:10px 12px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-                </div>
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                  <label for="adminTanggalAkhir" style="margin:0; font-size:10px; text-transform:uppercase; color:var(--text-muted);">Dikirim sampai</label>
-                  <input type="date" id="adminTanggalAkhir" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                    style="max-width:180px; padding:10px 12px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-                </div>
-              </div>
-              <select id="adminFilterStatus" onchange="simpanStateAdminReview(); jadwalkanMuatAdminReview_();"
-                style="max-width:220px; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid #e2e8f0; background:white;">
-                <option value="semua">Semua Status</option>
-                <option value="menunggu">Hanya Menunggu Review</option>
-                <option
-                 id="adminFilterLewatPeriode3B04B1"
-                 value="lewat_periode"
-                 disabled
-                 hidden>
-                 Hanya Lewat Periode
-                </option>
-              </select>
-              <button type="button" class="btn-unduh" style="background:linear-gradient(135deg,#64748b,#475569);"
-                onclick="refreshCacheDataPegawai()"><span class="material-symbols-outlined"
-                  style="font-size:18px;">refresh</span> Muat Ulang Daftar</button>
-              <input type="text" id="adminSearchInput" class="input-cari"
-                onkeyup="simpanStateAdminReview(); renderAdminReviewView();"
-                placeholder="🔍 Cari tugas, kategori, deskripsi pada pegawai terpilih...">
-            </div>
-            <div id="adminReviewSummary"
-              style="padding:14px 16px; background:#f8fafc; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-main);">
-              Pilih pegawai dan periode review untuk memuat antrean laporan.</div>
-            <div id="tbAdmin" style="padding:16px;"></div>
-          </div>
-        </div>
+        
 
         <div id="halAdminKinerja" class="page-section">
 
@@ -11327,7 +11089,6 @@
         'halRekap': 'leaderboard',
         'halTunjangan': 'payments',
         'halReviewCenter': 'fact_check',
-        'halAdmin': 'verified_user',
         'halAdminKinerja': 'analytics',
         'halOperationalHealth': 'health_and_safety'
       };
@@ -11349,7 +11110,6 @@
       if (id === 'halRekap') muatRekap();
       if (id === 'halTunjangan') muatTunjangan();
       if (id === 'halReviewCenter') muatReviewCenterAdminV10(false);
-      if (id === 'halAdmin') muatAdmin();
       if (id === 'halAdminKinerja') muatDashboardAdminKinerja();
       if (id === 'halOperationalHealth') muatOperationalHealthV10(false);
     }
@@ -12451,8 +12211,7 @@
     }
 
     function userIsAdminUtama() {
-      // Kebijakan akses Admin Kinerja dan Unified Review Workspace:
-      // hanya jabatan Lurah dan Carik. Review Bukti lama disimpan sebagai fallback tersembunyi.
+      // Kebijakan akses Admin Kinerja dan Unified Review Workspace: hanya jabatan Lurah dan Carik.
       if (sData && sData.isAdminUtama === true) return true;
       return userIsCarikTunjangan() || userIsLurahTunjangan();
     }
@@ -12469,7 +12228,6 @@
     function aturMenuRoleVisibility() {
       var menuDisposisi = document.getElementById('menuDisposisi');
       var menuReviewCenter = document.getElementById('menuReviewCenter');
-      var menuAdmin = document.getElementById('menuAdmin');
       var menuTunjangan = document.getElementById('menuTunjangan');
       var menuAdminKinerja = document.getElementById('menuAdminKinerja');
       var menuOperationalHealth = document.getElementById('menuOperationalHealth');
@@ -12477,7 +12235,6 @@
 
       if (menuDisposisi) menuDisposisi.style.display = userCanAccessDisposisi() ? 'flex' : 'none';
       if (menuReviewCenter) menuReviewCenter.style.display = userIsAdminUtama() ? 'flex' : 'none';
-      if (menuAdmin) menuAdmin.style.display = 'none'; // v1.1: Review Bukti lama dipensiunkan dari navigasi; halAdmin tetap fallback kompatibilitas.
       if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuOperationalHealth) menuOperationalHealth.style.display = userIsAdminUtama() ? 'flex' : 'none';
@@ -14662,7 +14419,7 @@
       }).adminGantiPinPegawai(username, p1, sToken);
     }
 
-    // ===== REVIEW CENTER ADMIN v1.1-RC1 — UNIFIED REVIEW WORKSPACE =====
+    // ===== REVIEW CENTER ADMIN v1.2-RC1 — LEGACY RETIREMENT =====
     var reviewCenterAdminV10State_ = { kelompok:'SEMUA', offset:0, limit:20, fingerprint:'', totalFiltered:0, hasMore:false, loading:false, seq:0, searchTimer:null, optionsKey:'', selectedId:'', currentItems:[], autoNext:false, lastActionId:'' };
 
     function reviewCenterAdminV10Periode_() {
@@ -14751,7 +14508,7 @@
 
     function reviewCenterAdminV10Cache_(r) {
       if(!r || !r.idLaporan) return;
-      adminReviewCache[r.idLaporan] = Object.assign({}, r, {
+      reviewWorkspaceCache_[r.idLaporan] = Object.assign({}, r, {
         idLaporan:r.idLaporan,
         status:r.status||'',
         poinFinal:(r.poinFinal!=null&&r.poinFinal!=='')?r.poinFinal:0,
@@ -14765,7 +14522,7 @@
       var key=String(id||'');
       var items=reviewCenterAdminV10State_.currentItems||[];
       for(var i=0;i<items.length;i++) if(String((items[i]||{}).idLaporan||'')===key) return items[i];
-      return adminReviewCache[key]||null;
+      return reviewWorkspaceCache_[key]||null;
     }
 
     function reviewCenterAdminV11BolehRevisi_() {
@@ -14812,7 +14569,7 @@
         '<article class="rc-v11-detail-card admin-review-report" data-report-id="'+escapeHTML(r.idLaporan||'')+'">'+
           '<div class="rc-v11-detail-head"><div class="rc-v11-detail-person"><div class="rc-v10-avatar">'+escapeHTML(reviewCenterAdminV10Initials_(r.nama||r.namaPegawai))+'</div><div><div class="rc-v11-detail-title">'+escapeHTML(r.nama||r.namaPegawai||'-')+'</div><div class="rc-v11-detail-sub">'+escapeHTML(r.jabatan||'-')+' • '+escapeHTML(r.kelompokReviewCenterLabel||'')+'</div></div></div><div class="rc-v11-detail-badges"><span class="badge '+badgeCls+'">'+escapeHTML(stat||'-')+'</span>'+(pending?'<span class="rc-v10-badge pending">Menunggu '+escapeHTML(umur)+'</span>':'')+'</div></div>'+
           '<div class="rc-v11-detail-body">'+
-            '<div class="rc-v11-legacy-note"><b>Unified Review.</b> Detail dan keputusan di halaman ini menggunakan data serta mesin Review Bukti Admin yang sama. Halaman lama tetap tersedia sebagai fallback kompatibilitas tetapi disembunyikan dari sidebar.</div>'+
+            '<div class="rc-v11-legacy-note"><b>Unified Review.</b> Pusat Review adalah workspace resmi Review Admin. Keputusan tetap menggunakan mesin prosesReviewAdmin yang stabil.</div>'+
             lateNotice+
             '<div class="rc-v11-detail-grid">'+
               '<div><div class="rc-v11-detail-section"><div class="rc-v11-detail-label">Waktu Lapor</div><div>'+waktu+'</div><div class="rc-v11-detail-label" style="margin-top:12px;">Tanggal Pelaksanaan</div><div>'+escapeHTML(r.tanggalPelaksanaan||'Tidak terbaca')+'</div>'+(r.periodePelaksanaan?'<div style="margin-top:8px;"><span class="badge '+(r.periodePelaksanaanDitutup?'bg-red':'bg-gray')+'">Periode: '+escapeHTML(r.periodePelaksanaan)+(r.periodePelaksanaanDitutup?' - Ditutup':'')+'</span></div>':'')+'</div><div class="rc-v11-detail-section" style="margin-top:12px;"><div class="rc-v11-detail-label">Evaluasi Sistem</div><div class="rc-v11-eval">Saran Sistem: <b>'+escapeHTML(String(r.poinAI!=null?r.poinAI:0))+' Poin</b><br>Final saat ini: <b>'+escapeHTML(String(r.lewatCutoff?0:poin))+' Poin</b>'+(r.evaluasi?'<br><span>'+escapeHTML(r.evaluasi)+'</span>':'')+'</div>'+cutoffNotice+'<div class="rc-v11-actions">'+actions+'</div><div class="rc-v11-auto-next">Setelah Setujui/Tolak berhasil, antrean dimuat ulang dan laporan tertua berikutnya otomatis dipilih.</div></div></div>'+
@@ -14879,150 +14636,17 @@
       var detail=document.getElementById('reviewCenterDetailV11'); if(detail) detail.innerHTML='<div class="rc-v11-detail-empty"><span class="material-symbols-outlined">progress_activity</span><b>Keputusan tersimpan</b><span>Memuat laporan berikutnya...</span></div>';
       setTimeout(function(){muatReviewCenterAdminV10(true);},120);
     }
-
-    let adminReviewCache = {};
-    let adminReviewItems = [];
-    let adminReviewGroups = [];
-    let adminReviewPegawaiList = [];
-    let adminReviewAktifPegawai = null;
-    let adminReviewServerSummary = null;
-    let adminReviewNextOffset = 0;
-    let adminReviewHasMore = false;
-    let adminReviewPageSize = 10;
-    let adminReviewLoadingMore = false;
-    let adminReviewLoadingInitial = false;
-    let adminReviewRequestSeq = 0;
-    let adminReviewActiveRequestKey = '';
-    let adminReviewLastCompletedRequestKey = '';
-    let adminReviewLastCompletedAt = 0;
-    let adminReviewDebounceTimer = null;
-    const ADMIN_REVIEW_DUPLICATE_SUPPRESS_MS = 3000;
-    let currentRevisiId = null;
-    var adminReviewStateKey = 'ADMIN_REVIEW_STAGE3_V1';
-
-
-    function getBulanBerjalanAdmin3B04C1b_() {
-      return getBulanBerjalanValue_();
-    }
-
-    function getDasarPeriodeAdmin3B04C1b_() {
-      var el = document.getElementById('adminDasarPeriode');
-      return String(el && el.value || '').toLowerCase() === 'pengiriman'
-        ? 'pengiriman'
-        : 'periode_review';
-    }
-
-    function ubahDasarPeriodeAdmin3B04C1b_() {
-      var mode = getDasarPeriodeAdmin3B04C1b_();
-      var periodWrap = document.getElementById('adminPeriodeReviewWrap');
-      var rangeWrap = document.getElementById('adminRentangPengirimanWrap');
-      var periodEl = document.getElementById('adminPeriodeReview');
-      if (periodWrap) periodWrap.style.display = mode === 'periode_review' ? 'flex' : 'none';
-      if (rangeWrap) rangeWrap.style.display = mode === 'pengiriman' ? 'flex' : 'none';
-      if (periodEl && !periodEl.value) periodEl.value = getBulanBerjalanAdmin3B04C1b_();
-    }
-
-    function dapatkanScrollerAdmin_() {
-      return document.querySelector('.content-body');
-    }
+    // Shared action state used only by Unified Review.
+    let reviewWorkspaceCache_ = {};
+    let currentUnifiedReviewRevisionId_ = null;
 
     // ===== HOTFIX 3B-0.4C1d2: pertahankan posisi saat memuat batch Review Admin =====
-    function ambilKonteksReviewAdmin3B04C1d2_() {
-      var pegawai = document.getElementById('adminPegawaiSelect');
-      var status = document.getElementById('adminFilterStatus');
-      var dasar = document.getElementById('adminDasarPeriode');
-      var periode = document.getElementById('adminPeriodeReview');
-      var mulai = document.getElementById('adminTanggalMulai');
-      var akhir = document.getElementById('adminTanggalAkhir');
-      var cari = document.getElementById('adminSearchInput');
-      return [
-        pegawai ? (pegawai.value || '') : '',
-        status ? (status.value || '') : '',
-        dasar ? (dasar.value || '') : '',
-        periode ? (periode.value || '') : '',
-        mulai ? (mulai.value || '') : '',
-        akhir ? (akhir.value || '') : '',
-        cari ? (cari.value || '') : ''
-      ].join('|');
-    }
 
-    function tangkapPosisiMuatBerikutnyaAdmin3B04C1d2_() {
-      var scroller = dapatkanScrollerAdmin_();
-      var btn = document.getElementById('btnAdminReviewLoadMore');
-      var reports = document.querySelectorAll('#tbAdmin .admin-review-report');
-      var anchor = reports.length ? reports[reports.length - 1] : null;
-      var buttonRect = btn && btn.getBoundingClientRect ? btn.getBoundingClientRect() : null;
-      var anchorRect = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
-      return {
-        konteks: ambilKonteksReviewAdmin3B04C1d2_(),
-        scrollTop: scroller ? Number(scroller.scrollTop || 0) : 0,
-        visibleCount: reports.length,
-        buttonTop: buttonRect ? Number(buttonRect.top) : null,
-        anchorReportId: anchor ? String(anchor.getAttribute('data-report-id') || '') : '',
-        anchorTop: anchorRect ? Number(anchorRect.top) : null
-      };
-    }
 
-    function angkaFiniteReviewAdmin3B04C1d2_(value) {
-      return typeof value === 'number' && isFinite(value);
-    }
 
-    function pulihkanPosisiMuatBerikutnyaAdmin3B04C1d2_(snapshot) {
-      if (!snapshot || snapshot.konteks !== ambilKonteksReviewAdmin3B04C1d2_()) return false;
-      var scroller = dapatkanScrollerAdmin_();
-      if (!scroller) return false;
-
-      var reports = document.querySelectorAll('#tbAdmin .admin-review-report');
-      var target = reports.length > Number(snapshot.visibleCount || 0)
-        ? reports[Number(snapshot.visibleCount || 0)]
-        : null;
-
-      // UX utama: tempatkan laporan pertama batch baru di posisi tombol lama.
-      if (target && angkaFiniteReviewAdmin3B04C1d2_(snapshot.buttonTop) && target.getBoundingClientRect) {
-        var targetTop = Number(target.getBoundingClientRect().top);
-        if (angkaFiniteReviewAdmin3B04C1d2_(targetTop)) {
-          scroller.scrollTop = Math.max(0, Number(scroller.scrollTop || 0) + (targetTop - snapshot.buttonTop));
-          return true;
-        }
-      }
-
-      // Fallback: pertahankan kartu terakhir batch lama pada posisi visual yang sama.
-      if (snapshot.anchorReportId) {
-        var anchor = null;
-        for (var i = 0; i < reports.length; i++) {
-          if (String(reports[i].getAttribute('data-report-id') || '') === String(snapshot.anchorReportId)) {
-            anchor = reports[i];
-            break;
-          }
-        }
-        if (anchor && angkaFiniteReviewAdmin3B04C1d2_(snapshot.anchorTop) && anchor.getBoundingClientRect) {
-          var anchorTopNow = Number(anchor.getBoundingClientRect().top);
-          if (angkaFiniteReviewAdmin3B04C1d2_(anchorTopNow)) {
-            scroller.scrollTop = Math.max(0, Number(scroller.scrollTop || 0) + (anchorTopNow - snapshot.anchorTop));
-            return true;
-          }
-        }
-      }
-
-      scroller.scrollTop = Math.max(0, Number(snapshot.scrollTop || 0));
-      return true;
-    }
     // ===== END HOTFIX 3B-0.4C1d2 =====
 
-    function bacaStateAdminReview_() {
-      try {
-        var raw = sessionStorage.getItem(adminReviewStateKey);
-        return raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        return {};
-      }
-    }
 
-    function tulisStateAdminReview_(state) {
-      try {
-        sessionStorage.setItem(adminReviewStateKey, JSON.stringify(state || {}));
-      } catch (e) { }
-    }
 
     function reviewStatusBadgeClass(status) {
       var s = (status || '').toString();
@@ -15040,12 +14664,6 @@
       return s;
     }
 
-    function isPendingReviewStatus(status) {
-      var s = (status || '').toString();
-      return s === REVIEW_STATUS.MENUNGGU ||
-        s === REVIEW_STATUS.BANDING ||
-        s === REVIEW_STATUS.MENUNGGU_LURAH;
-    }
 
     function adminReviewStatusLabel_(item) {
       var stat = ((item && item.status) || 'Menunggu Review').toString();
@@ -15094,93 +14712,7 @@
     }
 
 
-function updateAdminLatePeriodFilter3B04B1_(
-  patch
-) {
-  var option =
-    document.getElementById(
-      'adminFilterLewatPeriode3B04B1'
-    );
-
-  var select =
-    document.getElementById(
-      'adminFilterStatus'
-    );
-
-  if (!option) return;
-
-  var aktif =
-    !!(
-      patch &&
-      patch.aktif === true &&
-      patch.fallback !== true
-    );
-
-  option.disabled = !aktif;
-  option.hidden = !aktif;
-
-  if (
-    !aktif &&
-    select &&
-    select.value === 'lewat_periode'
-  ) {
-    select.value = 'semua';
-
-    if (
-      typeof simpanStateAdminReview ===
-      'function'
-    ) {
-      simpanStateAdminReview();
-    }
-  }
-}
-
-    function adminGroupIdFromItem_(item) {
-      if (item && item.idUser) return String(item.idUser);
-      return 'fallback__' + String((item && item.nama) || '').toLowerCase().replace(/\s+/g, ' ').trim() + '__' + String((item && item.jabatan) || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    }
-
-    function adminDetailKeywordText_(item) {
-      var detailForm = item && item.detailForm ? item.detailForm : null;
-      if (!detailForm || !Array.isArray(detailForm.fields)) return '';
-      return detailForm.fields.map(function (field) {
-        return ((field && field.label) || '') + ' ' + ((field && field.value) || '');
-      }).join(' ');
-    }
-
-    function adminItemMatchesKeyword_(item, keyword) {
-      if (!keyword) return true;
-
-      var lampiranText = [];
-      var visuals = normalisasiBuktiVisualAdmin_(item);
-      for (var i = 0; i < visuals.length; i++) {
-        lampiranText.push(visuals[i].label || '', visuals[i].fileName || '', visuals[i].mimeType || '');
-      }
-
-      var dokumenDasar = normalisasiDokumenDasarAdmin_(item);
-      if (dokumenDasar) {
-        lampiranText.push(dokumenDasar.label || '', dokumenDasar.fileName || '', dokumenDasar.mimeType || '');
-      }
-
-      var text = [
-        item.nama || '',
-        item.jabatan || '',
-        item.kategori || '',
-        item.deskripsi || '',
-        item.status || '',
-        item.evaluasi || '',
-        item.catatan || '',
-        (item.detailForm && item.detailForm.note) || '',
-        adminDetailKeywordText_(item),
-        lampiranText.join(' ')
-      ].join(' ').toLowerCase();
-
-      return text.indexOf(keyword) !== -1;
-    }
-
-
-    
-    function adminSpreadsheetFieldRawValue_(field) {
+function adminSpreadsheetFieldRawValue_(field) {
       if (!field) return '';
       if (field.value === null || field.value === undefined) return '';
       return String(field.value).replace(/<br\s*\/?\s*>/gi, '\n').trim();
@@ -15229,228 +14761,13 @@ function updateAdminLatePeriodFilter3B04B1_(
     
 
     
-    function buildAdminReviewGroups_(items) {
-      var map = {};
-      (items || []).forEach(function (item) {
-        var groupId = adminGroupIdFromItem_(item);
-        if (!map[groupId]) {
-          map[groupId] = {
-            groupId: groupId,
-            idUser: item.idUser || '',
-            nama: item.nama || '-',
-            jabatan: item.jabatan || '-',
-            totalLaporan: 0,
-            totalMenunggu: 0,
-            totalSelesai: 0,
-            latestTs: 0,
-            reports: []
-          };
-        }
-        map[groupId].totalLaporan++;
-        if (isPendingReviewStatus(item.status)) map[groupId].totalMenunggu++;
-        else map[groupId].totalSelesai++;
-        map[groupId].latestTs = Math.max(map[groupId].latestTs || 0, Number(item.waktuSort || 0));
-        map[groupId].reports.push(item);
-      });
 
-      var groups = Object.keys(map).map(function (key) {
-        var g = map[key];
-        g.reports.sort(function (a, b) { return Number(a.waktuSort || 0) - Number(b.waktuSort || 0); });
-        return g;
-      });
 
-      groups.sort(function (a, b) {
-        if ((b.totalMenunggu || 0) !== (a.totalMenunggu || 0)) return (b.totalMenunggu || 0) - (a.totalMenunggu || 0);
 
-        var aOldest = (a.reports || []).length ? Number(a.reports[0].waktuSort || 0) : Number(a.latestTs || 0);
-        var bOldest = (b.reports || []).length ? Number(b.reports[0].waktuSort || 0) : Number(b.latestTs || 0);
-        if (aOldest !== bOldest) return aOldest - bOldest;
 
-        return String(a.nama || '').localeCompare(String(b.nama || ''), 'id', { sensitivity: 'base' });
-      });
-      return groups;
-    }
 
-    function simpanStateAdminReview(lastReviewedGroupId, lastReviewedReportId) {
-      var state = bacaStateAdminReview_() || {};
-      var input = document.getElementById('adminSearchInput');
-      var filter = document.getElementById('adminFilterStatus');
-      var pegawaiSelect = document.getElementById('adminPegawaiSelect');
-      var dasarPeriode = document.getElementById('adminDasarPeriode');
-      var periodeReview = document.getElementById('adminPeriodeReview');
-      var tanggalMulai = document.getElementById('adminTanggalMulai');
-      var tanggalAkhir = document.getElementById('adminTanggalAkhir');
-      var scroller = dapatkanScrollerAdmin_();
-      var expanded = {};
-      document.querySelectorAll('.admin-review-group').forEach(function (card) {
-        var gid = card.getAttribute('data-group-id') || '';
-        if (gid) expanded[gid] = !card.classList.contains('collapsed');
-      });
 
-      state.keyword = input ? (input.value || '') : (state.keyword || '');
-      state.filter = filter ? (filter.value || 'semua') : (state.filter || 'semua');
-      state.selectedPegawai = pegawaiSelect ? (pegawaiSelect.value || '') : (state.selectedPegawai || '');
-      state.dasarPeriode = dasarPeriode ? (dasarPeriode.value || 'periode_review') : (state.dasarPeriode || 'periode_review');
-      state.periodeReview = periodeReview ? (periodeReview.value || getBulanBerjalanAdmin3B04C1b_()) : (state.periodeReview || getBulanBerjalanAdmin3B04C1b_());
-      state.tanggalMulai = tanggalMulai ? (tanggalMulai.value || '') : (state.tanggalMulai || '');
-      state.tanggalAkhir = tanggalAkhir ? (tanggalAkhir.value || '') : (state.tanggalAkhir || '');
-      state.scrollTop = scroller ? scroller.scrollTop : (state.scrollTop || 0);
-      state.expandedGroupIds = expanded;
-      if (lastReviewedGroupId) state.lastReviewedGroupId = lastReviewedGroupId;
-      if (lastReviewedReportId) state.lastReviewedReportId = lastReviewedReportId;
-      tulisStateAdminReview_(state);
-    }
 
-    function pulihkanKontrolAdminReview_() {
-      var state = bacaStateAdminReview_() || {};
-      var input = document.getElementById('adminSearchInput');
-      var filter = document.getElementById('adminFilterStatus');
-      var pegawaiSelect = document.getElementById('adminPegawaiSelect');
-      var dasarPeriode = document.getElementById('adminDasarPeriode');
-      var periodeReview = document.getElementById('adminPeriodeReview');
-      var tanggalMulai = document.getElementById('adminTanggalMulai');
-      var tanggalAkhir = document.getElementById('adminTanggalAkhir');
-      var defaults = hitungDefaultRentangAdminReview_();
-      if (input && typeof state.keyword === 'string') input.value = state.keyword;
-      if (filter && typeof state.filter === 'string' && state.filter) filter.value = state.filter;
-      if (pegawaiSelect && typeof state.selectedPegawai === 'string' && state.selectedPegawai) pegawaiSelect.value = state.selectedPegawai;
-      if (dasarPeriode) dasarPeriode.value = (typeof state.dasarPeriode === 'string' && state.dasarPeriode) ? state.dasarPeriode : 'periode_review';
-      if (periodeReview) periodeReview.value = (typeof state.periodeReview === 'string' && state.periodeReview) ? state.periodeReview : getBulanBerjalanAdmin3B04C1b_();
-      if (tanggalMulai) tanggalMulai.value = (typeof state.tanggalMulai === 'string' && state.tanggalMulai) ? state.tanggalMulai : defaults.tanggalMulai;
-      if (tanggalAkhir) tanggalAkhir.value = (typeof state.tanggalAkhir === 'string' && state.tanggalAkhir) ? state.tanggalAkhir : defaults.tanggalAkhir;
-      ubahDasarPeriodeAdmin3B04C1b_();
-    }
-
-    function refreshCacheDataPegawai() {
-      var selectEl = document.getElementById('adminPegawaiSelect');
-      var wrap = document.getElementById('tbAdmin');
-      if (!selectEl) return;
-
-      var btn = event && event.target ? event.target.closest('button') : null;
-      if (btn) {
-        var oldText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Menyegarkan...';
-      }
-
-      google.script.run.withSuccessHandler(function (res) {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = oldText || '<span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat Ulang Daftar';
-        }
-
-        if (res && res.sukses) {
-          alert('Berhasil! ' + res.pesan);
-          muatDaftarPegawaiReviewAdmin(false);
-        } else {
-          var errMsg = (res && res.pesan) ? res.pesan : 'Gagal menyegarkan cache';
-          var debugCode = (res && res.debug) ? ' [' + res.debug + ']' : '';
-          alert(errMsg + debugCode);
-        }
-      }).withFailureHandler(function (err) {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = oldText || '<span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Muat Ulang Daftar';
-        }
-        var errMsg = (err && err.message) ? err.message : String(err);
-        alert('Error: ' + errMsg);
-        console.log('refreshCacheDataPegawai error:', err);
-      }).refreshDataPegawaiCache(sToken);
-    }
-
-    function adminPegawaiLabel_(pegawai) {
-      if (!pegawai) return '-';
-      // Dropdown Review Admin dibuat ringkas: tampilkan nama lengkap saja.
-      // Value option tetap memakai id_user, sedangkan username/jabatan tetap tersedia di data internal
-      // dan ditampilkan pada chip ringkasan setelah pegawai dipilih.
-      return pegawai.nama || pegawai.username || pegawai.id || '-';
-    }
-
-    function resetAdminReviewPayload_() {
-      adminReviewCache = {};
-      adminReviewItems = [];
-      adminReviewGroups = [];
-      adminReviewAktifPegawai = null;
-      adminReviewServerSummary = null;
-      resetAdminReviewPagination_();
-    }
-
-    function getSelectedAdminPegawai_() {
-      var selectEl = document.getElementById('adminPegawaiSelect');
-      var id = selectEl ? (selectEl.value || '').trim() : '';
-      if (!id) return null;
-      for (var i = 0; i < adminReviewPegawaiList.length; i++) {
-        if (String(adminReviewPegawaiList[i].id || '') === id) return adminReviewPegawaiList[i];
-      }
-      return {
-        id: id,
-        nama: selectEl && selectEl.selectedOptions && selectEl.selectedOptions[0] ? (selectEl.selectedOptions[0].textContent || '') : '',
-        jabatan: '',
-        username: ''
-      };
-    }
-
-    function muatDaftarPegawaiReviewAdmin(autoLoadSelected) {
-      var selectEl = document.getElementById('adminPegawaiSelect');
-      var wrap = document.getElementById('tbAdmin');
-      if (!selectEl) return;
-
-      selectEl.innerHTML = '<option value="">Memuat daftar pegawai...</option>';
-      if (wrap) wrap.innerHTML = '<div class="admin-review-empty">Menyiapkan daftar pegawai untuk review...</div>';
-      renderAdminReviewSummary_([], 0);
-
-      google.script.run.withSuccessHandler(function (res) {
-        if (tanganiResponsSesiTidakValid_(res)) return;
-        if (!res || !res.sukses) {
-          adminReviewPegawaiList = [];
-          selectEl.innerHTML = '<option value="">Gagal memuat daftar pegawai</option>';
-          if (wrap) {
-            var debugMsg = (res && res.debug) ? ' [' + res.debug + ']' : '';
-            var fullMsg = (res && res.pesan) ? res.pesan : 'Gagal memuat daftar pegawai review.';
-            wrap.innerHTML = '<div class="admin-review-empty" style="font-size:13px; line-height:1.6;">' +
-              escapeHTML(fullMsg) +
-              (debugMsg ? '<br><br><code style="color:#999; font-size:12px;">' + escapeHTML(debugMsg) + '</code>' : '') +
-              '</div>';
-          }
-          console.log('muatDaftarPegawaiReviewAdmin error:', res);
-          return;
-        }
-
-        adminReviewPegawaiList = Array.isArray(res.data) ? res.data : [];
-        if (!adminReviewPegawaiList.length) {
-          selectEl.innerHTML = '<option value="">Tidak ada data pegawai</option>';
-          if (wrap) wrap.innerHTML = '<div class="admin-review-empty">Tidak ada pegawai yang tersedia untuk direview.</div>';
-          return;
-        }
-
-        var state = bacaStateAdminReview_() || {};
-        var html = '<option value="">-- Pilih Pegawai --</option>';
-        adminReviewPegawaiList.forEach(function (p) {
-          html += '<option value="' + escapeHTML(p.id || '') + '">' + escapeHTML(adminPegawaiLabel_(p)) + '</option>';
-        });
-        selectEl.innerHTML = html;
-
-        var selectedId = state.selectedPegawai || '';
-        var found = selectedId && adminReviewPegawaiList.some(function (p) { return String(p.id || '') === String(selectedId); });
-        if (found) selectEl.value = selectedId;
-        else selectEl.value = '';
-
-        if (selectEl.value && autoLoadSelected) {
-          muatAdmin(false);
-          return;
-        }
-
-        renderAdminReviewSummary_([], 0);
-        if (wrap) wrap.innerHTML = '<div class="admin-review-empty">Pilih pegawai dan periode review untuk menampilkan antrean laporan.</div>';
-      }).withFailureHandler(function (err) {
-        adminReviewPegawaiList = [];
-        selectEl.innerHTML = '<option value="">Gagal memuat daftar pegawai</option>';
-        if (wrap) {
-          wrap.innerHTML = '<div class="admin-review-empty" style="font-size:13px; line-height:1.6;">Gagal memuat daftar pegawai review<br><br><code style="color:#999; font-size:12px;">' + escapeHTML((err && err.message) ? err.message : err) + '</code></div>';
-        }
-        console.log('muatDaftarPegawaiReviewAdmin failure:', err);
-      }).ambilDaftarPegawaiReviewAdmin(sToken);
-    }
 
     function escapeJsSingleQuote_(value) {
       return String(value || '')
@@ -16138,384 +15455,21 @@ function updateAdminLatePeriodFilter3B04B1_(
       return parts[2] + '/' + parts[1] + '/' + parts[0];
     }
 
-    function hitungDefaultRentangAdminReview_() {
-      var now = new Date();
-      var cutoffDay = 25;
-      var endYear = now.getFullYear();
-      var endMonth = now.getMonth();
-      if (now.getDate() > cutoffDay) {
-        var nextMonth = new Date(endYear, endMonth + 1, 1);
-        endYear = nextMonth.getFullYear();
-        endMonth = nextMonth.getMonth();
-      }
-      var endDate = new Date(endYear, endMonth, cutoffDay);
-      var prev = new Date(endYear, endMonth - 1, cutoffDay + 1);
-      return {
-        tanggalMulai: formatTanggalISO(prev),
-        tanggalAkhir: formatTanggalISO(endDate)
-      };
-    }
-
-    function ensureAdminReviewDateRangeDefaults_() {
-      var mulaiEl = document.getElementById('adminTanggalMulai');
-      var akhirEl = document.getElementById('adminTanggalAkhir');
-      if (!mulaiEl || !akhirEl) return;
-      var state = bacaStateAdminReview_() || {};
-      var defaults = hitungDefaultRentangAdminReview_();
-      if (typeof state.tanggalMulai !== 'string' || !state.tanggalMulai) state.tanggalMulai = defaults.tanggalMulai;
-      if (typeof state.tanggalAkhir !== 'string' || !state.tanggalAkhir) state.tanggalAkhir = defaults.tanggalAkhir;
-      if (!mulaiEl.value) mulaiEl.value = state.tanggalMulai;
-      if (!akhirEl.value) akhirEl.value = state.tanggalAkhir;
-      tulisStateAdminReview_(state);
-    }
-
-    function getAdminReviewDateRange_() {
-      ensureAdminReviewDateRangeDefaults_();
-      var mulaiEl = document.getElementById('adminTanggalMulai');
-      var akhirEl = document.getElementById('adminTanggalAkhir');
-      return {
-        tanggalMulai: mulaiEl ? (mulaiEl.value || '') : '',
-        tanggalAkhir: akhirEl ? (akhirEl.value || '') : ''
-      };
-    }
-
-    function renderAdminReviewSummary_(groups, totalVisibleReports) {
-      var el = document.getElementById('adminReviewSummary');
-      if (!el) return;
-
-      if (!adminReviewAktifPegawai) {
-        el.innerHTML = 'Pilih pegawai dan periode review untuk memuat antrean laporan.';
-        return;
-      }
-
-      var summary = adminReviewServerSummary || {};
-      var totalAll = Number(summary.totalLaporan || 0);
-      var totalPending = Number(summary.totalMenunggu || 0);
-      var totalDone = Number(summary.totalSelesai || 0);
-      var totalLate = Number(
-       summary.totalLewatPeriode ||
-       summary.totalLewatPeriodeLoaded ||
-       0
-      );
-
-      var lateCountLabel =
-        summary.totalLewatPeriode != null
-          ? 'Lewat periode'
-          : 'Lewat periode termuat';
-
-      if (!summary || (!totalAll && groups && groups.length)) {
-        totalPending = 0;
-        totalDone = 0;
-        (groups || []).forEach(function (g) {
-          totalPending += Number(g.totalMenunggu || 0);
-          totalDone += Number(g.totalSelesai || 0);
-        });
-        totalAll = totalPending + totalDone;
-      }
-
-      var dasarPeriode = getDasarPeriodeAdmin3B04C1b_();
-      var rentang = getAdminReviewDateRange_();
-      var periodeReviewValue = ((document.getElementById('adminPeriodeReview') || {}).value || '');
-      var labelRentang = dasarPeriode === 'periode_review'
-        ? labelPeriodeClient3B04C1b_(periodeReviewValue)
-        : ((rentang.tanggalMulai && rentang.tanggalAkhir)
-          ? (formatTanggalInputAdmin_(rentang.tanggalMulai) + ' - ' + formatTanggalInputAdmin_(rentang.tanggalAkhir))
-          : '-');
-      var labelDasarRingkasan = dasarPeriode === 'periode_review' ? 'Periode review' : 'Pengiriman';
-
-      el.innerHTML = '' +
-        '<div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">' +
-        '<span class="badge bg-gray">Pegawai: ' + escapeHTML(adminReviewAktifPegawai.nama || '-') + '</span>' +
-        '<span class="badge bg-gray">Jabatan: ' + escapeHTML(adminReviewAktifPegawai.jabatan || '-') + '</span>' +
-        '<span class="badge bg-gray">' + escapeHTML(labelDasarRingkasan) + ': ' + escapeHTML(labelRentang) + '</span>' +
-        '<span class="badge bg-gray">Total: ' + totalAll + '</span>' +
-        '<span class="badge bg-yellow">Menunggu: ' + totalPending + '</span>' +
-        '<span class="badge bg-green">Selesai: ' + totalDone + '</span>' +
-        (
-          totalLate > 0
-            ? '<span class="badge bg-yellow">' +
-              escapeHTML(lateCountLabel) +
-              ': ' +
-              totalLate +
-              '</span>'
-            : ''
-        ) +
-        '<span class="badge bg-gray">Laporan tampil: ' + totalVisibleReports + '</span>' +
-        '</div>';
-    }
-
-    function toggleAdminReviewGroup(groupId, forceOpen) {
-      var state = bacaStateAdminReview_() || {};
-      state.expandedGroupIds = state.expandedGroupIds || {};
-      var current = !!state.expandedGroupIds[groupId];
-      state.expandedGroupIds[groupId] = (typeof forceOpen === 'boolean') ? forceOpen : !current;
-      var scroller = dapatkanScrollerAdmin_();
-      state.scrollTop = scroller ? scroller.scrollTop : (state.scrollTop || 0);
-      tulisStateAdminReview_(state);
-      renderAdminReviewView();
-    }
-
-    function bukaSemuaGrupAdmin() {
-      var state = bacaStateAdminReview_() || {};
-      state.expandedGroupIds = state.expandedGroupIds || {};
-      adminReviewGroups.forEach(function (g) { state.expandedGroupIds[g.groupId] = true; });
-      tulisStateAdminReview_(state);
-      renderAdminReviewView();
-    }
-
-    function tutupSemuaGrupAdmin() {
-      var state = bacaStateAdminReview_() || {};
-      state.expandedGroupIds = state.expandedGroupIds || {};
-      adminReviewGroups.forEach(function (g) { state.expandedGroupIds[g.groupId] = false; });
-      tulisStateAdminReview_(state);
-      renderAdminReviewView();
-    }
-
-    function pulihkanPosisiAdminReview_() {
-      var state = bacaStateAdminReview_() || {};
-      var scroller = dapatkanScrollerAdmin_();
-      var reportId = state.lastReviewedReportId || '';
-      var groupId = state.lastReviewedGroupId || '';
-      var target = null;
-      if (reportId) {
-        target = document.querySelector('.admin-review-report[data-report-id="' + String(reportId).replace(/"/g, '&quot;') + '"]');
-      }
-      if (!target && groupId) {
-        target = document.querySelector('.admin-review-group[data-group-id="' + String(groupId).replace(/"/g, '&quot;') + '"]');
-      }
-      if (target && typeof target.scrollIntoView === 'function') {
-        target.scrollIntoView({ block: 'center', behavior: 'auto' });
-      } else if (scroller && typeof state.scrollTop === 'number') {
-        scroller.scrollTop = state.scrollTop;
-      }
-      state.lastReviewedReportId = '';
-      tulisStateAdminReview_(state);
-    }
 
 
-    function buatAdminReviewRequestKey_(selectedId, filterStatus, rentang, offset, appendMode) {
-      rentang = rentang || {};
-      var dasar = getDasarPeriodeAdmin3B04C1b_();
-      var periodeReview = ((document.getElementById('adminPeriodeReview') || {}).value || '');
-      return [
-        String(selectedId || ''),
-        String(filterStatus || 'semua'),
-        String(dasar),
-        String(periodeReview),
-        String(rentang.tanggalMulai || ''),
-        String(rentang.tanggalAkhir || ''),
-        String(Number(offset || 0)),
-        String(Number(adminReviewPageSize || 10)),
-        appendMode ? 'APPEND' : 'INITIAL'
-      ].join('|');
-    }
 
-    function batalkanRequestAdminReviewAktif_() {
-      adminReviewRequestSeq++;
-      adminReviewActiveRequestKey = '';
-      adminReviewLoadingInitial = false;
-      adminReviewLoadingMore = false;
-    }
 
-    function jadwalkanMuatAdminReview_() {
-      if (adminReviewDebounceTimer) clearTimeout(adminReviewDebounceTimer);
-      adminReviewDebounceTimer = setTimeout(function () {
-        adminReviewDebounceTimer = null;
-        muatAdmin(false);
-      }, 250);
-    }
 
-    function resetAdminReviewPagination_() {
-      adminReviewNextOffset = 0;
-      adminReviewHasMore = false;
-      adminReviewLoadingMore = false;
-    }
 
-    function renderAdminReviewPaginationControls_() {
-      var summary = adminReviewServerSummary || {};
-      var totalFiltered = Number(summary.totalFiltered || 0);
-      var loaded = adminReviewItems.length || 0;
-      var infoText = totalFiltered
-        ? ('Menampilkan ' + loaded + ' dari ' + totalFiltered + ' laporan sesuai filter.')
-        : ('Menampilkan ' + loaded + ' laporan.');
 
-      return '' +
-        '<div class="admin-review-pagination" style="display:flex; flex-direction:column; align-items:center; gap:8px; margin:16px 0 2px;">' +
-          '<div style="font-size:12px; color:var(--text-muted); text-align:center; line-height:1.5;">' +
-            escapeHTML(infoText) + '<br>Urutan review: laporan lama di atas, laporan terbaru di bawah.' +
-          '</div>' +
-          (adminReviewHasMore
-            ? '<button type="button" id="btnAdminReviewLoadMore" class="btn-unduh" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);" onclick="muatAdminBerikutnya()"><span class="material-symbols-outlined" style="font-size:18px;">expand_more</span> Muat 10 laporan berikutnya</button>'
-            : '<span class="badge bg-gray">Semua laporan sesuai filter sudah dimuat</span>') +
-        '</div>';
-    }
 
-    function muatAdminBerikutnya() {
-      if (adminReviewLoadingInitial || adminReviewLoadingMore || !adminReviewHasMore) return;
-      muatAdmin(false, true);
-    }
 
-    function renderAdminReviewView() {
-      var wrap = document.getElementById('tbAdmin');
-      if (!wrap) return;
 
-      if (!adminReviewAktifPegawai) {
-        wrap.innerHTML = '<div class="admin-review-empty">Pilih pegawai dan periode review untuk menampilkan antrean laporan.</div>';
-        renderAdminReviewSummary_([], 0);
-        return;
-      }
 
-      var state = bacaStateAdminReview_() || {};
-      var keyword = ((document.getElementById('adminSearchInput') || {}).value || '').toLowerCase().trim();
-      state.expandedGroupIds = state.expandedGroupIds || {};
 
-      var visibleGroups = [];
-      var totalVisibleReports = 0;
 
-      adminReviewGroups.forEach(function (group) {
-        var reports = (group.reports || []).filter(function (item) {
-          return adminItemMatchesKeyword_(item, keyword);
-        }).sort(function (a, b) {
-          return Number(a.waktuSort || 0) - Number(b.waktuSort || 0);
-        });
 
-        var groupMatches = !keyword || ((String(group.nama || '') + ' ' + String(group.jabatan || '')).toLowerCase().indexOf(keyword) !== -1);
-        if (!reports.length && !groupMatches) return;
-        if (!reports.length && keyword && groupMatches) reports = [];
 
-        visibleGroups.push({
-          groupId: group.groupId,
-          idUser: group.idUser,
-          nama: group.nama,
-          jabatan: group.jabatan,
-          totalLaporan: group.totalLaporan,
-          totalMenunggu: group.totalMenunggu,
-          totalSelesai: group.totalSelesai,
-          latestTs: group.latestTs,
-          reports: reports
-        });
-        totalVisibleReports += reports.length;
-      });
-
-      renderAdminReviewSummary_(visibleGroups, totalVisibleReports);
-
-      if (!visibleGroups.length) {
-        var summary = adminReviewServerSummary || {};
-        var hasAnyReport = Number(summary.totalLaporan || 0) > 0;
-        wrap.innerHTML = '<div class="admin-review-empty">' +
-          (hasAnyReport
-            ? 'Tidak ada laporan dari pegawai ini yang cocok dengan filter saat ini.'
-            : 'Pegawai ini belum memiliki laporan untuk direview.') +
-          '</div>';
-        return;
-      }
-
-      var html = '';
-      visibleGroups.forEach(function (group) {
-        if (state.lastReviewedGroupId && state.lastReviewedGroupId === group.groupId) {
-          state.expandedGroupIds[group.groupId] = true;
-        }
-        var isOpen = (typeof state.expandedGroupIds[group.groupId] === 'boolean') ? !!state.expandedGroupIds[group.groupId] : true;
-        var visibleCount = group.reports.length;
-        var subtitle = escapeHTML(group.jabatan || '-');
-        var toggleText = isOpen ? 'expand_less' : 'expand_more';
-
-        html += '' +
-          '<div class="admin-review-group ' + (isOpen ? '' : 'collapsed') + '" data-group-id="' + escapeHTML(group.groupId) + '">' +
-          '<div class="admin-review-group-header" onclick="toggleAdminReviewGroup(\'' + escapeJsSingleQuote_(group.groupId) + '\')">' +
-          '<div style="flex:1; min-width:0;">' +
-          '<div class="admin-review-group-title">Daftar Laporan</div>' +
-          '<div class="admin-review-group-subtitle">' + visibleCount + ' laporan sesuai filter aktif. Ringkasan pegawai dan status sudah ditampilkan pada chip di atas.</div>' +
-          '</div>' +
-          '<span class="material-symbols-outlined admin-review-toggle-icon">' + toggleText + '</span>' +
-          '</div>' +
-          '<div class="admin-review-body">';
-
-        if (!group.reports.length) {
-          html += '<div class="admin-review-empty">Tidak ada laporan pada pegawai ini yang cocok dengan pencarian aktif.</div>';
-        } else {
-          group.reports.forEach(function (r) {
-            adminReviewCache[r.idLaporan] = {
-              idLaporan: r.idLaporan,
-              status: r.status || '',
-              poinFinal: (r.poinFinal != null && r.poinFinal !== '') ? r.poinFinal : 0,
-              catatan: (r.catatan && r.catatan !== '-') ? r.catatan : '',
-              lewatCutoff: !!r.lewatCutoff,
-              cutoffLabel: r.cutoffLabel || '',
-              cutoffPesan: r.cutoffPesan || '',
-              tanggalPelaksanaan: r.tanggalPelaksanaan || '',
-              periodePelaksanaan: r.periodePelaksanaan || '',
-              periodePelaksanaanDitutup: !!r.periodePelaksanaanDitutup,
-              groupId: group.groupId
-            };
-            var jabatanAdmin = (typeof sData !== 'undefined' && sData && sData.jabatan) ? sData.jabatan.trim().toLowerCase() : "";
-            var allowedRevisi = [
-              "carik",
-              "kepala urusan tata laksana",
-              "kepala urusan danarta",
-              "kepala urusan pangripta",
-              "jagabaya",
-              "kamituwa",
-              "ulu-ulu"
-            ];
-            var bolehRevisi = allowedRevisi.indexOf(jabatanAdmin) !== -1;
-
-            var statAsli = (r.status || 'Disetujui').toString();
-            var stat = adminReviewStatusLabel_(r);
-            var badgeCls = reviewStatusBadgeClass(stat);
-            var tombolAksi = '';
-            var btnRevisiHtml = (!r.lewatCutoff && bolehRevisi) ? '<button type="button" class="btn-action btn-edit" onclick="event.stopPropagation(); revisiAdmin(\'' + escapeJsSingleQuote_(r.idLaporan) + '\')">Revisi Nilai</button>' : '';
-
-            if (isPendingReviewStatus(statAsli)) {
-              tombolAksi = '' +
-                '<button type="button" class="btn-action btn-acc" onclick="event.stopPropagation(); accAdmin(\'' + escapeJsSingleQuote_(r.idLaporan) + '\', ' + (r.lewatCutoff ? 0 : (parseInt(r.poinFinal, 10) || 0)) + ')">' + (r.lewatCutoff ? 'Setujui (0 Poin)' : 'Setuju') + '</button>' +
-                '<button type="button" class="btn-action btn-reject" onclick="event.stopPropagation(); tolakAdmin(\'' + escapeJsSingleQuote_(r.idLaporan) + '\')">Ditolak</button>' +
-                btnRevisiHtml;
-            } else {
-              tombolAksi = '<span style="color:var(--text-muted); font-size:12px; font-weight:600; display:block; margin-bottom:8px;"><i>✓ Sudah direview</i></span>' +
-                btnRevisiHtml;
-            }
-
-            html += '' +
-              '<div class="admin-review-report" data-report-id="' + escapeHTML(r.idLaporan || '') + '">' +
-              adminReviewLatePeriodNoticeHtml3B04B1_(r) +
-              '<div class="admin-review-report-grid">' +
-              '<div>' +
-              '<div class="admin-review-report-label">Waktu Lapor</div>' +
-              '<div>' + renderAdminReviewWaktuLapor_(r.waktu) + '</div>' +
-              '<div class="admin-review-report-label" style="margin-top:10px;">Tanggal Pelaksanaan</div>' +
-              '<div style="font-size:13px; line-height:1.45;">' + escapeHTML(r.tanggalPelaksanaan || 'Tidak terbaca') + '</div>' +
-              (r.periodePelaksanaan ? '<div style="margin-top:6px;"><span class="badge ' + (r.periodePelaksanaanDitutup ? 'bg-red' : 'bg-gray') + '">Periode: ' + escapeHTML(r.periodePelaksanaan) + (r.periodePelaksanaanDitutup ? ' - Ditutup' : '') + '</span></div>' : '') +
-              '</div>' +
-              '<div>' +
-              '<div class="admin-review-report-label">Bukti & Deskripsi</div>' +
-              renderAdminMainBuktiDeskripsi_(r) +
-              '</div>' +
-              '<div>' +
-              '<div class="admin-review-report-label">Evaluasi Sistem</div>' +
-              '<div>Saran Sistem: <b>' + (r.poinAI || 0) + ' Poin</b><br><small>' + escapeHTML(r.evaluasi || '-') + '</small></div>' +
-              '</div>' +
-              '<div>' +
-              '<div class="admin-review-report-label">Aksi Admin</div>' +
-              '<div><span class="badge ' + badgeCls + '">' + escapeHTML(stat) + '</span><br><small>Final: ' + (r.lewatCutoff ? 0 : (r.poinFinal || 0)) + ' Poin</small>' + adminReviewCutoffNoticeHtml_(r) + '<br>' + tombolAksi + (r.lewatCutoff ? '<div class="admin-review-action-help">Revisi nilai dinonaktifkan karena laporan lewat cut-off/periode pelaksanaan ditutup.</div>' : '') + '</div>' +
-              '</div>' +
-              '</div>' +
-              renderAdminSpreadsheetDetail_(r) +
-              renderAdminDetailFormSummary_(r) +
-              '</div>';
-          });
-        }
-
-        html += '</div></div>';
-      });
-
-      html += renderAdminReviewPaginationControls_();
-      wrap.innerHTML = html;
-      tulisStateAdminReview_(state);
-      setTimeout(function () {
-        pulihkanPosisiAdminReview_();
-      }, 30);
-    }
 
     var adminKinerjaPayloadAktif = null;
 
@@ -17321,251 +16275,28 @@ function updateAdminLatePeriodFilter3B04B1_(
       }).ambilTimelinePublik(sToken, timelineRequestV02_(), timelineState.limit);
     }
 
-    function muatAdmin(forceReloadList, appendMode) {
-      const wrap = document.getElementById('tbAdmin');
-      const selectEl = document.getElementById('adminPegawaiSelect');
-      if (!wrap || !selectEl) return;
-
-      appendMode = appendMode === true;
-
-      pulihkanKontrolAdminReview_();
-      ensureAdminReviewDateRangeDefaults_();
-
-      if (forceReloadList || !adminReviewPegawaiList.length) {
-        batalkanRequestAdminReviewAktif_();
-        muatDaftarPegawaiReviewAdmin(true);
-        return;
-      }
-
-      var selectedId = (selectEl.value || '').trim();
-      if (!selectedId) {
-        batalkanRequestAdminReviewAktif_();
-        resetAdminReviewPayload_();
-        simpanStateAdminReview();
-        renderAdminReviewSummary_([], 0);
-        wrap.innerHTML = '<div class="admin-review-empty">Pilih pegawai terlebih dahulu untuk menampilkan laporan review.</div>';
-        return;
-      }
-
-      var filterStatus = ((document.getElementById('adminFilterStatus') || {}).value || 'semua').toLowerCase();
-      var dasarPeriode = getDasarPeriodeAdmin3B04C1b_();
-      var periodeReview = ((document.getElementById('adminPeriodeReview') || {}).value || getBulanBerjalanAdmin3B04C1b_());
-      var rentang = getAdminReviewDateRange_();
-      var offset = appendMode ? adminReviewNextOffset : 0;
-      var requestKey = buatAdminReviewRequestKey_(selectedId, filterStatus, rentang, offset, appendMode);
-      var viewportSnapshot3B04C1d2 = null;
-
-      // Jangan kirim request identik yang masih berjalan.
-      if (adminReviewActiveRequestKey === requestKey) return;
-      if (appendMode && (adminReviewLoadingInitial || adminReviewLoadingMore)) return;
-
-      // Tekan/menu/onchange ganda sesaat setelah hasil yang sama selesai cukup
-      // menggunakan data yang sudah berada di memori frontend.
-      if (!appendMode &&
-          adminReviewLastCompletedRequestKey === requestKey &&
-          Date.now() - adminReviewLastCompletedAt < ADMIN_REVIEW_DUPLICATE_SUPPRESS_MS &&
-          adminReviewServerSummary &&
-          adminReviewItems.length > 0) {
-        renderAdminReviewView();
-        return;
-      }
-
-      var requestId = ++adminReviewRequestSeq;
-      adminReviewActiveRequestKey = requestKey;
-
-      if (appendMode) {
-        adminReviewLoadingMore = true;
-        var btnMore = document.getElementById('btnAdminReviewLoadMore');
-        if (btnMore) {
-          btnMore.disabled = true;
-          btnMore.innerHTML = '<span class="spinner"></span> Memuat laporan berikutnya...';
-        }
-      } else {
-        resetAdminReviewPayload_();
-        adminReviewLoadingInitial = true;
-        adminReviewActiveRequestKey = requestKey;
-        wrap.innerHTML = '<div class="admin-review-empty">Memuat laporan pegawai terpilih...</div>';
-        simpanStateAdminReview();
-      }
-
-      google.script.run.withSuccessHandler(function (res) {
-        // Respons request lama tidak boleh menimpa pilihan/filter terbaru.
-        if (requestId !== adminReviewRequestSeq) return;
-
-        adminReviewLoadingInitial = false;
-        adminReviewLoadingMore = false;
-        adminReviewActiveRequestKey = '';
-
-        if (!res || res.sukses === false) {
-          if (!appendMode) renderAdminReviewSummary_([], 0);
-          wrap.innerHTML = '<div class="admin-review-empty">' + escapeHTML((res && res.pesan) || 'Gagal memuat laporan pegawai.') + '</div>';
-          return;
-        }
-        
-        updateAdminLatePeriodFilter3B04B1_(
-          (res.patch3B04C1c && res.patch3B04C1c.aktif) ? res.patch3B04C1c : (res.patch3B04C1b || res.patch3B04B1 || res.patch3B04C1c || null)
-        );
-
-        adminReviewAktifPegawai = 
-          res.pegawai || 
-          getSelectedAdminPegawai_();
-
-        adminReviewServerSummary = 
-          res.summary || {};
-        
-        adminReviewServerSummary.totalFiltered = 
-          Number(res.totalFiltered || 0);
-        
-        adminReviewServerSummary.loaded = 
-          (appendMode 
-            ? adminReviewItems.length 
-            : 0) + 
-          (
-            Array.isArray(res.items) 
-              ? res.items.length 
-              : 0);
-        adminReviewNextOffset = Number(res.nextOffset || 0);
-        adminReviewHasMore = !!res.hasMore;
-
-        var incoming = Array.isArray(res.items) ? res.items : [];
-        if (appendMode) {
-          var existingMap = {};
-          adminReviewItems.forEach(function (item) {
-            if (item && item.idLaporan) existingMap[String(item.idLaporan)] = true;
-          });
-          incoming.forEach(function (item) {
-            if (!item || !item.idLaporan) return;
-            if (existingMap[String(item.idLaporan)]) return;
-            adminReviewItems.push(item);
-          });
-        } else {
-          adminReviewItems = incoming;
-        }
-
-        adminReviewGroups = buildAdminReviewGroups_(adminReviewItems);
-        adminReviewLastCompletedRequestKey = requestKey;
-        adminReviewLastCompletedAt = Date.now();
-
-        if (!adminReviewItems.length) {
-          renderAdminReviewSummary_([], 0);
-          var hasAnyReport = adminReviewServerSummary && Number(adminReviewServerSummary.totalLaporan || 0) > 0;
-          wrap.innerHTML = '<div class="admin-review-empty">' +
-            (hasAnyReport
-              ? 'Tidak ada laporan dari pegawai ini yang cocok dengan filter status saat ini.'
-              : 'Pegawai ini belum memiliki laporan untuk direview.') +
-            '</div>';
-          return;
-        }
-
-        if (appendMode) {
-          // Ambil posisi TERBARU tepat sebelum DOM dirender ulang. Jika admin
-          // sempat menggulir selama request berjalan, posisi terbaru itulah yang dipertahankan.
-          viewportSnapshot3B04C1d2 = tangkapPosisiMuatBerikutnyaAdmin3B04C1d2_();
-        }
-        renderAdminReviewView();
-        if (appendMode && viewportSnapshot3B04C1d2) {
-          // renderAdminReviewView() memiliki pemulihan state lama pada 30 ms.
-          // Jalankan koreksi khusus load-more setelahnya agar posisi final tetap di batch baru.
-          setTimeout(function () {
-            pulihkanPosisiMuatBerikutnyaAdmin3B04C1d2_(viewportSnapshot3B04C1d2);
-          }, 70);
-        }
-      }).withFailureHandler(function (err) {
-        if (requestId !== adminReviewRequestSeq) return;
-
-        adminReviewLoadingInitial = false;
-        adminReviewLoadingMore = false;
-        adminReviewActiveRequestKey = '';
-        if (!appendMode) renderAdminReviewSummary_([], 0);
-        wrap.innerHTML = '<div class="admin-review-empty">Gagal memuat laporan pegawai: ' + escapeHTML((err && err.message) ? err.message : err) + '</div>';
-      }).ambilLaporanAdminPerPegawai3C1(
-        selectedId,
-        filterStatus,
-        dasarPeriode,
-        periodeReview,
-        rentang.tanggalMulai,
-        rentang.tanggalAkhir,
-        offset,
-        adminReviewPageSize,
-        sToken
-      );
-    }
 
 
-    function updateAdminReviewSummaryLokal_(statusLama, statusBaru, removedFromCurrentFilter) {
-      if (!adminReviewServerSummary) return;
 
-      var wasPending = isPendingReviewStatus(statusLama);
-      var isPending = isPendingReviewStatus(statusBaru);
 
-      if (wasPending && !isPending) {
-        adminReviewServerSummary.totalMenunggu = Math.max(0, Number(adminReviewServerSummary.totalMenunggu || 0) - 1);
-        adminReviewServerSummary.totalSelesai = Number(adminReviewServerSummary.totalSelesai || 0) + 1;
-      } else if (!wasPending && isPending) {
-        adminReviewServerSummary.totalMenunggu = Number(adminReviewServerSummary.totalMenunggu || 0) + 1;
-        adminReviewServerSummary.totalSelesai = Math.max(0, Number(adminReviewServerSummary.totalSelesai || 0) - 1);
-      }
-
-      if (removedFromCurrentFilter) {
-        adminReviewServerSummary.totalFiltered = Math.max(0, Number(adminReviewServerSummary.totalFiltered || 0) - 1);
-        adminReviewServerSummary.loaded = Math.max(0, Number(adminReviewServerSummary.loaded || 0) - 1);
-      }
-    }
-
-    function updateAdminReviewSetelahAksi_(idLaporan, statusBaru, poinFinal, catatanAdmin) {
+    function finalisasiUnifiedReviewSetelahAksi_(idLaporan, statusBaru, poinFinal, catatanAdmin) {
       var id = String(idLaporan || '');
       if (!id) return;
-
-      var filterStatus = ((document.getElementById('adminFilterStatus') || {}).value || 'semua').toLowerCase();
-      var item = adminReviewCache[id] || null;
-      var statusLama = item ? String(item.status || '') : '';
-      var statusFinal = String(statusBaru || '');
-
+      var item = reviewWorkspaceCache_[id] || null;
       if (item) {
-        item.status = statusFinal;
+        item.status = String(statusBaru || item.status || '');
         item.poinFinal = parseInt(poinFinal, 10) || 0;
         item.catatan = catatanAdmin || '';
-        item.lewatCutoff = false;
-        adminReviewCache[id] = item;
+        item.lewatCutoff = String(item.status || '').indexOf('Lewat Cut-off') >= 0;
+        reviewWorkspaceCache_[id] = item;
       }
-
-      var removed = false;
-      var idx = -1;
-      for (var i = 0; i < adminReviewItems.length; i++) {
-        if (String((adminReviewItems[i] || {}).idLaporan || '') === id) {
-          idx = i;
-          break;
-        }
-      }
-
-      if (idx !== -1) {
-        adminReviewItems[idx].status = statusFinal;
-        adminReviewItems[idx].poinFinal = parseInt(poinFinal, 10) || 0;
-        adminReviewItems[idx].catatan = catatanAdmin || '';
-        adminReviewItems[idx].lewatCutoff = String(statusFinal || '').indexOf('Lewat Cut-off') >= 0;
-
-        if (filterStatus === 'menunggu' && !isPendingReviewStatus(statusFinal)) {
-          adminReviewItems.splice(idx, 1);
-          removed = true;
-        }
-      }
-
-      updateAdminReviewSummaryLokal_(statusLama, statusFinal, removed);
-      adminReviewGroups = buildAdminReviewGroups_(adminReviewItems);
-      renderAdminReviewView();
-      if (typeof reviewCenterAdminV10SetelahAksi_ === 'function') reviewCenterAdminV10SetelahAksi_(id, statusFinal);
-
-      var info = document.getElementById('adminReviewSummary');
-      if (info) {
-        var note = document.createElement('div');
-        note.style.cssText = 'margin-top:8px; font-size:12px; color:#166534;';
-        note.textContent = 'Perubahan tersimpan. Tampilan diperbarui tanpa memuat ulang penuh. Gunakan tombol Muat Ulang Daftar jika ingin sinkron ulang dari server.';
-        info.appendChild(note);
+      if (typeof reviewCenterAdminV10SetelahAksi_ === 'function') {
+        reviewCenterAdminV10SetelahAksi_(id, String(statusBaru || ''));
       }
     }
 
     function accAdmin(id, poinFinal) {
-      var info = adminReviewCache[id] || {};
+      var info = reviewWorkspaceCache_[id] || {};
       var tanpaImbalan = !!(info.tanpaImbalanKarenaCutoff || info.kebijakanCutoffImbalanAktif);
       currentSetujuAdminId = id;
       currentSetujuAdminPoin = tanpaImbalan ? 0 : (parseInt(poinFinal, 10) || 0);
@@ -17610,8 +16341,7 @@ function updateAdminLatePeriodFilter3B04B1_(
       var catatan = catatanEl ? String(catatanEl.value || '').trim() : '';
       if (!catatan) catatan = 'Sesuai';
 
-      var info = adminReviewCache[id] || {};
-      simpanStateAdminReview(info.groupId || '', id);
+      var info = reviewWorkspaceCache_[id] || {};
 
       var btn = document.getElementById('btnSimpanSetujuAdmin');
       var oldText = btn ? btn.innerText : '';
@@ -17628,7 +16358,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         tutupModalSetujuAdmin();
         alert(r.pesan);
         invalidasiAdminDashboardClientCacheV2A2_();
-        updateAdminReviewSetelahAksi_(id, r.statusFinal || "Disetujui", r.poinFinal != null ? r.poinFinal : poin, catatan);
+        finalisasiUnifiedReviewSetelahAksi_(id, r.statusFinal || "Disetujui", r.poinFinal != null ? r.poinFinal : poin, catatan);
       }).withFailureHandler(function (err) {
         if (btn) {
           btn.disabled = false;
@@ -17639,7 +16369,7 @@ function updateAdminLatePeriodFilter3B04B1_(
     }
 
     function tolakAdmin(id) {
-      var info = adminReviewCache[id] || {};
+      var info = reviewWorkspaceCache_[id] || {};
       var alasanAwal = (info.catatan && info.catatan !== '-') ? info.catatan : 'Tidak sesuai';
       var alasan = prompt('Tulis alasan penolakan laporan ini:', alasanAwal);
       if (alasan === null) return;
@@ -17648,24 +16378,23 @@ function updateAdminLatePeriodFilter3B04B1_(
         alert('Alasan penolakan wajib diisi.');
         return;
       }
-      simpanStateAdminReview(info.groupId || '', id);
       google.script.run.withSuccessHandler(function (r) {
         alert(r.pesan);
         invalidasiAdminDashboardClientCacheV2A2_();
-        updateAdminReviewSetelahAksi_(id, r.statusFinal || "Ditolak", r.poinFinal != null ? r.poinFinal : 0, alasan);
+        finalisasiUnifiedReviewSetelahAksi_(id, r.statusFinal || "Ditolak", r.poinFinal != null ? r.poinFinal : 0, alasan);
       }).withFailureHandler(function (err) {
         alert('Gagal: ' + ((err && err.message) ? err.message : err));
       }).prosesReviewAdmin(id, "Ditolak", 0, alasan, sToken);
     }
 
     function revisiAdmin(id) {
-      var data = adminReviewCache[id];
+      var data = reviewWorkspaceCache_[id];
       if (!data) {
-        alert("Data laporan tidak ditemukan. Silakan muat ulang halaman admin.");
+        alert("Data laporan tidak ditemukan. Silakan muat ulang Pusat Review.");
         return;
       }
 
-      currentRevisiId = id;
+      currentUnifiedReviewRevisionId_ = id;
 
       var stat = (data.status || "").toString();
       var normalizedStatus = "Disetujui";
@@ -17688,19 +16417,17 @@ function updateAdminLatePeriodFilter3B04B1_(
     function tutupModalRevisi() {
       document.getElementById('modalRevisi').classList.remove('active');
       document.body.classList.remove('modal-open');
-      currentRevisiId = null;
+      currentUnifiedReviewRevisionId_ = null;
     }
 
     function simpanRevisiAdmin() {
-      if (!currentRevisiId) return;
+      if (!currentUnifiedReviewRevisionId_) return;
 
-      var idRevisi = currentRevisiId;
+      var idRevisi = currentUnifiedReviewRevisionId_;
       var s = document.getElementById('mStatusRevisi').value;
       var p = document.getElementById('mPoinRevisi').value;
       var c = document.getElementById('mCatatanRevisi').value;
-      var info = adminReviewCache[idRevisi] || {};
-
-      simpanStateAdminReview(info.groupId || '', idRevisi);
+      var info = reviewWorkspaceCache_[idRevisi] || {};
 
       var btn = document.querySelector('.btn-modal-save');
       if (btn) btn.innerText = "Menyimpan...";
@@ -17709,7 +16436,7 @@ function updateAdminLatePeriodFilter3B04B1_(
         tutupModalRevisi();
         alert(r.pesan);
         invalidasiAdminDashboardClientCacheV2A2_();
-        updateAdminReviewSetelahAksi_(idRevisi, r.statusFinal || s, r.poinFinal != null ? r.poinFinal : (parseInt(p, 10) || 0), c);
+        finalisasiUnifiedReviewSetelahAksi_(idRevisi, r.statusFinal || s, r.poinFinal != null ? r.poinFinal : (parseInt(p, 10) || 0), c);
       }).withFailureHandler(function (er) {
         if (btn) btn.innerText = "Simpan Perubahan";
         alert("Gagal: " + ((er && er.message) ? er.message : er));
@@ -20520,7 +19247,6 @@ function updateAdminLatePeriodFilter3B04B1_(
     aturMenuRoleVisibility = function () {
       var menuDisposisi = document.getElementById('menuDisposisi');
       var menuReviewCenter = document.getElementById('menuReviewCenter');
-      var menuAdmin = document.getElementById('menuAdmin');
       var menuTunjangan = document.getElementById('menuTunjangan');
       var menuAdminKinerja = document.getElementById('menuAdminKinerja');
       var menuOperationalHealth = document.getElementById('menuOperationalHealth');

@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.09.30.03
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.01.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1q-2026.09.30.03";
+  "3B1B1r-2026.10.01.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.09.30.03",
+  baselineAppVersion: "2026.10.01.01",
 
   policy: {
     privateByDefault: true,
@@ -36,7 +36,6 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "akhiriSession",
       "ambilAuditKoreksiCutoffLama",
       "ambilConstantsAplikasi",
-      "ambilDaftarPegawaiReviewAdmin",
       "ambilDaftarPegawaiUntukAdmin",
       "ambilDashboardAdminKinerja",
       "ambilDiagnostikCakupanV02",
@@ -47,12 +46,6 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilDetailRiwayatLaporan3B04C1",
       "ambilDetailRiwayatLaporan3B04C1c",
       "ambilDisposisiUntukLaporan",
-      "ambilLaporanAdminPerPegawai",
-      "ambilLaporanAdminPerPegawai3B04B",
-      "ambilLaporanAdminPerPegawai3B04B1",
-      "ambilLaporanAdminPerPegawai3B04C1b",
-      "ambilLaporanAdminPerPegawai3B04C1c",
-      "ambilLaporanAdminPerPegawai3C1",
       "ambilLaporanDitolakUntukRevisi",
       "ambilMetadataLampiranAdminLazy",
       "ambilOperationalHealthCenterV10",
@@ -237,6 +230,13 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
     ],
 
     legacyPublicCompatibility: [
+      "ambilDaftarPegawaiReviewAdmin",
+      "ambilLaporanAdminPerPegawai",
+      "ambilLaporanAdminPerPegawai3B04B",
+      "ambilLaporanAdminPerPegawai3B04B1",
+      "ambilLaporanAdminPerPegawai3B04C1b",
+      "ambilLaporanAdminPerPegawai3B04C1c",
+      "ambilLaporanAdminPerPegawai3C1",
       "ambilSemuaLaporanAdmin",
       "ambilDaftarPegawaiAktifUntukDisposisi",
       "ambilRiwayatKu",

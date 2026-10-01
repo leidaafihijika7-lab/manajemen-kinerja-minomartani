@@ -1,8 +1,8 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
-// Baseline kontrak: Review Center v1.1 Unified Review — 178 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.09.30.03
+// Baseline kontrak: Review Center v1.2 Legacy Retirement — 178 binding aktif
+// Baseline kode kandidat: APP_VERSION 2026.10.01.01
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,10 +11,10 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3s-2026.09.30.03";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.09.30.03";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3t-2026.10.01.01";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.01.01";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 178;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "b0f7a4c4257cbbc8293a002d9e7beca09957378a5dc37faef7e4c3b6892e250b";
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "ab66775079f1c382ebe0cab2d461fdb08bcccb605e15459aca82171bef15ef8d";
 
 // Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 173 Batch 2g.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.
