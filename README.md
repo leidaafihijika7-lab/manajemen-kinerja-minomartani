@@ -1,13 +1,11 @@
-# Portal Kinerja Minomartani — `2026.10.02.02`
+# Portal Kinerja Minomartani — `2026.10.02.03`
 
-Release candidate **Monthly Closing v1.0** di atas Stable Baseline `2026.10.02.01`.
+Monthly Closing v1.0 RC2 — UI Clarity Fix.
 
-## Perubahan utama
-- menu baru **Penutupan Bulan** untuk Lurah/Carik;
-- readiness center review + integritas laporan/index + periode resmi + tarif + tunjangan + pencairan + arsip;
-- penutupan periode resmi memakai mesin lama `simpanTutupPeriodeLaporan()` dan selalu re-check di server;
-- blocker penutupan periode resmi dipisahkan dari blocker workflow Monthly Closing keseluruhan;
-- status final `SELESAI` hanya jika periode telah ditutup, review/integritas sehat, tarif/batch valid, dan batch sudah dicairkan;
-- Arsip Bulanan otomatis belum dibuat pada v1.0.
+Perubahan terhadap `2026.10.02.02` hanya pada presentasi Monthly Closing dan metadata versi/integrity:
+- deduplikasi checklist Arsip;
+- substatus tahapan bulanan;
+- panel periode tertutup read-only dengan cutoff resmi;
+- tidak ada perubahan schema, Review Admin, poin, atau mesin Tunjangan.
 
-Tidak ada perubahan schema, mesin Review Admin, formula Tunjangan, aturan poin, atau aturan cut-off.
+Business binding tetap `180/180`.

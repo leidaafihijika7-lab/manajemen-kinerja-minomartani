@@ -1,6 +1,6 @@
 // ============================================================
 // MONTHLY CLOSING v1.0 — READINESS-FIRST ORCHESTRATOR
-// Kandidat APP_VERSION 2026.10.02.02
+// Kandidat APP_VERSION 2026.10.02.03
 //
 // Prinsip:
 // - tidak membuat mesin review/tunjangan baru;
@@ -10,7 +10,7 @@
 // - tidak membuat/mengubah schema Spreadsheet.
 // ============================================================
 
-var MONTHLY_CLOSING_V10_VERSION_ = 'MC-v1.0-RC1-2026.10.02.02';
+var MONTHLY_CLOSING_V10_VERSION_ = 'MC-v1.0-RC2-2026.10.02.03';
 
 function mcV10Check_(id, status, title, headline, metrics, recommendation) {
   return {
@@ -378,7 +378,7 @@ function tutupPeriodeMonthlyClosingV10(payload, token) {
 function validasiMonthlyClosingV10() {
   var checks = [];
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail || '') }); }
-  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.02.02', String(APP_VERSION || ''));
+  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.02.03', String(APP_VERSION || ''));
   add_('READ_ENDPOINT', typeof ambilMonthlyClosingV10 === 'function', typeof ambilMonthlyClosingV10);
   add_('WRITE_WRAPPER', typeof tutupPeriodeMonthlyClosingV10 === 'function', typeof tutupPeriodeMonthlyClosingV10);
   add_('OFFICIAL_CLOSE_ENGINE', typeof simpanTutupPeriodeLaporan === 'function', typeof simpanTutupPeriodeLaporan);

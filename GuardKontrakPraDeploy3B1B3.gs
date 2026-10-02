@@ -2,7 +2,7 @@
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
 // Baseline kontrak: Monthly Closing v1.0 — 180 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.02.02
+// Baseline kode kandidat: APP_VERSION 2026.10.02.03
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,8 +11,8 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3w-2026.10.02.02";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.02.02";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3w-2026.10.02.03";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.02.03";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 180;
 var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "acaab20a494c844881fec06fc2572007ee75e2b37bbf5d0bce789a14eb414751";
 
