@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.10.02.03"; // Monthly Closing v1.0; Stable Baseline sebelumnya 2026.10.02.01
+var APP_VERSION = "2026.10.02.04"; // Monthly Archive v1.0 RC1; Monthly Closing v1.0 dibekukan pada 2026.10.02.03
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
