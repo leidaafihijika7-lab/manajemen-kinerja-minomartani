@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.02.01
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.02.02
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1t-2026.10.02.01";
+  "3B1B1u-2026.10.02.02";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.10.02.01",
+  baselineAppVersion: "2026.10.02.02",
 
   policy: {
     privateByDefault: true,
@@ -50,6 +50,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilMetadataLampiranAdminLazy",
       "ambilOperationalHealthCenterV10",
       "ambilReviewCenterAdminV10",
+      "ambilMonthlyClosingV10",
       "ambilRekapTunjanganBulanan",
       "ambilRingkasanDisposisiBaru",
       "ambilRiwayatKuPaged",
@@ -91,6 +92,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "simpanPetugasDisposisi",
       "simpanRevisiLaporanDitolakPegawai",
       "simpanTutupPeriodeLaporan",
+      "tutupPeriodeMonthlyClosingV10",
       "tambahPenerimaDisposisi",
       "tandaiDisposisiSudahDibuka",
       "tandaiSudahDicairkan",
@@ -164,6 +166,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiTarifTunjanganV03",
       "validasiOperationalHealthV101",
       "validasiReviewCenterAdminV10",
+      "validasiMonthlyClosingV10",
       "ambilFrontendIntegrityManifestV10",
       "validasiProductionSmokeFrontendV10",
       "validasiPreflightSeptember2026V01",

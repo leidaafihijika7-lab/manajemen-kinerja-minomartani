@@ -1,8 +1,8 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
-// Baseline kontrak: Review Center v1.2 Legacy Retirement — 178 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.02.01
+// Baseline kontrak: Monthly Closing v1.0 — 180 binding aktif
+// Baseline kode kandidat: APP_VERSION 2026.10.02.02
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,10 +11,10 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3v-2026.10.02.01";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.02.01";
-var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 178;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "ab66775079f1c382ebe0cab2d461fdb08bcccb605e15459aca82171bef15ef8d";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3w-2026.10.02.02";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.02.02";
+var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 180;
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "acaab20a494c844881fec06fc2572007ee75e2b37bbf5d0bce789a14eb414751";
 
 // Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 173 Batch 2g.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.
@@ -32,6 +32,7 @@ var PORTAL_PREDEPLOY_SELF_NAMES_3B1B3_ = [
   "validasiPdfTunjanganV01",
   "validasiOperationalHealthV101",
   "validasiReviewCenterAdminV10",
+  "validasiMonthlyClosingV10",
   "ambilFrontendIntegrityManifestV10",
   "validasiProductionSmokeFrontendV10",
   "auditMaintenanceOHICV101",

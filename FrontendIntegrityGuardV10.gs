@@ -1,6 +1,6 @@
 // ============================================================
 // PRODUCTION SMOKE & FRONTEND INTEGRITY GUARD v1.0
-// Kandidat APP_VERSION 2026.10.02.01
+// Kandidat APP_VERSION 2026.10.02.02
 //
 // READ-ONLY:
 // - tidak membaca/menulis Spreadsheet;
@@ -8,36 +8,36 @@
 // - manifest publik hanya berisi metadata build non-sensitif.
 // ============================================================
 
-var PORTAL_FRONTEND_INTEGRITY_V10_VERSION = "PSFIG-v1.0-2026.10.02.01";
-var PORTAL_FRONTEND_INTEGRITY_APP_VERSION_V10 = "2026.10.02.01";
-var PORTAL_FRONTEND_INTEGRITY_BUILD_ID_V10 = "PSFIG-2026.10.02.01-3c1fe5c0c260";
-var PORTAL_FRONTEND_INTEGRITY_FINGERPRINT_V10 = "3c1fe5c0c2609ec821ed737ca07c0e53f22adbc4126b05f029e7c9daffcf3f82";
+var PORTAL_FRONTEND_INTEGRITY_V10_VERSION = "PSFIG-v1.0-2026.10.02.02";
+var PORTAL_FRONTEND_INTEGRITY_APP_VERSION_V10 = "2026.10.02.02";
+var PORTAL_FRONTEND_INTEGRITY_BUILD_ID_V10 = "PSFIG-2026.10.02.02-ab8afaa650f6";
+var PORTAL_FRONTEND_INTEGRITY_FINGERPRINT_V10 = "ab8afaa650f696152c8a524a91567a8abd22e850f18be89ace02dcc1d34386d4";
 
 var PORTAL_FRONTEND_CRITICAL_DOM_IDS_V10_ = [
   "halamanLogin", "aplikasiUtama", "inputUsername", "inputPin", "btnLogin", "pesanLogin",
   "menuNavigasi", "judulHal", "halDash", "halTimeline", "halDisposisi", "halInput",
   "halRiwayat", "halRekap", "halTunjangan", "halReviewCenter", "halAdminKinerja",
-  "halOperationalHealth", "menuReviewCenter", "menuAdminKinerja", "menuOperationalHealth"
+  "halMonthlyClosing", "halOperationalHealth", "menuReviewCenter", "menuMonthlyClosing", "menuAdminKinerja", "menuOperationalHealth"
 ];
 
 var PORTAL_FRONTEND_CRITICAL_FUNCTIONS_V10_ = [
   "prosesLogin", "prosesLogout", "aktifkanPortalSetelahSesiValid_", "aturMenuRoleVisibility",
   "bukaHalaman", "muatDashboard", "muatTimeline", "muatRiwayat", "muatRekap", "muatTunjangan",
-  "muatReviewCenterAdminV10", "muatDashboardAdminKinerja", "muatOperationalHealthV10",
+  "muatReviewCenterAdminV10", "muatDashboardAdminKinerja", "muatOperationalHealthV10", "muatMonthlyClosingV10",
   "userIsAdminUtama", "terapkanAksesDisposisiDariSesi_"
 ];
 
 var PORTAL_FRONTEND_ROUTE_TARGETS_V10_ = [
   "halDash", "halTimeline", "halDisposisi", "halInput", "halRiwayat", "halRekap",
-  "halTunjangan", "halReviewCenter", "halAdminKinerja", "halOperationalHealth"
+  "halTunjangan", "halReviewCenter", "halMonthlyClosing", "halAdminKinerja", "halOperationalHealth"
 ];
 
 var PORTAL_FRONTEND_FORBIDDEN_LEGACY_IDS_V10_ = ["menuAdmin", "halAdmin"];
 
 var PORTAL_FRONTEND_STATIC_ATTESTATION_V10_ = {
-  appVersion: "2026.10.02.01",
-  buildId: "PSFIG-2026.10.02.01-3c1fe5c0c260",
-  fingerprint: "3c1fe5c0c2609ec821ed737ca07c0e53f22adbc4126b05f029e7c9daffcf3f82",
+  appVersion: "2026.10.02.02",
+  buildId: "PSFIG-2026.10.02.02-ab8afaa650f6",
+  fingerprint: "ab8afaa650f696152c8a524a91567a8abd22e850f18be89ace02dcc1d34386d4",
   staticAuditPassed: true,
   unexpectedMissingDomRefs: 0,
   missingCriticalDom: 0,
@@ -107,10 +107,10 @@ function validasiProductionSmokeFrontendV10() {
   add_("FUNCTION_REGISTRY", struktur.valid === true, struktur.valid ? "valid" : "invalid");
 
   var snap = typeof bangunSnapshotKontrakAktif3B1B2_ === "function" ? bangunSnapshotKontrakAktif3B1B2_() : { rows:[], checksumAktif:"" };
-  var bindingOk = snap.rows.length === 178 && snap.rows.every(function (r) { return r.match === true; }) && String(snap.checksumAktif || "") === String(PORTAL_FUNCTION_CONTRACT_CHECKSUM_3B1B2_ || "");
-  add_("BUSINESS_BINDING_178", bindingOk, snap.rows.length + "/178");
+  var bindingOk = snap.rows.length === 180 && snap.rows.every(function (r) { return r.match === true; }) && String(snap.checksumAktif || "") === String(PORTAL_FUNCTION_CONTRACT_CHECKSUM_3B1B2_ || "");
+  add_("BUSINESS_BINDING_180", bindingOk, snap.rows.length + "/180");
 
-  var backendNames = ["cekLogin","cekSessionAktif","getAppVersion","ambilReviewCenterAdminV10","ambilOperationalHealthCenterV10","prosesReviewAdmin"];
+  var backendNames = ["cekLogin","cekSessionAktif","getAppVersion","ambilReviewCenterAdminV10","ambilOperationalHealthCenterV10","ambilMonthlyClosingV10","tutupPeriodeMonthlyClosingV10","prosesReviewAdmin"];
   var missingBackend = backendNames.filter(function (name) { return typeof resolveBindingFungsi3B1B2_ === "function" ? !resolveBindingFungsi3B1B2_(name) : true; });
   add_("CRITICAL_BACKEND_FUNCTIONS", missingBackend.length === 0, missingBackend.join(", "));
 
