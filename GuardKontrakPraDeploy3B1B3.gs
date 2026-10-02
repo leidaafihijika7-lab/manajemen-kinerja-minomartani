@@ -2,7 +2,7 @@
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
 // Baseline kontrak: Review Center v1.2 Legacy Retirement — 178 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.01.02
+// Baseline kode kandidat: APP_VERSION 2026.10.02.01
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,8 +11,8 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3u-2026.10.01.02";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.01.02";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3v-2026.10.02.01";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.02.01";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 178;
 var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "ab66775079f1c382ebe0cab2d461fdb08bcccb605e15459aca82171bef15ef8d";
 
@@ -32,6 +32,8 @@ var PORTAL_PREDEPLOY_SELF_NAMES_3B1B3_ = [
   "validasiPdfTunjanganV01",
   "validasiOperationalHealthV101",
   "validasiReviewCenterAdminV10",
+  "ambilFrontendIntegrityManifestV10",
+  "validasiProductionSmokeFrontendV10",
   "auditMaintenanceOHICV101",
   "maintenanceRekonsiliasiQueueIndexV101",
   "maintenanceBersihkanMetadataBatchResiduV101"
@@ -45,6 +47,7 @@ function dependensiGuardPraDeploy3B1B3_() {
   if (typeof validasiStrukturRegistryFungsi3B1B1_ !== "function") issues.push("VALIDATOR_REGISTRY_3B1B1_TIDAK_TERSEDIA");
   if (typeof salinRegistryFungsi3B1B1_ !== "function") issues.push("REGISTRY_COPY_3B1B1_TIDAK_TERSEDIA");
   if (typeof sha256Teks3B1B2_ !== "function") issues.push("SHA256_HELPER_3B1B2_TIDAK_TERSEDIA");
+  if (typeof validasiBuildAttestationFrontendV10_ !== "function") issues.push("FRONTEND_INTEGRITY_ATTESTATION_TIDAK_TERSEDIA");
   return { valid: issues.length === 0, issues: issues };
 }
 
@@ -139,6 +142,11 @@ function evaluasiGuardPraDeploy3B1B3_(rencana) {
   var warnings = [];
   var perubahanTerdeteksi = [];
   var plannedNames = Object.keys(plan);
+  var frontendIntegrity = validasiBuildAttestationFrontendV10_();
+
+  if (!frontendIntegrity.valid) {
+    blocker.push({ code: "FRONTEND_INTEGRITY_ATTESTATION_INVALID", issues: frontendIntegrity.issues.slice() });
+  }
 
   PORTAL_PREDEPLOY_SELF_NAMES_3B1B3_.forEach(function (name) { selfSet[name] = true; });
   PORTAL_FUNCTION_CONTRACT_3B1B2_.forEach(function (c) { baselineByName[c.name] = c; });
@@ -257,6 +265,7 @@ function evaluasiGuardPraDeploy3B1B3_(rencana) {
     perubahanTerdeteksi: perubahanTerdeteksi.filter(function (name, index, arr) { return arr.indexOf(name) === index; }),
     rencanaPerubahan: plannedNames.map(function (name) { return plan[name]; }),
     governanceToolsDikecualikan: PORTAL_PREDEPLOY_SELF_NAMES_3B1B3_.slice(),
+    frontendIntegrity: { valid: frontendIntegrity.valid, buildId: frontendIntegrity.buildId, fingerprint: frontendIntegrity.fingerprint, issues: frontendIntegrity.issues.slice() },
     fingerprintGuard: buatFingerprintGuardPraDeploy3B1B3_(payloadFingerprint),
     targetDipanggil: false,
     dataDiubah: false,

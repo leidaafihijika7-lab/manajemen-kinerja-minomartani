@@ -1,11 +1,11 @@
 // ============================================================
 // REVIEW CENTER ADMIN v1.2-RC1 — LEGACY RETIREMENT
-// APP_VERSION 2026.10.01.02
+// APP_VERSION 2026.10.02.01
 // Antrean review lintas pegawai berbasis Index_Laporan.
 // Detail/aksi dipersatukan di Pusat Review; keputusan tetap memakai prosesReviewAdmin yang stabil.
 // ============================================================
 
-var REVIEW_CENTER_ADMIN_V10_VERSION_ = 'REVIEW-CENTER-v1.2.1-HF1-2026.10.01.02';
+var REVIEW_CENTER_ADMIN_V10_VERSION_ = 'REVIEW-CENTER-v1.2.1-HF1-2026.10.02.01';
 var REVIEW_CENTER_ADMIN_V10_DEFAULT_LIMIT_ = 20;
 var REVIEW_CENTER_ADMIN_V10_MAX_LIMIT_ = 30;
 

@@ -1,7 +1,12 @@
-# Portal Kinerja Minomartani — 2026.10.01.02
+# Portal Kinerja Minomartani — 2026.10.02.01
 
-Release candidate: **Review Center Admin v1.2 Legacy Retirement**.
+Release candidate **Production Smoke & Frontend Integrity Guard v1.0** di atas `2026.10.01.02`.
 
-Perubahan utama: Review Bukti Admin lama dipensiunkan dari UI/client; Pusat Review menjadi satu-satunya workspace review. Mesin `prosesReviewAdmin` tetap identik dengan predecessor. Kontrak aktif 178/178 dan guard pra-deploy ALLOW.
+Perubahan utama:
+- static frontend source audit;
+- runtime smoke BOOT / PRE_LOGIN / POST_LOGIN;
+- server build manifest + Build ID/fingerprint handshake;
+- pre-deploy guard memblokir attestation frontend yang invalid;
+- sisa exact reference `menuAdmin` pada logout dibersihkan.
 
-Lihat `../MULAI_DI_SINI.md` dan `../PANDUAN_PEMASANGAN.txt` pada paket distribusi.
+Tidak ada perubahan aturan bisnis, schema, poin, cut-off, atau mesin review.

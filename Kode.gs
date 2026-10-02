@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.10.01.02"; // Review Center Admin v1.2.1 Login Hotfix di atas rollback point 2026.09.30.03
+var APP_VERSION = "2026.10.02.01"; // Production Smoke & Frontend Integrity Guard v1.0; rollback point 2026.10.01.02
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {

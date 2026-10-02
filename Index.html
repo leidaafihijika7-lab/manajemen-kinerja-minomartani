@@ -9125,6 +9125,7 @@
       terapkanAksesDisposisiDariSesi_();
       document.getElementById('halamanLogin').style.display = 'none';
       document.getElementById('aplikasiUtama').style.display = 'flex';
+      setTimeout(function(){ try { jalankanProductionSmokeFrontendV10('POST_LOGIN'); } catch (e) { console.error('Post-login smoke gagal:', e); } }, 0);
       muatDashboard();
       prosesLevel1();
       mulaiMonitorNotifikasiDisposisiBaru_();
@@ -10448,6 +10449,11 @@
     }
 
         function prosesLogin() {
+      var smokeLogin = jalankanFrontendIntegrityLocalV10_('PRE_LOGIN');
+      if (!smokeLogin.valid || frontendIntegrityStateV10_.blocking) {
+        setPesanLogin_('Integritas antarmuka gagal. Muat ulang halaman atau gunakan deployment rollback.', 'danger');
+        return;
+      }
       var u = document.getElementById('inputUsername').value;
       var p = document.getElementById('inputPin').value;
       var btn = document.getElementById('btnLogin'); var msg = document.getElementById('pesanLogin');
@@ -10515,7 +10521,6 @@
 
       var mDisposisi = document.getElementById('menuDisposisi');
       var mReviewCenter = document.getElementById('menuReviewCenter');
-      var mAdmin = document.getElementById('menuAdmin');
       var mTunj = document.getElementById('menuTunjangan');
       var mAdminKinerja = document.getElementById('menuAdminKinerja');
       var mOperationalHealth = document.getElementById('menuOperationalHealth');
@@ -10523,7 +10528,6 @@
 
       if (mDisposisi) mDisposisi.style.display = "none";
       if (mReviewCenter) mReviewCenter.style.display = "none";
-      if (mAdmin) mAdmin.style.display = "none";
       if (mTunj) mTunj.style.display = "none";
       if (mAdminKinerja) mAdminKinerja.style.display = "none";
       if (mOperationalHealth) mOperationalHealth.style.display = "none";
@@ -21955,6 +21959,142 @@ function adminSpreadsheetFieldRawValue_(field) {
       outputProfesionalV3_scheduleApply_(100);
     }
 
+
+
+
+    // ===== Production Smoke & Frontend Integrity Guard v1.0 =====
+    var FRONTEND_INTEGRITY_VERSION_V10 = 'PSFIG-v1.0-2026.10.02.01';
+    var FRONTEND_INTEGRITY_BUILD_ID_V10 = 'PSFIG-2026.10.02.01-3c1fe5c0c260';
+    var FRONTEND_INTEGRITY_FINGERPRINT_V10 = '3c1fe5c0c2609ec821ed737ca07c0e53f22adbc4126b05f029e7c9daffcf3f82';
+    var FRONTEND_INTEGRITY_CRITICAL_DOM_V10 = [
+      'halamanLogin','aplikasiUtama','inputUsername','inputPin','btnLogin','pesanLogin','menuNavigasi','judulHal',
+      'halDash','halTimeline','halDisposisi','halInput','halRiwayat','halRekap','halTunjangan','halReviewCenter',
+      'halAdminKinerja','halOperationalHealth','menuReviewCenter','menuAdminKinerja','menuOperationalHealth'
+    ];
+    var FRONTEND_INTEGRITY_CRITICAL_FUNCTIONS_V10 = [
+      'prosesLogin','prosesLogout','aktifkanPortalSetelahSesiValid_','aturMenuRoleVisibility','bukaHalaman','muatDashboard',
+      'muatTimeline','muatRiwayat','muatRekap','muatTunjangan','muatReviewCenterAdminV10','muatDashboardAdminKinerja',
+      'muatOperationalHealthV10','userIsAdminUtama','terapkanAksesDisposisiDariSesi_'
+    ];
+    var FRONTEND_INTEGRITY_ROUTE_TARGETS_V10 = [
+      'halDash','halTimeline','halDisposisi','halInput','halRiwayat','halRekap','halTunjangan','halReviewCenter',
+      'halAdminKinerja','halOperationalHealth'
+    ];
+    var frontendIntegrityStateV10_ = {
+      blocking:false, serverVerified:false, serverWarning:false, lastReport:null, lastPhase:'', checkedAt:0
+    };
+
+    function frontendIntegrityBannerV10_(report, warningOnly) {
+      var old = document.getElementById('frontendIntegrityBannerV10');
+      if (report && report.valid && !warningOnly) { if (old) old.remove(); return; }
+      var box = old || document.createElement('div');
+      box.id = 'frontendIntegrityBannerV10';
+      box.setAttribute('role','alert');
+      box.style.cssText = 'position:fixed;left:12px;right:12px;top:12px;z-index:2147483647;padding:12px 14px;border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.22);font:600 12px/1.5 Plus Jakarta Sans,sans-serif;';
+      if (warningOnly) {
+        box.style.background = '#fffbeb'; box.style.border = '1px solid #f59e0b'; box.style.color = '#92400e';
+        box.innerHTML = '<b>Pemeriksaan integritas server belum dapat dikonfirmasi.</b> Portal tetap dapat digunakan; jika ada kejanggalan, muat ulang halaman.';
+      } else {
+        box.style.background = '#fef2f2'; box.style.border = '1px solid #ef4444'; box.style.color = '#991b1b';
+        var issues = report && Array.isArray(report.issues) ? report.issues.slice(0,5).join(', ') : 'UNKNOWN';
+        box.innerHTML = '<b>Frontend Integrity Guard memblokir alur ini.</b><br>Kode: ' + escapeHTML(issues || 'UNKNOWN') + '. Muat ulang halaman atau gunakan deployment rollback.';
+      }
+      if (!old && document.body) document.body.appendChild(box);
+    }
+
+    function jalankanFrontendIntegrityLocalV10_(phase) {
+      phase = String(phase || 'MANUAL').toUpperCase();
+      var issues = [], missingDom = [], missingFunctions = [], missingRoutes = [], legacyFound = [];
+      FRONTEND_INTEGRITY_CRITICAL_DOM_V10.forEach(function(id){ if (!document.getElementById(id)) missingDom.push(id); });
+      FRONTEND_INTEGRITY_CRITICAL_FUNCTIONS_V10.forEach(function(name){ if (typeof window[name] !== 'function') missingFunctions.push(name); });
+      FRONTEND_INTEGRITY_ROUTE_TARGETS_V10.forEach(function(id){ if (!document.getElementById(id)) missingRoutes.push(id); });
+      ['menuAdmin','halAdmin'].forEach(function(id){ if (document.getElementById(id)) legacyFound.push(id); });
+      if (missingDom.length) issues.push('MISSING_DOM:' + missingDom.join('|'));
+      if (missingFunctions.length) issues.push('MISSING_FUNCTION:' + missingFunctions.join('|'));
+      if (missingRoutes.length) issues.push('MISSING_ROUTE:' + missingRoutes.join('|'));
+      if (legacyFound.length) issues.push('LEGACY_DOM_PRESENT:' + legacyFound.join('|'));
+
+      // Eksekusi defensif fungsi role visibility secara nyata. Ini sengaja menangkap
+      // kelas bug retirement seperti referensi menuAdmin yang sudah tidak ada.
+      if (typeof window.aturMenuRoleVisibility === 'function') {
+        try { window.aturMenuRoleVisibility(); }
+        catch (eRole) { issues.push('ROLE_VISIBILITY_RUNTIME:' + String((eRole && eRole.message) || eRole || 'ERROR')); }
+      }
+
+      if (phase === 'POST_LOGIN') {
+        var login = document.getElementById('halamanLogin');
+        var app = document.getElementById('aplikasiUtama');
+        if (!sToken) issues.push('POST_LOGIN_TOKEN_EMPTY');
+        if (login && login.style.display !== 'none') issues.push('POST_LOGIN_LOGIN_VISIBLE');
+        if (app && app.style.display === 'none') issues.push('POST_LOGIN_APP_HIDDEN');
+        if (_halamanAktif && !document.getElementById(_halamanAktif)) issues.push('ACTIVE_ROUTE_MISSING:' + _halamanAktif);
+      }
+
+      var report = {
+        valid: issues.length === 0,
+        versi: FRONTEND_INTEGRITY_VERSION_V10,
+        appVersion: CLIENT_APP_VERSION,
+        buildId: FRONTEND_INTEGRITY_BUILD_ID_V10,
+        fingerprint: FRONTEND_INTEGRITY_FINGERPRINT_V10,
+        phase: phase,
+        issues: issues,
+        missingDom: missingDom,
+        missingFunctions: missingFunctions,
+        missingRoutes: missingRoutes,
+        legacyFound: legacyFound,
+        checkedAt: Date.now()
+      };
+      frontendIntegrityStateV10_.lastReport = report;
+      frontendIntegrityStateV10_.lastPhase = phase;
+      frontendIntegrityStateV10_.checkedAt = report.checkedAt;
+      if (!report.valid) frontendIntegrityStateV10_.blocking = true;
+      window.__PORTAL_FRONTEND_INTEGRITY_V10__ = report;
+      frontendIntegrityBannerV10_(report, false);
+      return report;
+    }
+
+    function verifikasiFrontendIntegrityServerV10_() {
+      if (!window.google || !google.script || !google.script.run) return;
+      google.script.run.withSuccessHandler(function(manifest){
+        var mismatch = [];
+        if (!manifest || manifest.sukses !== true) mismatch.push('SERVER_MANIFEST_INVALID');
+        if (manifest && String(manifest.appVersion || '') !== String(CLIENT_APP_VERSION || '')) mismatch.push('APP_VERSION_MISMATCH');
+        if (manifest && String(manifest.buildId || '') !== FRONTEND_INTEGRITY_BUILD_ID_V10) mismatch.push('BUILD_ID_MISMATCH');
+        if (manifest && String(manifest.fingerprint || '') !== FRONTEND_INTEGRITY_FINGERPRINT_V10) mismatch.push('FINGERPRINT_MISMATCH');
+        frontendIntegrityStateV10_.serverVerified = mismatch.length === 0;
+        frontendIntegrityStateV10_.serverWarning = false;
+        if (mismatch.length) {
+          frontendIntegrityStateV10_.blocking = true;
+          var report = frontendIntegrityStateV10_.lastReport || {valid:false,issues:[]};
+          report.valid = false;
+          report.issues = (report.issues || []).concat(mismatch);
+          frontendIntegrityStateV10_.lastReport = report;
+          window.__PORTAL_FRONTEND_INTEGRITY_V10__ = report;
+          frontendIntegrityBannerV10_(report, false);
+        }
+      }).withFailureHandler(function(err){
+        frontendIntegrityStateV10_.serverWarning = true;
+        console.warn('Frontend Integrity server handshake gagal:', err);
+        if (!frontendIntegrityStateV10_.blocking) frontendIntegrityBannerV10_({valid:false,issues:['SERVER_HANDSHAKE_UNAVAILABLE']}, true);
+      }).ambilFrontendIntegrityManifestV10();
+    }
+
+    function jalankanProductionSmokeFrontendV10(phase) {
+      var report = jalankanFrontendIntegrityLocalV10_(phase || 'MANUAL');
+      if (report.valid && String(phase || '').toUpperCase() !== 'POST_LOGIN') verifikasiFrontendIntegrityServerV10_();
+      return report;
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      setTimeout(function(){
+        try { jalankanProductionSmokeFrontendV10('BOOT'); }
+        catch (e) {
+          frontendIntegrityStateV10_.blocking = true;
+          frontendIntegrityBannerV10_({valid:false,issues:['SMOKE_BOOT_EXCEPTION:' + String((e && e.message) || e)]}, false);
+        }
+      }, 0);
+    });
+    // ===== END Production Smoke & Frontend Integrity Guard v1.0 =====
 
 
     // ===== Operational Health & Integrity Center v1.0.1 =====
