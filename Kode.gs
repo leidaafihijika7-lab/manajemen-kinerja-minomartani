@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.10.02.04"; // Monthly Archive v1.0 RC1; Monthly Closing v1.0 dibekukan pada 2026.10.02.03
+var APP_VERSION = "2026.10.03.01"; // Workflow Reminder & Escalation Engine v1.0; baseline 2026.10.02.07 tetap utuh
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {
@@ -3954,6 +3954,13 @@ function ambilRekapTunjanganBulanan(periode, token) {
         dikembalikanPada: formatTanggalJamClient_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKEMBALIKAN_PADA]),
         diteruskanPada: formatTanggalJamClient_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DITERUSKAN_BENDAHARA_PADA]),
         dicairkanPada: formatTanggalJamClient_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DICAIRKAN_PADA]),
+        dibuatTanggalAktual: formatTanggalISO_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIBUAT_PADA]),
+        dikunciTanggalAktual: formatTanggalISO_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKUNCI_PADA]),
+        diajukanTanggalAktual: formatTanggalISO_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIAJUKAN_PADA]),
+        disetujuiTanggalAktual: formatTanggalISO_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DISETUJUI_PADA]),
+        dikembalikanTanggalAktual: formatTanggalISO_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKEMBALIKAN_PADA]),
+        diteruskanTanggalAktual: formatTanggalISO_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DITERUSKAN_BENDAHARA_PADA]),
+        dicairkanTanggalAktual: formatTanggalISO_(r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DICAIRKAN_PADA]),
         nomorBuktiCair: (r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.NOMOR_BUKTI_CAIR] || "").toString(),
         batchId: (r[SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.BATCH_ID] || "").toString(),
         labelPembayaran: meta.labelPembayaran,
@@ -3987,6 +3994,14 @@ function ambilRekapTunjanganBulanan(periode, token) {
       dikembalikanPada: data[0].dikembalikanPada || "",
       diteruskanPada: data[0].diteruskanPada || "",
       dicairkanPada: data[0].dicairkanPada || "",
+      dibuatTanggalAktual: data[0].dibuatTanggalAktual || "",
+      dikunciTanggalAktual: data[0].dikunciTanggalAktual || "",
+      diajukanTanggalAktual: data[0].diajukanTanggalAktual || "",
+      disetujuiTanggalAktual: data[0].disetujuiTanggalAktual || "",
+      dikembalikanTanggalAktual: data[0].dikembalikanTanggalAktual || "",
+      diteruskanTanggalAktual: data[0].diteruskanTanggalAktual || "",
+      dicairkanTanggalAktual: data[0].dicairkanTanggalAktual || "",
+      historicalPaymentBackfill: twdbV10IsHistoricalPayment_(data[0].dicairkanTanggalAktual, data[0].diteruskanTanggalAktual),
       nomorBuktiCair: data[0].nomorBuktiCair,
       penandatangan: bangunPenandatanganTunjangan_()
     };
@@ -4084,73 +4099,96 @@ function updateBatchTunjanganStatus_(periode, token, config) {
   return response;
 }
 
-function kunciDraftTunjanganBulanan(periode, catatan, token) {
-  return updateBatchTunjanganStatus_(periode, token, {
-    validator: cekHakAksesCarikTunjangan,
-    accessDenied: "Akses ditolak. Hanya Carik yang dapat mengunci draft.",
-    allowedFrom: [TUNJANGAN_STATUS.DRAFT, TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH],
-    toStatus: TUNJANGAN_STATUS.DIKUNCI_CARIK,
-    catatanCol: 17,
-    dateCol: 22,
-    catatan: catatan,
-    auditAction: "KUNCI_DRAFT_TUNJANGAN",
-    successMessage: "Draft tunjangan berhasil dikunci."
+function kunciDraftTunjanganBulanan(periode, input, token) {
+  return twdbV10RunTransition_(periode, input, token, {
+    stage: "KUNCI_DRAFT",
+    previousResolver: function (batch) {
+      return String(batch.status || "") === TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH
+        ? { columnIndex:SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKEMBALIKAN_PADA, label:"pengembalian Lurah" }
+        : { columnIndex:SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIBUAT_PADA, label:"pembuatan batch" };
+    },
+    updateConfig: {
+      validator: cekHakAksesCarikTunjangan,
+      accessDenied: "Akses ditolak. Hanya Carik yang dapat mengunci draft.",
+      allowedFrom: [TUNJANGAN_STATUS.DRAFT, TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH],
+      toStatus: TUNJANGAN_STATUS.DIKUNCI_CARIK,
+      catatanCol: 17,
+      dateCol: 22,
+      auditAction: "KUNCI_DRAFT_TUNJANGAN",
+      successMessage: "Draft tunjangan berhasil dikunci."
+    }
   });
 }
 
-function ajukanTunjanganKeLurah(periode, catatan, token) {
-  return updateBatchTunjanganStatus_(periode, token, {
-    validator: cekHakAksesCarikTunjangan,
-    accessDenied: "Akses ditolak. Hanya Carik yang dapat mengajukan ke Lurah.",
-    allowedFrom: [TUNJANGAN_STATUS.DIKUNCI_CARIK],
-    toStatus: TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH,
-    catatanCol: 17,
-    dateCol: 23,
-    catatan: catatan,
-    auditAction: "AJUKAN_TUNJANGAN_KE_LURAH",
-    successMessage: "Rekap tunjangan berhasil diajukan ke Lurah."
+function ajukanTunjanganKeLurah(periode, input, token) {
+  return twdbV10RunTransition_(periode, input, token, {
+    stage: "AJUKAN_KE_LURAH",
+    previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKUNCI_PADA,
+    previousLabel: "penguncian Carik",
+    updateConfig: {
+      validator: cekHakAksesCarikTunjangan,
+      accessDenied: "Akses ditolak. Hanya Carik yang dapat mengajukan ke Lurah.",
+      allowedFrom: [TUNJANGAN_STATUS.DIKUNCI_CARIK],
+      toStatus: TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH,
+      catatanCol: 17,
+      dateCol: 23,
+      auditAction: "AJUKAN_TUNJANGAN_KE_LURAH",
+      successMessage: "Rekap tunjangan berhasil diajukan ke Lurah."
+    }
   });
 }
 
-function setujuiRekapTunjangan(periode, catatan, token) {
-  return updateBatchTunjanganStatus_(periode, token, {
-    validator: cekHakAksesLurahTunjangan,
-    accessDenied: "Akses ditolak. Hanya Lurah yang dapat menyetujui rekap.",
-    allowedFrom: [TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH],
-    toStatus: TUNJANGAN_STATUS.DISETUJUI_LURAH,
-    catatanCol: 18,
-    dateCol: 24,
-    catatan: catatan,
-    auditAction: "SETUJUI_REKAP_TUNJANGAN",
-    successMessage: "Rekap tunjangan berhasil disetujui Lurah."
+function setujuiRekapTunjangan(periode, input, token) {
+  return twdbV10RunTransition_(periode, input, token, {
+    stage: "SETUJUI_LURAH",
+    previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIAJUKAN_PADA,
+    previousLabel: "pengajuan ke Lurah",
+    updateConfig: {
+      validator: cekHakAksesLurahTunjangan,
+      accessDenied: "Akses ditolak. Hanya Lurah yang dapat menyetujui rekap.",
+      allowedFrom: [TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH],
+      toStatus: TUNJANGAN_STATUS.DISETUJUI_LURAH,
+      catatanCol: 18,
+      dateCol: 24,
+      auditAction: "SETUJUI_REKAP_TUNJANGAN",
+      successMessage: "Rekap tunjangan berhasil disetujui Lurah."
+    }
   });
 }
 
-function kembalikanRekapTunjangan(periode, catatan, token) {
-  return updateBatchTunjanganStatus_(periode, token, {
-    validator: cekHakAksesLurahTunjangan,
-    accessDenied: "Akses ditolak. Hanya Lurah yang dapat mengembalikan rekap.",
-    allowedFrom: [TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH],
-    toStatus: TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH,
-    catatanCol: 18,
-    dateCol: 25,
-    catatan: catatan,
-    auditAction: "KEMBALIKAN_REKAP_TUNJANGAN",
-    successMessage: "Rekap tunjangan berhasil dikembalikan ke Carik."
+function kembalikanRekapTunjangan(periode, input, token) {
+  return twdbV10RunTransition_(periode, input, token, {
+    stage: "KEMBALIKAN_LURAH",
+    previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIAJUKAN_PADA,
+    previousLabel: "pengajuan ke Lurah",
+    updateConfig: {
+      validator: cekHakAksesLurahTunjangan,
+      accessDenied: "Akses ditolak. Hanya Lurah yang dapat mengembalikan rekap.",
+      allowedFrom: [TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH],
+      toStatus: TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH,
+      catatanCol: 18,
+      dateCol: 25,
+      auditAction: "KEMBALIKAN_REKAP_TUNJANGAN",
+      successMessage: "Rekap tunjangan berhasil dikembalikan ke Carik."
+    }
   });
 }
 
-function teruskanKeBendahara(periode, catatan, token) {
-  return updateBatchTunjanganStatus_(periode, token, {
-    validator: cekHakAksesCarikTunjangan,
-    accessDenied: "Akses ditolak. Hanya Carik yang dapat meneruskan ke Bendahara.",
-    allowedFrom: [TUNJANGAN_STATUS.DISETUJUI_LURAH],
-    toStatus: TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA,
-    catatanCol: 19,
-    dateCol: 26,
-    catatan: catatan,
-    auditAction: "TERUSKAN_KE_BENDAHARA",
-    successMessage: "Rekap tunjangan berhasil diteruskan ke Bendahara."
+function teruskanKeBendahara(periode, input, token) {
+  return twdbV10RunTransition_(periode, input, token, {
+    stage: "TERUSKAN_KE_BENDAHARA",
+    previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DISETUJUI_PADA,
+    previousLabel: "persetujuan Lurah",
+    updateConfig: {
+      validator: cekHakAksesCarikTunjangan,
+      accessDenied: "Akses ditolak. Hanya Carik yang dapat meneruskan ke Bendahara.",
+      allowedFrom: [TUNJANGAN_STATUS.DISETUJUI_LURAH],
+      toStatus: TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA,
+      catatanCol: 19,
+      dateCol: 26,
+      auditAction: "TERUSKAN_KE_BENDAHARA",
+      successMessage: "Rekap tunjangan berhasil diteruskan ke Bendahara."
+    }
   });
 }
 
@@ -4171,6 +4209,9 @@ function normalisasiInputPencairanTunjangan_(nomorBukti, catatan) {
   var tanggal = String(payload.tanggalPencairan || "").trim();
   var expectedBatchId = String(payload.expectedBatchId || "").trim();
   var totalKonfirmasi = Number(payload.totalKonfirmasi);
+  var historicalBackfill = payload.historicalBackfill === true;
+  var konfirmasiBackfill = payload.konfirmasiBackfill === true;
+  var alasanBackfill = String(payload.alasanBackfill || "").trim();
 
   // Nomor/referensi bukti bersifat opsional. Jika diisi, batasi panjangnya agar aman untuk audit/export.
   if (nomor.length > 120) return { valid: false, code: "BUKTI_TERLALU_PANJANG", pesan: "Nomor / referensi bukti pembayaran maksimal 120 karakter." };
@@ -4180,6 +4221,9 @@ function normalisasiInputPencairanTunjangan_(nomorBukti, catatan) {
   if (!isFinite(totalKonfirmasi)) return { valid: false, code: "TOTAL_TIDAK_VALID", pesan: "Total konfirmasi pencairan tidak valid." };
   if (payload.konfirmasiTotal !== true) return { valid: false, code: "KONFIRMASI_TOTAL_WAJIB", pesan: "Bendahara wajib mengonfirmasi total pencairan." };
   if (payload.konfirmasiFinal !== true) return { valid: false, code: "KONFIRMASI_FINAL_WAJIB", pesan: "Konfirmasi final pencairan wajib dicentang." };
+  if (historicalBackfill && !konfirmasiBackfill) return { valid:false, code:"KONFIRMASI_BACKFILL_WAJIB", pesan:"Konfirmasi pencatatan historis/backfill wajib dicentang." };
+  if (historicalBackfill && alasanBackfill.length < 15) return { valid:false, code:"ALASAN_BACKFILL_WAJIB", pesan:"Alasan backfill wajib diisi minimal 15 karakter agar jejak audit jelas." };
+  if (alasanBackfill.length > 500) return { valid:false, code:"ALASAN_BACKFILL_TERLALU_PANJANG", pesan:"Alasan backfill maksimal 500 karakter." };
 
   return {
     valid: true,
@@ -4189,7 +4233,10 @@ function normalisasiInputPencairanTunjangan_(nomorBukti, catatan) {
     expectedBatchId: expectedBatchId,
     totalKonfirmasi: totalKonfirmasi,
     konfirmasiTotal: true,
-    konfirmasiFinal: true
+    konfirmasiFinal: true,
+    historicalBackfill: historicalBackfill,
+    konfirmasiBackfill: konfirmasiBackfill,
+    alasanBackfill: alasanBackfill
   };
 }
 
@@ -4271,10 +4318,22 @@ function validasiBatchSebelumPencairanTunjangan_(batch, input) {
     if (tanggalDiteruskan[j].getTime() < pertamaDiteruskan.getTime()) pertamaDiteruskan = tanggalDiteruskan[j];
   }
   var batasMulai = new Date(pertamaDiteruskan.getFullYear(), pertamaDiteruskan.getMonth(), pertamaDiteruskan.getDate(), 0, 0, 0, 0);
+  out.tanggalDiteruskan = pertamaDiteruskan;
+  out.backfillHistorical = false;
   if (tanggal.getTime() < batasMulai.getTime()) {
-    out.code = "TANGGAL_SEBELUM_DITERUSKAN";
-    out.pesan = "Tanggal pencairan tidak boleh lebih awal dari tanggal batch diteruskan ke Bendahara.";
-    return out;
+    if (!input.historicalBackfill) {
+      out.code = "BACKFILL_REQUIRED";
+      out.backfillRequired = true;
+      out.pesan = "Tanggal pembayaran aktual lebih awal dari tanggal batch diteruskan ke Bendahara. Jika pembayaran memang sudah terjadi sebelumnya, aktifkan mode pencatatan historis/backfill dan isi alasannya.";
+      return out;
+    }
+    if (!input.konfirmasiBackfill || String(input.alasanBackfill || "").trim().length < 15) {
+      out.code = "BACKFILL_CONFIRMATION_REQUIRED";
+      out.backfillRequired = true;
+      out.pesan = "Pencairan historis memerlukan konfirmasi dan alasan backfill minimal 15 karakter.";
+      return out;
+    }
+    out.backfillHistorical = true;
   }
 
   out.valid = true;
@@ -4330,6 +4389,11 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
       konfirmasiTotal: true,
       konfirmasiFinal: true,
       immutableSetelahCair: true,
+      modePencatatan: guard.backfillHistorical ? "HISTORICAL_BACKFILL" : "NORMAL",
+      historicalBackfill: !!guard.backfillHistorical,
+      alasanBackfill: guard.backfillHistorical ? input.alasanBackfill : "",
+      diteruskanBendaharaTanggal: guard.tanggalDiteruskan ? Utilities.formatDate(guard.tanggalDiteruskan, "GMT+7", "yyyy-MM-dd") : "",
+      dicatatPortalPada: Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd HH:mm:ss"),
       consistencyGuard: {
         versi: consistencyGuard.versi,
         tahap: consistencyGuard.tahap,
@@ -4346,10 +4410,10 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
       catatanCol: 19,
       dateCol: 27,
       dateValue: guard.tanggalPencairan,
-      catatan: input.catatan,
+      catatan: guard.backfillHistorical ? (input.catatan + "\n[Backfill Portal] " + input.alasanBackfill) : input.catatan,
       extra: { nomorBuktiCair: input.nomorBukti },
       auditDetail: auditDetail,
-      auditAction: "TANDAI_SUDAH_DICAIRKAN",
+      auditAction: guard.backfillHistorical ? "TANDAI_SUDAH_DICAIRKAN_BACKFILL" : "TANDAI_SUDAH_DICAIRKAN",
       successMessage: "Pencairan berhasil dikonfirmasi dan batch dikunci final."
     });
 
@@ -4360,6 +4424,10 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
       hasil.tanggalPencairan = Utilities.formatDate(guard.tanggalPencairan, "GMT+7", "yyyy-MM-dd");
       hasil.nomorBukti = input.nomorBukti;
       hasil.immutable = true;
+      hasil.historicalBackfill = !!guard.backfillHistorical;
+      hasil.modePencatatan = guard.backfillHistorical ? "HISTORICAL_BACKFILL" : "NORMAL";
+      hasil.alasanBackfill = guard.backfillHistorical ? input.alasanBackfill : "";
+      hasil.dicatatPortalPada = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd HH:mm:ss");
       hasil.consistencyGuard = {
         valid: true,
         versi: consistencyGuard.versi,

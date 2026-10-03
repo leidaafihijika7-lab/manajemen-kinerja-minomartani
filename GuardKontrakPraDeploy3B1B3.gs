@@ -1,8 +1,8 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
-// Baseline kontrak: Monthly Archive v1.0 — 183 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.02.04
+// Baseline kontrak: Workflow Reminder & Escalation Engine v1.0 — 189 binding aktif
+// Baseline kode kandidat: APP_VERSION 2026.10.03.01
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,10 +11,10 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3x-2026.10.02.04";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.02.04";
-var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 183;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "02fc81eb872fbb90f068a3791321e0375421460fe71f49ba7d39af360d9090d4";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3aa-2026.10.03.01";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.03.01";
+var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 189;
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "0ccae0ad5ca93d004adcda3e61962f805f8413c9b44d53a57f0bf3a0b083ba95";
 
 // Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 173 Batch 2g.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.
@@ -34,6 +34,9 @@ var PORTAL_PREDEPLOY_SELF_NAMES_3B1B3_ = [
   "validasiReviewCenterAdminV10",
   "validasiMonthlyClosingV10",
   "validasiMonthlyArchiveV10",
+  "validasiTunjanganWorkflowDateBackfillV10",
+  "validasiKoreksiAdministratifTanggalPembayaranV10",
+  "validasiWorkflowReminderEscalationV10",
   "ambilFrontendIntegrityManifestV10",
   "validasiProductionSmokeFrontendV10",
   "auditMaintenanceOHICV101",

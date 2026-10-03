@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.02.04
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.03.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1v-2026.10.02.04";
+  "3B1B1v-2026.10.03.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.10.02.04",
+  baselineAppVersion: "2026.10.03.01",
 
   policy: {
     privateByDefault: true,
@@ -27,7 +27,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
 
   categories: {
     appsScriptTriggers: [
-      "doGet"
+      "doGet",
+      "prosesWorkflowReminderTerjadwalV10"
     ],
 
     frontendEndpoints: [
@@ -49,6 +50,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilLaporanDitolakUntukRevisi",
       "ambilMetadataLampiranAdminLazy",
       "ambilOperationalHealthCenterV10",
+      "ambilWorkflowReminderV10",
       "ambilReviewCenterAdminV10",
       "ambilMonthlyClosingV10",
       "ambilMonthlyArchiveV10",
@@ -82,6 +84,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "getDisposisiShellBootstrap",
       "getStatusAksesDisposisiModul",
       "kembalikanRekapTunjangan",
+      "koreksiAdministratifTanggalPembayaranV10",
       "koreksiJenisDisposisi",
       "koreksiStatusCutoffLama",
       "kunciDraftTunjanganBulanan",
@@ -120,6 +123,9 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "maintenancePerbaikiAksesBuktiLama3C3",
       "maintenanceDiagnostikCacheDisposisi3B01",
       "maintenanceDiagnostikCacheDisposisi3B02",
+      "statusTriggerWorkflowReminderV10",
+      "pasangTriggerWorkflowReminderV10",
+      "hapusTriggerWorkflowReminderV10",
       "statusRegistryFungsi3B1B1",
       "validasiRegistryFungsi3B1B1",
       "statusPenandaLewatPeriodeAdmin3B04B1",
@@ -171,6 +177,9 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiReviewCenterAdminV10",
       "validasiMonthlyClosingV10",
       "validasiMonthlyArchiveV10",
+      "validasiTunjanganWorkflowDateBackfillV10",
+      "validasiKoreksiAdministratifTanggalPembayaranV10",
+      "validasiWorkflowReminderEscalationV10",
       "ambilFrontendIntegrityManifestV10",
       "validasiProductionSmokeFrontendV10",
       "validasiPreflightSeptember2026V01",
