@@ -1,6 +1,6 @@
 // ============================================================
 // PRODUCTION SMOKE & FRONTEND INTEGRITY GUARD v1.0
-// Kandidat APP_VERSION 2026.10.03.01
+// Kandidat APP_VERSION 2026.10.03.02
 //
 // READ-ONLY:
 // - tidak membaca/menulis Spreadsheet;
@@ -8,10 +8,10 @@
 // - manifest publik hanya berisi metadata build non-sensitif.
 // ============================================================
 
-var PORTAL_FRONTEND_INTEGRITY_V10_VERSION = "PSFIG-v1.0-2026.10.03.01";
-var PORTAL_FRONTEND_INTEGRITY_APP_VERSION_V10 = "2026.10.03.01";
-var PORTAL_FRONTEND_INTEGRITY_BUILD_ID_V10 = "PSFIG-2026.10.03.01-e643b97e6e42";
-var PORTAL_FRONTEND_INTEGRITY_FINGERPRINT_V10 = "e643b97e6e42fa646862fe9a9f474ab6fad90bb6ac2c5430288d078c66dd14c0";
+var PORTAL_FRONTEND_INTEGRITY_V10_VERSION = "PSFIG-v1.0-2026.10.03.02";
+var PORTAL_FRONTEND_INTEGRITY_APP_VERSION_V10 = "2026.10.03.02";
+var PORTAL_FRONTEND_INTEGRITY_BUILD_ID_V10 = "PSFIG-2026.10.03.02-86403d7e6dc8";
+var PORTAL_FRONTEND_INTEGRITY_FINGERPRINT_V10 = "86403d7e6dc8fac11e8d7aad64efc0791f9ea85bb70d61ff71373cd2f9def1b7";
 
 var PORTAL_FRONTEND_CRITICAL_DOM_IDS_V10_ = [
   "halamanLogin", "aplikasiUtama", "inputUsername", "inputPin", "btnLogin", "pesanLogin",
@@ -37,9 +37,9 @@ var PORTAL_FRONTEND_ROUTE_TARGETS_V10_ = [
 var PORTAL_FRONTEND_FORBIDDEN_LEGACY_IDS_V10_ = ["menuAdmin", "halAdmin"];
 
 var PORTAL_FRONTEND_STATIC_ATTESTATION_V10_ = {
-  appVersion: "2026.10.03.01",
-  buildId: "PSFIG-2026.10.03.01-e643b97e6e42",
-  fingerprint: "e643b97e6e42fa646862fe9a9f474ab6fad90bb6ac2c5430288d078c66dd14c0",
+  appVersion: "2026.10.03.02",
+  buildId: "PSFIG-2026.10.03.02-86403d7e6dc8",
+  fingerprint: "86403d7e6dc8fac11e8d7aad64efc0791f9ea85bb70d61ff71373cd2f9def1b7",
   staticAuditPassed: true,
   unexpectedMissingDomRefs: 0,
   missingCriticalDom: 0,

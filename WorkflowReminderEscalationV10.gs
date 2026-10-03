@@ -1,6 +1,6 @@
 // ============================================================
 // WORKFLOW REMINDER & ESCALATION ENGINE v1.0 — RC1
-// APP_VERSION 2026.10.03.01
+// APP_VERSION 2026.10.03.02
 //
 // Tujuan:
 // - mendeteksi pekerjaan workflow yang tertunda;
@@ -15,7 +15,7 @@
 // - tidak menambah sheet atau kolom baru.
 // ============================================================
 
-var WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ = 'WRE-v1.0-RC1-2026.10.03.01';
+var WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ = 'WRE-v1.0-RC2-2026.10.03.02';
 var WRE_V10_EVENT_PREFIX_ = 'WRE_V10_EVENT_';
 var WRE_V10_ACTIVE_KEYS_PROP_ = 'WRE_V10_ACTIVE_KEYS';
 var WRE_V10_LAST_RUN_PROP_ = 'WRE_V10_LAST_RUN';
@@ -524,7 +524,7 @@ function validasiWorkflowReminderEscalationV10() {
   var maintainer = typeof pastikanMaintainerPortal3B0_ === 'function' ? pastikanMaintainerPortal3B0_('VALIDASI_WRE_V10') : '';
   var checks = [];
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail || '') }); }
-  add_('VERSION', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ === 'WRE-v1.0-RC1-2026.10.03.01', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_);
+  add_('VERSION', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ === 'WRE-v1.0-RC2-2026.10.03.02', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_);
   add_('DUE_24H', wreV10Severity_('REVIEW_PENDING',24) === 'DUE', wreV10Severity_('REVIEW_PENDING',24));
   add_('ESCALATED_48H', wreV10Severity_('REVIEW_PENDING',48) === 'ESCALATED', wreV10Severity_('REVIEW_PENDING',48));
   add_('CRITICAL_72H', wreV10Severity_('REVIEW_PENDING',72) === 'CRITICAL', wreV10Severity_('REVIEW_PENDING',72));

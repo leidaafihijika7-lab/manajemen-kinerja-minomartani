@@ -2,7 +2,7 @@
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
 // Baseline kontrak: Workflow Reminder & Escalation Engine v1.0 — 189 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.03.01
+// Baseline kode kandidat: APP_VERSION 2026.10.03.02
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,8 +11,8 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3aa-2026.10.03.01";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.03.01";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3aa-2026.10.03.02";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.03.02";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 189;
 var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "0ccae0ad5ca93d004adcda3e61962f805f8413c9b44d53a57f0bf3a0b083ba95";
 

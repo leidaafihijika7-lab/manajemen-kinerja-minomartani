@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.10.03.01"; // Workflow Reminder & Escalation Engine v1.0; baseline 2026.10.02.07 tetap utuh
+var APP_VERSION = "2026.10.03.02"; // Workflow Reminder & Escalation Engine v1.0; baseline 2026.10.02.07 tetap utuh
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {

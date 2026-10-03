@@ -1,9 +1,9 @@
-# Portal Kinerja Minomartani — 2026.10.03.01
+# Portal Kinerja Minomartani — 2026.10.03.02
 
-Release focus: **Workflow Reminder & Escalation Engine v1.0**.
+Release focus: **Workflow Reminder & Escalation Engine v1.0 RC2 — Indonesian UI Clarity**.
 
-The engine adds an in-portal reminder inbox for Carik, Lurah, and Bendahara. It evaluates delayed review, period closing, tunjangan workflow, payment, archive creation, and archive verification. It assigns DUE/ESCALATED/CRITICAL severity, routes users to the correct action page, and records escalated reminders to `Audit_Log` with a 24-hour anti-spam cooldown.
+RC2 hanya memperjelas bahasa yang terlihat pengguna. Severity backend tetap `DUE / ESCALATED / CRITICAL`, tetapi UI menampilkan **Perlu Ditindaklanjuti / Mendesak / Kritis**. Label `Scheduler` menjadi **Pemeriksaan Otomatis**, dan halaman menjadi **Pengingat Proses Kerja / Daftar Pengingat**.
 
-A 4-hour Apps Script trigger is installed explicitly after deployment. `LockService` prevents overlapping scheduled executions. The engine does not change report status, points, allowance status, Monthly Closing, or Monthly Archive state.
+Rule engine, threshold, scheduler 4 jam, cooldown 24 jam, LockService, role filtering, route tindak lanjut, dan business checksum tidak berubah dari RC1.
 
-See the package root `PANDUAN_PEMASANGAN.txt`, `reports/TEST_REPORT.md`, and `ROADMAP_SETELAH_WRE.md`.
+Lihat `PANDUAN_PEMASANGAN.txt`, `reports/TEST_REPORT.md`, dan `ROADMAP_SETELAH_WRE.md`.

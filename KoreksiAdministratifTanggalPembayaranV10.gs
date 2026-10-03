@@ -1,6 +1,6 @@
 // ============================================================================
 // KOREKSI ADMINISTRATIF TANGGAL PEMBAYARAN v1.0
-// Integrated APP_VERSION 2026.10.03.01
+// Integrated APP_VERSION 2026.10.03.02
 //
 // Tujuan:
 // - Memperbaiki kesalahan input tanggal pembayaran pada batch yang SUDAH FINAL.
@@ -218,7 +218,7 @@ function validasiKoreksiAdministratifTanggalPembayaranV10() {
   var checks = [];
   function add_(id, ok, detail) { checks.push({ id:id, lulus:!!ok, detail:String(detail == null ? '' : detail) }); }
   add_('MODULE_VERSION', KOREKSI_ADMIN_TANGGAL_PEMBAYARAN_V10_VERSION_ === 'KATP-v1.0-RC1-2026.10.02.07', KOREKSI_ADMIN_TANGGAL_PEMBAYARAN_V10_VERSION_);
-  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.03.01', String(APP_VERSION || ''));
+  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.03.02', String(APP_VERSION || ''));
   var ok = katpV10NormalizeInput_({ expectedBatchId:'BATCH', expectedOldDate:'2026-09-28', newDate:'2026-09-29', reason:'Kesalahan pemilihan tanggal pembayaran.', confirmation:true });
   add_('NORMALIZE_VALID', ok.valid && ok.expectedOldDate === '2026-09-28' && ok.newDate === '2026-09-29', ok.code || ok.newDate);
   add_('SAME_DATE_BLOCK', katpV10NormalizeInput_({ expectedBatchId:'BATCH', expectedOldDate:'2026-09-29', newDate:'2026-09-29', reason:'Kesalahan input tanggal pembayaran.', confirmation:true }).code === 'DATE_UNCHANGED', 'same date');
