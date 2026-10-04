@@ -6760,6 +6760,30 @@
 @media(max-width:680px){.eac-v10-toolbar{flex-direction:column;padding:18px 16px}.eac-v10-toolbar-actions{width:100%;display:grid;grid-template-columns:1fr}.eac-v10-toolbar .eac-v10-btn{width:100%}.eac-v10-summary{padding:14px 16px}.eac-v10-controls{padding:14px 16px}.eac-v10-tabs{width:100%;display:grid;grid-template-columns:1fr 1fr}.eac-v10-tab{width:100%}.eac-v10-filters{width:100%}.eac-v10-list{padding:16px}.eac-v10-notice{margin-left:16px;margin-right:16px}.eac-v10-item-head{flex-direction:column}.eac-v10-actions .eac-v10-btn{width:100%}}
 @media(max-width:420px){.eac-v10-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.eac-v10-card{padding:12px}.eac-v10-card strong{font-size:18px}}
 
+
+/* ===== Dashboard Eksekutif v1.0 ===== */
+#halExecutiveDashboard{--ed-blue:#1d4ed8;--ed-blue-soft:#eff6ff;--ed-navy:#172554;--ed-line:#dbe4ef;--ed-muted:#64748b;--ed-green:#15803d;--ed-amber:#b45309;--ed-red:#b91c1c}
+.execdash-v10-hero{background:linear-gradient(115deg,#172554 0%,#1e3a8a 58%,#2563eb 100%)}
+.execdash-v10-shell{border:1px solid var(--ed-line);border-radius:24px;background:#fff;overflow:hidden;box-shadow:0 18px 44px rgba(15,23,42,.07)}
+.execdash-v10-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:22px 24px;border-bottom:1px solid var(--ed-line);background:#fff}
+.execdash-v10-toolbar h3{margin:0 0 6px;font-size:20px}.execdash-v10-toolbar p{margin:0;color:var(--ed-muted);font-size:13px;line-height:1.65;max-width:760px}
+.execdash-v10-actions{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;justify-content:flex-end}.execdash-v10-period{display:flex;flex-direction:column;gap:6px;color:#64748b;font-size:11px;font-weight:800}.execdash-v10-period input{min-height:44px;border:1px solid #cbd5e1;border-radius:12px;padding:0 12px;font:700 13px var(--font-body);color:#0f172a;background:#fff}
+.execdash-v10-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;border-radius:12px;border:1px solid #cbd5e1;padding:0 14px;background:#fff;color:#334155;font-weight:850;cursor:pointer}.execdash-v10-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.2)}.execdash-v10-btn:disabled{opacity:.55;cursor:not-allowed}.execdash-v10-btn .material-symbols-outlined{font-size:19px}
+.execdash-v10-notice{margin:16px 22px 0;padding:12px 14px;border-radius:14px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;font-size:12px;line-height:1.55}.execdash-v10-notice.warn{border-color:#fed7aa;background:#fff7ed;color:#9a3412}.execdash-v10-notice.bad{border-color:#fecaca;background:#fef2f2;color:#991b1b}.execdash-v10-notice.ok{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+.execdash-v10-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:16px 22px;border-bottom:1px solid var(--ed-line)}
+.execdash-v10-kpi{border:1px solid var(--ed-line);border-radius:18px;padding:15px;background:linear-gradient(180deg,#fff,#fbfdff);min-width:0}.execdash-v10-kpi span{display:block;color:#64748b;font-size:10px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.execdash-v10-kpi strong{display:block;margin:7px 0 4px;font-size:23px;line-height:1.05;color:#0f172a;overflow-wrap:anywhere}.execdash-v10-kpi small{display:block;color:#718096;font-size:10px;line-height:1.4}.execdash-v10-kpi.highlight{border-color:#bfdbfe;background:#eff6ff}.execdash-v10-kpi.blocked{border-color:#fecaca;background:#fef2f2}
+.execdash-v10-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,.85fr);gap:16px;padding:0 22px 18px}.execdash-v10-section{border:1px solid var(--ed-line);border-radius:20px;background:#fff;padding:18px;min-width:0}.execdash-v10-section h3{font-size:16px;margin:0;color:#0f172a}.execdash-v10-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:15px}.execdash-v10-section-head p{margin:4px 0 0;color:#64748b;font-size:11px;line-height:1.55}.execdash-v10-section-head small{color:#64748b;font-size:10px;text-align:right;line-height:1.45}
+.execdash-v10-trend{display:grid;grid-template-columns:repeat(6,minmax(72px,1fr));gap:10px;align-items:end;min-height:235px;padding:8px 2px 0}.execdash-v10-trend-col{display:flex;flex-direction:column;gap:7px;min-width:0}.execdash-v10-trend-total{text-align:center;font-size:10px;font-weight:850;color:#475569}.execdash-v10-barbox{height:150px;border-radius:12px;background:#f1f5f9;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;border:1px solid #e2e8f0}.execdash-v10-seg{width:100%;min-height:0}.execdash-v10-seg.approved{background:#22c55e}.execdash-v10-seg.rejected{background:#f97316}.execdash-v10-seg.pending{background:#ef4444}.execdash-v10-trend-label{text-align:center;font-size:10px;font-weight:800;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.execdash-v10-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:#64748b;font-size:10px}.execdash-v10-legend i{width:9px;height:9px;border-radius:999px;display:inline-block;margin-right:4px}.execdash-v10-legend .approved{background:#22c55e}.execdash-v10-legend .rejected{background:#f97316}.execdash-v10-legend .pending{background:#ef4444}
+.execdash-v10-review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.execdash-v10-mini{border:1px solid #e2e8f0;border-radius:16px;padding:13px;background:#f8fafc}.execdash-v10-mini span{font-size:10px;color:#64748b;font-weight:850}.execdash-v10-mini strong{display:block;margin-top:6px;font-size:20px;color:#0f172a}.execdash-v10-mini small{display:block;margin-top:3px;color:#64748b;font-size:9px}.execdash-v10-progress{height:9px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:10px}.execdash-v10-progress > i{display:block;height:100%;background:#2563eb;border-radius:999px}
+.execdash-v10-allowance-list{display:flex;flex-direction:column;gap:9px}.execdash-v10-allowance-row{display:grid;grid-template-columns:82px minmax(0,1fr) 120px;gap:9px;align-items:center}.execdash-v10-allowance-label{font-size:10px;font-weight:850;color:#475569}.execdash-v10-allowance-track{height:12px;border-radius:999px;background:#e2e8f0;overflow:hidden}.execdash-v10-allowance-fill{height:100%;border-radius:999px;background:#2563eb}.execdash-v10-allowance-fill.estimate{background:#60a5fa}.execdash-v10-allowance-fill.blocked{background:#ef4444}.execdash-v10-allowance-value{text-align:right;font-size:10px;color:#334155;font-weight:850}.execdash-v10-kind{display:inline-flex;margin-left:5px;border-radius:999px;padding:2px 6px;background:#f1f5f9;color:#475569;font-size:8px;font-weight:900}.execdash-v10-kind.final{background:#dcfce7;color:#166534}.execdash-v10-kind.blocked{background:#fee2e2;color:#991b1b}
+.execdash-v10-attention{display:flex;flex-direction:column;gap:9px}.execdash-v10-attention-item{border:1px solid #e2e8f0;border-radius:15px;padding:12px;background:#fff}.execdash-v10-attention-item b{display:block;font-size:12px;color:#0f172a}.execdash-v10-attention-item span{display:block;color:#64748b;font-size:10px;margin-top:3px}.execdash-v10-attention-item small{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.execdash-v10-attention-chip{border-radius:999px;padding:4px 7px;background:#fef3c7;color:#92400e;font-size:9px;font-weight:850}.execdash-v10-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:24px;text-align:center;color:#64748b;font-size:11px;background:#f8fafc}
+.execdash-v10-cycle-wrap{padding:0 22px 18px}.execdash-v10-cycle{overflow:auto;border:1px solid var(--ed-line);border-radius:20px}.execdash-v10-cycle table{width:100%;min-width:790px;border-collapse:separate;border-spacing:0}.execdash-v10-cycle th,.execdash-v10-cycle td{padding:11px 12px;border-bottom:1px solid #eef2f7;text-align:left;font-size:10px}.execdash-v10-cycle th{background:#f8fafc;color:#64748b;font-weight:900}.execdash-v10-cycle td:first-child{font-weight:900;color:#334155}.execdash-v10-status{display:inline-flex;border-radius:999px;padding:4px 7px;background:#f1f5f9;color:#475569;font-size:9px;font-weight:850;white-space:nowrap}.execdash-v10-status.ok{background:#dcfce7;color:#166534}.execdash-v10-status.warn{background:#ffedd5;color:#9a3412}.execdash-v10-status.bad{background:#fee2e2;color:#991b1b}.execdash-v10-status.info{background:#dbeafe;color:#1d4ed8}
+.execdash-v10-eac{margin:0 22px 18px;border:1px solid #bfdbfe;border-radius:20px;padding:16px;background:linear-gradient(135deg,#eff6ff,#fff)}.execdash-v10-eac-inner{display:flex;justify-content:space-between;gap:16px;align-items:center}.execdash-v10-eac h3{margin:0 0 5px;font-size:15px}.execdash-v10-eac p{margin:0;color:#64748b;font-size:11px;line-height:1.55}.execdash-v10-eac-counts{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.execdash-v10-eac-count{border-radius:999px;padding:5px 8px;background:#fff;border:1px solid #dbeafe;font-size:9px;font-weight:850;color:#334155}.execdash-v10-footer{padding:0 22px 20px;color:#64748b;font-size:9px;line-height:1.55}.execdash-v10-loading{padding:34px;text-align:center;color:#64748b;font-size:12px}
+@media(max-width:1180px){.execdash-v10-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.execdash-v10-grid{grid-template-columns:1fr}.execdash-v10-trend{min-height:210px}.execdash-v10-barbox{height:130px}}
+@media(max-width:760px){.execdash-v10-toolbar{flex-direction:column;align-items:stretch;padding:18px 16px}.execdash-v10-actions{width:100%;display:grid;grid-template-columns:1fr}.execdash-v10-actions .execdash-v10-btn{width:100%}.execdash-v10-summary{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px 16px}.execdash-v10-grid{padding:0 16px 16px}.execdash-v10-trend{overflow-x:auto;grid-template-columns:repeat(6,86px);padding-bottom:6px}.execdash-v10-cycle-wrap{padding:0 16px 16px}.execdash-v10-eac{margin:0 16px 16px}.execdash-v10-eac-inner{align-items:stretch;flex-direction:column}.execdash-v10-eac .execdash-v10-btn{width:100%}.execdash-v10-notice{margin-left:16px;margin-right:16px}.execdash-v10-footer{padding:0 16px 18px}}
+@media(max-width:420px){.execdash-v10-summary{grid-template-columns:1fr 1fr}.execdash-v10-kpi{padding:12px}.execdash-v10-kpi strong{font-size:19px}.execdash-v10-review-grid{grid-template-columns:1fr}.execdash-v10-section{padding:14px}.execdash-v10-allowance-row{grid-template-columns:70px minmax(0,1fr) 98px}}
+/* ===== END Dashboard Eksekutif v1.0 ===== */
+
 </style>
 
 </head>
@@ -6850,6 +6874,9 @@
       <div id="menuExceptionActionCenter" class="menu-item" style="display:none;"
         onclick="bukaHalaman(event, 'halExceptionActionCenter', 'Perlu Tindakan')"><span
           class="material-symbols-outlined">rule</span><span>Perlu Tindakan</span><span id="exceptionActionBadgeV10" class="eac-v10-menu-badge" hidden>0</span></div>
+      <div id="menuExecutiveDashboard" class="menu-item" style="display:none;"
+        onclick="bukaHalaman(event, 'halExecutiveDashboard', 'Dashboard Eksekutif')"><span
+          class="material-symbols-outlined">monitoring</span><span>Dashboard Eksekutif</span></div>
       <div id="menuAdminKinerja" class="menu-item" style="display:none;"
         onclick="bukaHalaman(event, 'halAdminKinerja', 'Dashboard Admin Kinerja')"><span
           class="material-symbols-outlined">analytics</span><span>Admin Kinerja</span></div>
@@ -8017,6 +8044,71 @@
             </div>
             <div id="exceptionActionListV10" class="eac-v10-list"><div class="eac-v10-loading">Memuat tindakan...</div></div>
             <div class="eac-v10-footer">Badge menu hanya menghitung <b>Tindakan Saya</b>. Item Pantauan tidak menambah beban kerja pribadi. EAC tidak menyimpan status selesai sendiri; kartu hilang otomatis setelah kondisi pada modul sumber telah diselesaikan.</div>
+          </section>
+        </div>
+
+
+        <div id="halExecutiveDashboard" class="page-section">
+          <div class="stitch-page-hero execdash-v10-hero">
+            <div class="stitch-page-hero-main">
+              <div class="stitch-page-hero-icon"><span class="material-symbols-outlined">monitoring</span></div>
+              <div>
+                <div class="stitch-page-hero-kicker">Dashboard Eksekutif v1.0</div>
+                <h2 class="stitch-page-hero-title">Dashboard Eksekutif</h2>
+                <div class="stitch-page-hero-subtitle">Ringkasan keputusan untuk Lurah dan Carik: tren pelaporan, efisiensi review, tunjangan, status siklus bulanan, dan kondisi yang perlu perhatian.</div>
+              </div>
+            </div>
+            <div class="stitch-page-hero-pill"><span class="material-symbols-outlined" style="font-size:18px;">shield_person</span> Lurah / Carik</div>
+          </div>
+          <section class="execdash-v10-shell">
+            <div class="execdash-v10-toolbar">
+              <div><h3>Ringkasan Eksekutif</h3><p>Dashboard ini hanya membaca sumber resmi Portal. Tidak ada persetujuan, penutupan, perubahan poin, atau tindakan bisnis yang dilakukan dari halaman ini.</p></div>
+              <div class="execdash-v10-actions">
+                <label class="execdash-v10-period">Periode utama<input id="executiveDashboardPeriodV10" type="month" aria-label="Periode Dashboard Eksekutif"></label>
+                <button id="executiveDashboardRefreshV10" type="button" class="execdash-v10-btn primary" onclick="muatExecutiveDashboardV10(true)"><span class="material-symbols-outlined">refresh</span> Muat Ulang</button>
+              </div>
+            </div>
+            <div id="executiveDashboardNoticeV10" class="execdash-v10-notice">Memuat ringkasan keputusan dari sumber data resmi.</div>
+            <div id="executiveDashboardSummaryV10" class="execdash-v10-summary">
+              <div class="execdash-v10-kpi"><span>Pegawai dalam Cakupan</span><strong id="execDashEmployeesV10">-</strong><small>Tidak termasuk Lurah dan PHL</small></div>
+              <div class="execdash-v10-kpi"><span>Laporan Masuk</span><strong id="execDashReportsV10">-</strong><small id="execDashReportsSubV10">Periode terpilih</small></div>
+              <div class="execdash-v10-kpi"><span>Menunggu Review</span><strong id="execDashPendingV10">-</strong><small>Antrean keputusan administrasi</small></div>
+              <div class="execdash-v10-kpi"><span>Belum Unggah</span><strong id="execDashMissingV10">-</strong><small>Roster aktif saat ini</small></div>
+              <div class="execdash-v10-kpi"><span>Review Selesai</span><strong id="execDashReviewRateV10">-</strong><small id="execDashReviewRateSubV10">Disetujui + Ditolak</small></div>
+              <div id="execDashAllowanceCardV10" class="execdash-v10-kpi highlight"><span>Tunjangan</span><strong id="execDashAllowanceV10">-</strong><small id="execDashAllowanceSubV10">Status belum dibaca</small></div>
+            </div>
+            <div class="execdash-v10-grid">
+              <section class="execdash-v10-section">
+                <div class="execdash-v10-section-head"><div><h3>Tren Kinerja 6 Bulan</h3><p>Laporan disetujui, ditolak, dan menunggu review pada enam periode terakhir.</p></div><small>Belum unggah historis memakai<br>roster aktif saat ini.</small></div>
+                <div id="execDashTrendV10" class="execdash-v10-trend"><div class="execdash-v10-loading">Memuat tren...</div></div>
+                <div class="execdash-v10-legend"><span><i class="approved"></i>Disetujui</span><span><i class="rejected"></i>Ditolak</span><span><i class="pending"></i>Menunggu Review</span></div>
+              </section>
+              <section class="execdash-v10-section">
+                <div class="execdash-v10-section-head"><div><h3>Efisiensi Review</h3><p>Kecepatan keputusan admin pada periode terpilih.</p></div></div>
+                <div id="execDashReviewEfficiencyV10" class="execdash-v10-review-grid"><div class="execdash-v10-loading">Memuat efisiensi review...</div></div>
+              </section>
+              <section class="execdash-v10-section">
+                <div class="execdash-v10-section-head"><div><h3>Tren Tunjangan 6 Bulan</h3><p>Nilai final memakai batch resmi; estimasi ditandai secara eksplisit.</p></div></div>
+                <div id="execDashAllowanceTrendV10" class="execdash-v10-allowance-list"><div class="execdash-v10-loading">Memuat tren tunjangan...</div></div>
+              </section>
+              <section class="execdash-v10-section">
+                <div class="execdash-v10-section-head"><div><h3>Perlu Perhatian</h3><p>Maksimal lima kondisi pegawai untuk perhatian manajemen, bukan peringkat performa.</p></div></div>
+                <div id="execDashAttentionV10" class="execdash-v10-attention"><div class="execdash-v10-loading">Memuat kondisi...</div></div>
+              </section>
+            </div>
+            <div class="execdash-v10-cycle-wrap">
+              <section class="execdash-v10-section" style="padding:0;overflow:hidden;">
+                <div class="execdash-v10-section-head" style="padding:18px 18px 0;"><div><h3>Status Siklus Bulanan</h3><p>Ringkasan Review → Penutupan → Tunjangan → Pencairan → Arsip.</p></div></div>
+                <div id="execDashCycleV10" class="execdash-v10-cycle"><div class="execdash-v10-loading">Memuat status siklus...</div></div>
+              </section>
+            </div>
+            <section class="execdash-v10-eac">
+              <div class="execdash-v10-eac-inner">
+                <div><h3>Ringkasan Perlu Tindakan</h3><p>Dashboard hanya menampilkan jumlah. Penyelesaian pekerjaan tetap dilakukan melalui Perlu Tindakan.</p><div id="execDashEacCountsV10" class="execdash-v10-eac-counts"></div></div>
+                <button type="button" class="execdash-v10-btn primary" onclick="bukaPerluTindakanDariExecutiveDashboardV10_()"><span class="material-symbols-outlined">rule</span> Buka Perlu Tindakan</button>
+              </div>
+            </section>
+            <div class="execdash-v10-footer">Dashboard Eksekutif bersifat baca-saja. Indikator laporan lewat cut-off tidak ditampilkan pada RC1 karena kebijakan/status cut-off lama memang dinonaktifkan. Angka historis pegawai belum unggah menggunakan cakupan pegawai aktif saat ini.</div>
           </section>
         </div>
 
@@ -10852,6 +10944,7 @@
       var mReviewCenter = document.getElementById('menuReviewCenter');
       var mTunj = document.getElementById('menuTunjangan');
       var mAdminKinerja = document.getElementById('menuAdminKinerja');
+      var mExecutiveDashboard = document.getElementById('menuExecutiveDashboard');
       var mOperationalHealth = document.getElementById('menuOperationalHealth');
       var mWorkflowReminder = document.getElementById('menuWorkflowReminder');
       var mExceptionAction = document.getElementById('menuExceptionActionCenter');
@@ -10861,6 +10954,7 @@
       if (mReviewCenter) mReviewCenter.style.display = "none";
       if (mTunj) mTunj.style.display = "none";
       if (mAdminKinerja) mAdminKinerja.style.display = "none";
+      if (mExecutiveDashboard) mExecutiveDashboard.style.display = "none";
       if (mOperationalHealth) mOperationalHealth.style.display = "none";
       if (mWorkflowReminder) mWorkflowReminder.style.display = "none";
       if (mExceptionAction) mExceptionAction.style.display = "none";
@@ -11432,6 +11526,7 @@
         'halMonthlyArchive': 'inventory_2',
         'halWorkflowReminder': 'notifications_active',
         'halExceptionActionCenter': 'rule',
+        'halExecutiveDashboard': 'monitoring',
         'halAdminKinerja': 'analytics',
         'halOperationalHealth': 'health_and_safety'
       };
@@ -11457,6 +11552,7 @@
       if (id === 'halMonthlyArchive') muatMonthlyArchiveV10(false);
       if (id === 'halWorkflowReminder') muatWorkflowReminderV10(false);
       if (id === 'halExceptionActionCenter') muatExceptionActionCenterV10(false);
+      if (id === 'halExecutiveDashboard') muatExecutiveDashboardV10(false);
       if (id === 'halAdminKinerja') muatDashboardAdminKinerja();
       if (id === 'halOperationalHealth') muatOperationalHealthV10(false);
     }
@@ -12581,6 +12677,7 @@
       var menuExceptionActionCenter = document.getElementById('menuExceptionActionCenter');
       var menuTunjangan = document.getElementById('menuTunjangan');
       var menuAdminKinerja = document.getElementById('menuAdminKinerja');
+      var menuExecutiveDashboard = document.getElementById('menuExecutiveDashboard');
       var menuOperationalHealth = document.getElementById('menuOperationalHealth');
       var btnUnduhPredikat = document.getElementById('btnUnduhPredikat');
 
@@ -12592,6 +12689,7 @@
       if (menuExceptionActionCenter) menuExceptionActionCenter.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
+      if (menuExecutiveDashboard) menuExecutiveDashboard.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuOperationalHealth) menuOperationalHealth.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (btnUnduhPredikat) btnUnduhPredikat.style.display = userIsAdminUtama() ? 'inline-flex' : 'none';
     }
@@ -19796,6 +19894,7 @@ function adminSpreadsheetFieldRawValue_(field) {
       var menuExceptionActionCenter = document.getElementById('menuExceptionActionCenter');
       var menuTunjangan = document.getElementById('menuTunjangan');
       var menuAdminKinerja = document.getElementById('menuAdminKinerja');
+      var menuExecutiveDashboard = document.getElementById('menuExecutiveDashboard');
       var menuOperationalHealth = document.getElementById('menuOperationalHealth');
       var btnUnduhPredikat = document.getElementById('btnUnduhPredikat');
 
@@ -19807,6 +19906,7 @@ function adminSpreadsheetFieldRawValue_(field) {
       if (menuExceptionActionCenter) menuExceptionActionCenter.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
+      if (menuExecutiveDashboard) menuExecutiveDashboard.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuOperationalHealth) menuOperationalHealth.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (btnUnduhPredikat) btnUnduhPredikat.style.display = userIsAdminUtama() ? 'inline-flex' : 'none';
     };
@@ -22856,23 +22956,48 @@ function adminSpreadsheetFieldRawValue_(field) {
     function bukaRouteExceptionActionV10_(menuId,pageId,title){var allowed={halReviewCenter:1,halTunjangan:1,halMonthlyClosing:1,halMonthlyArchive:1,halOperationalHealth:1};if(!allowed[String(pageId||'')])return;var menu=document.getElementById(menuId||'');bukaHalaman({currentTarget:menu},pageId,title||'Tindak Lanjut');}
     // ===== END Exception & Action Center v1.0 =====
 
+
+    // ===== Dashboard Eksekutif v1.0 =====
+    var executiveDashboardStateV10_={loading:false,seq:0,payload:null};
+    function execDashEscV10_(v){return typeof escapeHTML==='function'?escapeHTML(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
+    function execDashSetTextV10_(id,v){var el=document.getElementById(id);if(el)el.textContent=v==null?'-':String(v);}
+    function execDashNumV10_(v){return v==null||!isFinite(Number(v))?'-':Number(v).toLocaleString('id-ID');}
+    function execDashPctV10_(v){return v==null||!isFinite(Number(v))?'-':Number(v).toLocaleString('id-ID',{maximumFractionDigits:1})+'%';}
+    function execDashRpV10_(v){return v==null||!isFinite(Number(v))?'-':new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0,minimumFractionDigits:0}).format(Number(v));}
+    function execDashMonthLabelV10_(p){var x=String(p||'');if(!/^\d{4}-\d{2}$/.test(x))return x||'-';var m=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];return m[Number(x.slice(5,7))-1]+' '+x.slice(0,4);}
+    function execDashHoursV10_(v){if(v==null||!isFinite(Number(v)))return '-';var n=Number(v);if(n<24)return n.toLocaleString('id-ID',{maximumFractionDigits:1})+' jam';return (n/24).toLocaleString('id-ID',{maximumFractionDigits:1})+' hari';}
+    function execDashAllowanceKindLabelV10_(kind){var m={FINAL:'Final',ESTIMASI:'Estimasi',BATCH_BELUM_FINAL:'Batch belum final',BLOCKED:'Terhambat',UNKNOWN:'Belum dapat dibaca'};return m[String(kind||'')]||String(kind||'-');}
+    function execDashStatusClassV10_(v){v=String(v||'').toUpperCase();if(/SELESAI|DITUTUP|SUDAH_DICAIRKAN|SUDAH_DIARSIPKAN|VALID/.test(v))return'ok';if(/TERHAMBAT|TIDAK_DAPAT|INVALID|GAGAL|BLOCK/.test(v))return'bad';if(/MENUNGGU|BELUM|BERJALAN|SIAP/.test(v))return'warn';return'info';}
+    function execDashStatusLabelV10_(v){return String(v==null?'-':v).replaceAll('_',' ').replace(/\b([A-Z])([A-Z]+)\b/g,function(_,a,b){return a+b.toLowerCase();});}
+    function execDashRenderTrendV10_(trend){var box=document.getElementById('execDashTrendV10');if(!box)return;var list=Array.isArray(trend)?trend:[];if(!list.length){box.innerHTML='<div class="execdash-v10-empty">Belum ada data tren yang dapat ditampilkan.</div>';return;}var max=1;list.forEach(function(x){var t=Number(x&&x.laporanMasuk||0);if(t>max)max=t;});box.innerHTML=list.map(function(x){if(!x||x.laporanMasuk==null)return'<div class="execdash-v10-trend-col"><div class="execdash-v10-trend-total">-</div><div class="execdash-v10-barbox"></div><div class="execdash-v10-trend-label">'+execDashEscV10_(execDashMonthLabelV10_(x&&x.periode))+'</div></div>';var a=Math.max(0,Number(x.disetujui||0)),r=Math.max(0,Number(x.ditolak||0)),p=Math.max(0,Number(x.pending||0));var scale=150/max;return'<div class="execdash-v10-trend-col" title="'+execDashEscV10_(execDashMonthLabelV10_(x.periode))+' • '+Number(x.laporanMasuk||0)+' laporan"><div class="execdash-v10-trend-total">'+execDashNumV10_(x.laporanMasuk)+'</div><div class="execdash-v10-barbox"><div class="execdash-v10-seg pending" style="height:'+Math.max(0,p*scale)+'px"></div><div class="execdash-v10-seg rejected" style="height:'+Math.max(0,r*scale)+'px"></div><div class="execdash-v10-seg approved" style="height:'+Math.max(0,a*scale)+'px"></div></div><div class="execdash-v10-trend-label">'+execDashEscV10_(execDashMonthLabelV10_(x.periode))+'</div></div>';}).join('');}
+    function execDashRenderReviewV10_(x){var box=document.getElementById('execDashReviewEfficiencyV10');if(!box)return;x=x||{};if(String(x.status||'')==='TIDAK_DAPAT_DIBACA'){box.innerHTML='<div class="execdash-v10-empty" style="grid-column:1/-1">Efisiensi review belum dapat dibaca dari sumber saat ini.</div>';return;}var rate=x.within24Rate;var pct=rate==null?0:Math.max(0,Math.min(100,Number(rate)));box.innerHTML='<div class="execdash-v10-mini"><span>Median waktu review</span><strong>'+execDashEscV10_(execDashHoursV10_(x.medianHours))+'</strong><small>'+execDashNumV10_(x.sampleReviewed)+' sampel selesai</small></div><div class="execdash-v10-mini"><span>Rata-rata waktu review</span><strong>'+execDashEscV10_(execDashHoursV10_(x.averageHours))+'</strong><small>Mulai dari submit/revisi terakhir</small></div><div class="execdash-v10-mini"><span>Selesai ≤24 jam</span><strong>'+execDashEscV10_(execDashPctV10_(rate))+'</strong><small>'+execDashNumV10_(x.within24Hours)+' keputusan</small><div class="execdash-v10-progress"><i style="width:'+pct+'%"></i></div></div><div class="execdash-v10-mini"><span>Pending tertua</span><strong>'+execDashEscV10_(execDashHoursV10_(x.oldestPendingHours))+'</strong><small>'+execDashNumV10_(x.pendingCount)+' masih menunggu review</small></div>';}
+    function execDashRenderAllowanceV10_(list){var box=document.getElementById('execDashAllowanceTrendV10');if(!box)return;list=Array.isArray(list)?list:[];if(!list.length){box.innerHTML='<div class="execdash-v10-empty">Belum ada tren tunjangan.</div>';return;}var max=1;list.forEach(function(x){if(x&&x.amount!=null&&Number(x.amount)>max)max=Number(x.amount);});box.innerHTML=list.map(function(x){x=x||{};var amount=x.amount==null?null:Number(x.amount);var w=amount==null?0:Math.max(3,(amount/max)*100);var kind=String(x.kind||'UNKNOWN'),cls=kind==='ESTIMASI'?'estimate':(kind==='BLOCKED'||kind==='UNKNOWN'?'blocked':'');var kcls=kind==='FINAL'?'final':(kind==='BLOCKED'?'blocked':'');return'<div class="execdash-v10-allowance-row"><div class="execdash-v10-allowance-label">'+execDashEscV10_(execDashMonthLabelV10_(x.periode))+'</div><div class="execdash-v10-allowance-track"><div class="execdash-v10-allowance-fill '+cls+'" style="width:'+w+'%"></div></div><div class="execdash-v10-allowance-value">'+execDashEscV10_(amount==null?'-':execDashRpV10_(amount))+'<span class="execdash-v10-kind '+kcls+'">'+execDashEscV10_(execDashAllowanceKindLabelV10_(kind))+'</span></div></div>';}).join('');}
+    function execDashReasonLabelV10_(r){var m={PENDING_REVIEW:'Menunggu review',BELUM_UNGGAH:'Belum unggah',LAPORAN_DITOLAK:'Laporan ditolak'};return m[String(r&&r.code||r||'')]||String(r&&r.code||r||'');}
+    function execDashRenderAttentionV10_(list){var box=document.getElementById('execDashAttentionV10');if(!box)return;list=Array.isArray(list)?list:[];if(!list.length){box.innerHTML='<div class="execdash-v10-empty"><b>Tidak ada kondisi pegawai yang perlu perhatian pada periode ini.</b></div>';return;}box.innerHTML=list.map(function(x){var reasons=(x.reasons||[]).map(function(r){return'<span class="execdash-v10-attention-chip">'+execDashEscV10_(execDashReasonLabelV10_(r))+(Number(r.count||0)>1?' · '+Number(r.count):'')+'</span>';}).join('');return'<div class="execdash-v10-attention-item"><b>'+execDashEscV10_(x.nama||'-')+'</b><span>'+execDashEscV10_(x.jabatan||'-')+'</span><small>'+reasons+'</small></div>';}).join('');}
+    function execDashRenderCycleV10_(list){var box=document.getElementById('execDashCycleV10');if(!box)return;list=Array.isArray(list)?list:[];if(!list.length){box.innerHTML='<div class="execdash-v10-empty">Status siklus belum tersedia.</div>';return;}function chip(v){return'<span class="execdash-v10-status '+execDashStatusClassV10_(v)+'">'+execDashEscV10_(execDashStatusLabelV10_(v))+'</span>';}box.innerHTML='<table><thead><tr><th>Periode</th><th>Review</th><th>Penutupan</th><th>Tunjangan</th><th>Pencairan</th><th>Arsip</th></tr></thead><tbody>'+list.map(function(x){return'<tr><td>'+execDashEscV10_(execDashMonthLabelV10_(x.periode))+'</td><td>'+chip(x.review)+'</td><td>'+chip(x.closing)+'</td><td>'+chip(x.tunjangan)+'</td><td>'+chip(x.pencairan)+'</td><td>'+chip(x.arsip)+'</td></tr>';}).join('')+'</tbody></table>';}
+    function execDashRenderEacV10_(x){var box=document.getElementById('execDashEacCountsV10');if(!box)return;x=x||{};if(x.tindakanSaya==null){box.innerHTML='<span class="execdash-v10-eac-count">Belum dapat dibaca</span>';return;}box.innerHTML='<span class="execdash-v10-eac-count">Tindakan Saya: '+execDashNumV10_(x.tindakanSaya)+'</span><span class="execdash-v10-eac-count">Kritis: '+execDashNumV10_(x.kritis)+'</span><span class="execdash-v10-eac-count">Mendesak: '+execDashNumV10_(x.mendesak)+'</span><span class="execdash-v10-eac-count">Perlu Ditindaklanjuti: '+execDashNumV10_(x.perluDitindaklanjuti)+'</span>';}
+    function renderExecutiveDashboardV10_(res){executiveDashboardStateV10_.payload=res||null;var s=res&&res.summary||{},period=document.getElementById('executiveDashboardPeriodV10');if(period&&res&&res.periode)period.value=res.periode;execDashSetTextV10_('execDashEmployeesV10',execDashNumV10_(s.pegawaiDalamCakupan));execDashSetTextV10_('execDashReportsV10',execDashNumV10_(s.laporanMasuk));execDashSetTextV10_('execDashPendingV10',execDashNumV10_(s.menungguReview));execDashSetTextV10_('execDashMissingV10',execDashNumV10_(s.belumUnggah));execDashSetTextV10_('execDashReviewRateV10',execDashPctV10_(s.reviewSelesaiRate));execDashSetTextV10_('execDashReviewRateSubV10',s.reviewSelesai==null?'Belum dapat dibaca':execDashNumV10_(s.reviewSelesai)+' review selesai');execDashSetTextV10_('execDashReportsSubV10',(res&&res.periodeLabel)||'Periode terpilih');var ac=s.tunjangan||{},card=document.getElementById('execDashAllowanceCardV10');execDashSetTextV10_('execDashAllowanceV10',ac.amount==null?'-':execDashRpV10_(ac.amount));execDashSetTextV10_('execDashAllowanceSubV10',execDashAllowanceKindLabelV10_(ac.kind)+(ac.status?' • '+ac.status:''));if(card){card.classList.toggle('blocked',String(ac.kind)==='BLOCKED'||String(ac.kind)==='UNKNOWN');card.classList.toggle('highlight',String(ac.kind)!=='BLOCKED'&&String(ac.kind)!=='UNKNOWN');}var notice=document.getElementById('executiveDashboardNoticeV10');if(notice){if(res&&res.partial){notice.className='execdash-v10-notice warn';notice.textContent='Sebagian sumber belum dapat dibaca. Nilai yang tidak tersedia ditampilkan sebagai tanda “-”, bukan angka nol.';}else{notice.className='execdash-v10-notice ok';notice.textContent='Ringkasan '+(res.periodeLabel||res.periode||'periode')+' berhasil dibaca. Dashboard ini hanya-baca dan tidak mengubah proses bisnis.';}}execDashRenderTrendV10_(res&&res.trend);execDashRenderReviewV10_(res&&res.reviewEfficiency);execDashRenderAllowanceV10_(res&&res.allowanceTrend);execDashRenderAttentionV10_(res&&res.attention);execDashRenderCycleV10_(res&&res.cycleStatus);execDashRenderEacV10_(res&&res.eacSummary);}
+    function muatExecutiveDashboardV10(force){if(!sToken||(executiveDashboardStateV10_.loading&&force!==true))return;executiveDashboardStateV10_.loading=true;var seq=++executiveDashboardStateV10_.seq;var btn=document.getElementById('executiveDashboardRefreshV10');if(btn)btn.disabled=true;var req={windowMonths:6,forceRefresh:force===true};var period=document.getElementById('executiveDashboardPeriodV10');if(period&&period.value)req.periode=period.value;google.script.run.withSuccessHandler(function(res){if(seq!==executiveDashboardStateV10_.seq)return;executiveDashboardStateV10_.loading=false;if(btn)btn.disabled=false;if(!res||res.sukses!==true){if(res&&res.kode==='SESSION_EXPIRED'){prosesLogout();return;}var n=document.getElementById('executiveDashboardNoticeV10');if(n){n.className='execdash-v10-notice bad';n.textContent=(res&&res.pesan)||'Dashboard Eksekutif belum dapat dimuat.';}return;}renderExecutiveDashboardV10_(res);}).withFailureHandler(function(err){if(seq!==executiveDashboardStateV10_.seq)return;executiveDashboardStateV10_.loading=false;if(btn)btn.disabled=false;var n=document.getElementById('executiveDashboardNoticeV10');if(n){n.className='execdash-v10-notice bad';n.textContent='Gagal memuat Dashboard Eksekutif: '+String(err&&err.message||err||'Unknown');}}).ambilExecutiveDashboardV10(req,sToken);}
+    function bukaPerluTindakanDariExecutiveDashboardV10_(){var menu=document.getElementById('menuExceptionActionCenter');bukaHalaman({currentTarget:menu},'halExceptionActionCenter','Perlu Tindakan');}
+    // ===== END Dashboard Eksekutif v1.0 =====
+
     // ===== Production Smoke & Frontend Integrity Guard v1.0 =====
-    var FRONTEND_INTEGRITY_VERSION_V10 = 'PSFIG-v1.0-2026.10.04.01';
-    var FRONTEND_INTEGRITY_BUILD_ID_V10 = 'PSFIG-2026.10.04.01-1797d2ed8df6';
-    var FRONTEND_INTEGRITY_FINGERPRINT_V10 = '1797d2ed8df6678979113ae3934c77749bc4d8b43ffd2b626e0cc0946a37d465';
+    var FRONTEND_INTEGRITY_VERSION_V10 = 'PSFIG-v1.0-2026.10.04.02';
+    var FRONTEND_INTEGRITY_BUILD_ID_V10 = 'PSFIG-2026.10.04.02-a93278730c89';
+    var FRONTEND_INTEGRITY_FINGERPRINT_V10 = 'a93278730c89743f31a4223bfec5104489ed1c3adc7537aa76ac4a41bcf0121a';
     var FRONTEND_INTEGRITY_CRITICAL_DOM_V10 = [
       'halamanLogin','aplikasiUtama','inputUsername','inputPin','btnLogin','pesanLogin','menuNavigasi','judulHal',
       'halDash','halTimeline','halDisposisi','halInput','halRiwayat','halRekap','halTunjangan','halReviewCenter',
-      'halMonthlyClosing','halMonthlyArchive','halWorkflowReminder','halExceptionActionCenter','halAdminKinerja','halOperationalHealth','menuReviewCenter','menuMonthlyClosing','menuMonthlyArchive','menuWorkflowReminder','menuExceptionActionCenter','menuAdminKinerja','menuOperationalHealth','exceptionActionBadgeV10','exceptionActionNoticeV10','exceptionActionSummaryV10','exceptionActionMineV10','exceptionActionMonitoringV10','exceptionActionListV10'
+      'halMonthlyClosing','halMonthlyArchive','halWorkflowReminder','halExceptionActionCenter','halExecutiveDashboard','halAdminKinerja','halOperationalHealth','menuReviewCenter','menuMonthlyClosing','menuMonthlyArchive','menuWorkflowReminder','menuExceptionActionCenter','menuExecutiveDashboard','menuAdminKinerja','menuOperationalHealth','btnKoreksiTanggalPembayaran','modalKoreksiTanggalPembayaran','workflowReminderBadgeV10','exceptionActionBadgeV10','exceptionActionNoticeV10','exceptionActionSummaryV10','exceptionActionMineV10','exceptionActionMonitoringV10','exceptionActionListV10','executiveDashboardNoticeV10','executiveDashboardSummaryV10','execDashTrendV10','execDashReviewEfficiencyV10','execDashAllowanceTrendV10','execDashAttentionV10','execDashCycleV10','execDashEacCountsV10'
     ];
     var FRONTEND_INTEGRITY_CRITICAL_FUNCTIONS_V10 = [
       'prosesLogin','prosesLogout','aktifkanPortalSetelahSesiValid_','aturMenuRoleVisibility','bukaHalaman','muatDashboard',
       'muatTimeline','muatRiwayat','muatRekap','muatTunjangan','muatReviewCenterAdminV10','muatDashboardAdminKinerja',
-      'muatOperationalHealthV10','muatMonthlyClosingV10','muatMonthlyArchiveV10','muatWorkflowReminderV10','mulaiMonitorWorkflowReminderV10_','muatExceptionActionCenterV10','mulaiMonitorExceptionActionV10_','userIsAdminUtama','terapkanAksesDisposisiDariSesi_'
+      'muatOperationalHealthV10','muatMonthlyClosingV10','muatMonthlyArchiveV10','koreksiAdministratifTanggalPembayaranUI_','simpanKoreksiTanggalPembayaranUI_','muatWorkflowReminderV10','mulaiMonitorWorkflowReminderV10_','muatExceptionActionCenterV10','mulaiMonitorExceptionActionV10_','muatExecutiveDashboardV10','userIsAdminUtama','terapkanAksesDisposisiDariSesi_'
     ];
     var FRONTEND_INTEGRITY_ROUTE_TARGETS_V10 = [
       'halDash','halTimeline','halDisposisi','halInput','halRiwayat','halRekap','halTunjangan','halReviewCenter',
-      'halMonthlyClosing','halMonthlyArchive','halWorkflowReminder','halExceptionActionCenter','halAdminKinerja','halOperationalHealth'
+      'halMonthlyClosing','halMonthlyArchive','halWorkflowReminder','halExceptionActionCenter','halExecutiveDashboard','halAdminKinerja','halOperationalHealth'
     ];
     var frontendIntegrityStateV10_ = {
       blocking:false, serverVerified:false, serverWarning:false, lastReport:null, lastPhase:'', checkedAt:0
