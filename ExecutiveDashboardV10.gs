@@ -1,10 +1,10 @@
 // ============================================================
 // DASHBOARD EKSEKUTIF v1.0 — RC2
-// APP_VERSION 2026.10.04.03
+// APP_VERSION 2026.10.04.04
 // Hanya-baca. Tidak mengubah Review/Tunjangan/Closing/Arsip/WRE/EAC.
 // ============================================================
 
-var EXECUTIVE_DASHBOARD_V10_VERSION_ = 'EXEC-DASH-v1.0-RC2-2026.10.04.03';
+var EXECUTIVE_DASHBOARD_V10_VERSION_ = 'EXEC-DASH-v1.0-RC3-2026.10.04.04';
 var EXEC_DASH_V10_CACHE_TTL_SECONDS_ = 180;
 var EXEC_DASH_V10_WINDOW_MONTHS_ = 6;
 var EXEC_DASH_V10_MAX_ATTENTION_ = 5;
@@ -255,7 +255,13 @@ function execDashV10AllowanceBlockerClass_(blockers) {
   };
   var list = (blockers || []).map(function (x) { return String(x || ''); }).filter(Boolean);
   if (!list.length) return 'NONE';
-  return list.every(function (x) { return soft[x] === true; }) ? 'REVALIDATION_ONLY' : 'STRUCTURAL';
+  return list.every(function (x) {
+    if (soft[x] === true) return true;
+    // VALIDASI_BATCH_GAGAL terjadi setelah pemeriksaan struktur batch selesai.
+    // Untuk read-model eksekutif, ini berarti batch tersimpan belum dapat direvalidasi
+    // terhadap engine terbaru, bukan bukti bahwa ID/status/pegawai/aritmetika batch rusak.
+    return x.indexOf('VALIDASI_BATCH_GAGAL:') === 0;
+  }) ? 'REVALIDATION_ONLY' : 'STRUCTURAL';
 }
 
 function execDashV10AllowanceWorkflowHint_(status) {
@@ -543,8 +549,8 @@ function ambilExecutiveDashboardV10(request, token) {
 function validasiExecutiveDashboardV10() {
   var checks = [];
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail == null ? '' : detail) }); }
-  add_('VERSION', EXECUTIVE_DASHBOARD_V10_VERSION_ === 'EXEC-DASH-v1.0-RC2-2026.10.04.03', EXECUTIVE_DASHBOARD_V10_VERSION_);
-  add_('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.04.03', typeof APP_VERSION !== 'undefined' ? APP_VERSION : '');
+  add_('VERSION', EXECUTIVE_DASHBOARD_V10_VERSION_ === 'EXEC-DASH-v1.0-RC3-2026.10.04.04', EXECUTIVE_DASHBOARD_V10_VERSION_);
+  add_('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.04.04', typeof APP_VERSION !== 'undefined' ? APP_VERSION : '');
   add_('PUBLIC_ENDPOINT', typeof ambilExecutiveDashboardV10 === 'function', typeof ambilExecutiveDashboardV10);
   add_('WINDOW_6', EXEC_DASH_V10_WINDOW_MONTHS_ === 6, EXEC_DASH_V10_WINDOW_MONTHS_);
   add_('CACHE_180', EXEC_DASH_V10_CACHE_TTL_SECONDS_ === 180, EXEC_DASH_V10_CACHE_TTL_SECONDS_);
@@ -558,6 +564,7 @@ function validasiExecutiveDashboardV10() {
   add_('NO_LATE_CUTOFF_REASON', JSON.stringify(execDashV10BuildAttention_([{idUser:'1',nama:'A',jumlahLaporan:0,jumlahMenunggu:0,jumlahDitolak:0}])).indexOf('LATE_CUTOFF') === -1, 'DEFERRED');
   add_('NO_ZERO_WHEN_REVIEW_PENDING', execDashV10AllowancePoint_('2026-10',0,{exists:false,status:'BELUM ADA BATCH'},{laporanMasuk:101,menungguReview:101}).kind === 'BELUM_DAPAT_DIHITUNG', 'BELUM_DAPAT_DIHITUNG');
   add_('HISTORICAL_RECORDED_BATCH_VISIBLE', execDashV10AllowancePoint_('2026-07',0,{exists:true,valid:false,frozenSnapshot:false,totalNominal:5536872,status:'Disetujui Lurah',batchId:'B',employees:19,blockers:['SNAPSHOT_BERBEDA_DENGAN_HITUNG_ULANG']}).kind === 'BATCH_TERCATAT', 'BATCH_TERCATAT');
+  add_('HISTORICAL_VALIDATION_FAILURE_VISIBLE', execDashV10AllowancePoint_('2026-05',0,{exists:true,valid:false,frozenSnapshot:false,totalNominal:5694216,status:'Disetujui Lurah',batchId:'MAY',employees:18,blockers:['VALIDASI_BATCH_GAGAL: metadata historis']}).kind === 'BATCH_TERCATAT', 'BATCH_TERCATAT');
   add_('READ_ONLY_POLICY', true, 'Tidak ada endpoint write pada modul Dashboard Eksekutif.');
   var passed = checks.filter(function (x) { return x.lulus; }).length;
   return { sukses:passed===checks.length, valid:passed===checks.length, versi:EXECUTIVE_DASHBOARD_V10_VERSION_, appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), jumlah:checks.length, lulus:passed, gagal:checks.length-passed, checks:checks };
