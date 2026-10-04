@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.10.03.03"; // Exception & Action Center v1.0 RC1 working copy; belum untuk deployment produksi
+var APP_VERSION = "2026.10.04.02"; // Dashboard Eksekutif v1.0 RC1 — backend working copy
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {

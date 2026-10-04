@@ -1,11 +1,12 @@
 // ============================================================
-// WORKFLOW REMINDER & ESCALATION ENGINE v1.0 — RC1
-// APP_VERSION 2026.10.03.02
+// WORKFLOW REMINDER & ESCALATION ENGINE v1.0 — RC3 UI HISTORY CLARITY
+// Integrated APP_VERSION 2026.10.04.01
+// Rule, threshold, scheduler, and anti-spam policy remain unchanged from RC2.
 //
 // Tujuan:
 // - mendeteksi pekerjaan workflow yang tertunda;
 // - menentukan penerima berdasarkan peran dan tingkat eskalasi;
-// - menyediakan inbox pengingat di portal;
+// - menyediakan read model kondisi aktif untuk EAC dan riwayat pengingat di portal;
 // - mencatat reminder secara anti-spam ke Audit_Log melalui trigger berkala;
 // - tidak mengubah status bisnis, poin, tunjangan, closing, atau arsip.
 //
@@ -15,7 +16,7 @@
 // - tidak menambah sheet atau kolom baru.
 // ============================================================
 
-var WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ = 'WRE-v1.0-RC2-2026.10.03.02';
+var WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ = 'WRE-v1.0-RC3-2026.10.04.01';
 var WRE_V10_EVENT_PREFIX_ = 'WRE_V10_EVENT_';
 var WRE_V10_ACTIVE_KEYS_PROP_ = 'WRE_V10_ACTIVE_KEYS';
 var WRE_V10_LAST_RUN_PROP_ = 'WRE_V10_LAST_RUN';
@@ -387,6 +388,55 @@ function wreV10SchedulerStatus_() {
   return { installed:list.length > 0, triggerCount:list.length, cadenceHours:4, lastRun:last };
 }
 
+function wreV10History_(role, limit) {
+  var out = [];
+  var maxItems = Math.max(1, Math.min(100, Number(limit || 50)));
+  var sh = null;
+  try { sh = getSheet_('Audit_Log'); } catch (eSheet) { return out; }
+  if (!sh || sh.getLastRow() < 2) return out;
+  var data = sh.getDataRange().getValues();
+  var C = SHEET_COLUMNS.AUDIT_LOG;
+  var roleUpper = String(role || '').toUpperCase();
+  for (var i = data.length - 1; i >= 1 && out.length < maxItems; i--) {
+    var row = data[i] || [];
+    if (String(row[C.AKSI] || '') !== 'WORKFLOW_REMINDER_RAISED') continue;
+    var detail = null;
+    try { detail = JSON.parse(String(row[C.DETAIL] || '')); } catch (eParse) { detail = null; }
+    if (!detail || typeof detail !== 'object') continue;
+    var recipients = Array.isArray(detail.recipients) ? detail.recipients.map(function (x) { return String(x || '').toUpperCase(); }) : [];
+    if (roleUpper && recipients.indexOf(roleUpper) === -1) continue;
+    var dt = parseTanggal(row[C.WAKTU]);
+    var atMs = dt instanceof Date && !isNaN(dt.getTime()) ? dt.getTime() : 0;
+    out.push({
+      at: atMs ? formatTanggalJamClient_(dt) : String(row[C.WAKTU] || ''),
+      atMs: atMs,
+      key: String(detail.key || ''),
+      ruleId: String(detail.ruleId || ''),
+      severity: String(detail.severity || ''),
+      severityRank: wreV10SeverityRank_(detail.severity),
+      periode: String(detail.periode || ''),
+      ageHours: Math.max(0, Number(detail.ageHours || 0)),
+      ageLabel: wreV10AgeLabel_(detail.ageHours || 0),
+      recipients: recipients,
+      title: String(detail.title || detail.ruleId || 'Pengingat workflow'),
+      route: detail.route && typeof detail.route === 'object' ? detail.route : {},
+      engineVersion: String(detail.versi || '')
+    });
+  }
+  return out;
+}
+
+function wreV10HistorySummary_(items) {
+  var s = { total:0, critical:0, escalated:0, due:0 };
+  (items || []).forEach(function (x) {
+    s.total++;
+    if (x.severity === 'CRITICAL') s.critical++;
+    else if (x.severity === 'ESCALATED') s.escalated++;
+    else if (x.severity === 'DUE') s.due++;
+  });
+  return s;
+}
+
 function ambilWorkflowReminderV10(token) {
   try {
     var idUser = validasiSession(token);
@@ -401,9 +451,13 @@ function ambilWorkflowReminderV10(token) {
       else if (x.severity === 'ESCALATED') summary.escalated++;
       else if (x.severity === 'DUE') summary.due++;
     });
+    var history = wreV10History_(role, 50);
     return {
       sukses:true, versi:all.versi, appVersion:all.appVersion, generatedAt:all.generatedAt,
-      role:role, summary:summary, items:items, globalSummary:all.summary,
+      role:role,
+      summary:summary, items:items, globalSummary:all.summary,
+      activeSummary:summary, activeItems:items,
+      history:history, historySummary:wreV10HistorySummary_(history),
       scheduler:wreV10SchedulerStatus_(), readOnly:true, dataDiubah:false, statusBisnisDiubah:false
     };
   } catch (e) {
@@ -524,7 +578,7 @@ function validasiWorkflowReminderEscalationV10() {
   var maintainer = typeof pastikanMaintainerPortal3B0_ === 'function' ? pastikanMaintainerPortal3B0_('VALIDASI_WRE_V10') : '';
   var checks = [];
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail || '') }); }
-  add_('VERSION', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ === 'WRE-v1.0-RC2-2026.10.03.02', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_);
+  add_('VERSION', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_ === 'WRE-v1.0-RC3-2026.10.04.01', WORKFLOW_REMINDER_ESCALATION_V10_VERSION_);
   add_('DUE_24H', wreV10Severity_('REVIEW_PENDING',24) === 'DUE', wreV10Severity_('REVIEW_PENDING',24));
   add_('ESCALATED_48H', wreV10Severity_('REVIEW_PENDING',48) === 'ESCALATED', wreV10Severity_('REVIEW_PENDING',48));
   add_('CRITICAL_72H', wreV10Severity_('REVIEW_PENDING',72) === 'CRITICAL', wreV10Severity_('REVIEW_PENDING',72));
@@ -535,7 +589,7 @@ function validasiWorkflowReminderEscalationV10() {
   add_('AUDIT_COOLDOWN_24H', WRE_V10_AUDIT_COOLDOWN_HOURS_ === 24, WRE_V10_AUDIT_COOLDOWN_HOURS_);
   add_('READ_ENDPOINT', typeof ambilWorkflowReminderV10 === 'function', typeof ambilWorkflowReminderV10);
   add_('TRIGGER_RUNNER', typeof prosesWorkflowReminderTerjadwalV10 === 'function', typeof prosesWorkflowReminderTerjadwalV10);
-  add_('NO_NEW_SHEET_POLICY', true, 'PropertiesService + Audit_Log only');
+  add_('HISTORY_READ_MODEL', typeof wreV10History_ === 'function' && typeof wreV10HistorySummary_ === 'function', 'Audit_Log read-only history + PropertiesService scheduler state');
   add_('NO_BUSINESS_WRITE', true, 'Engine hanya evaluasi reminder; trigger hanya state property + audit reminder.');
   add_('ROADMAP_COMPATIBLE', true, 'Output engine dirancang untuk dikonsumsi Exception & Action Center v1.0.');
   var passed = checks.filter(function (x) { return x.lulus; }).length;

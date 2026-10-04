@@ -2,7 +2,7 @@
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
 // Baseline kontrak: Exception & Action Center v1.0 RC1 — 190 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.03.03
+// Baseline kode kandidat: APP_VERSION 2026.10.04.01
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,10 +11,10 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3ab-2026.10.03.03";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.03.03";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3ab-2026.10.04.01";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.04.01";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 190;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "4b0534b2c8f2192471b169586d00e3f23ddd8636d62ba4c741f2df1ccec8e335";
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "077eee20b0bdd0048fd07b9114d84a6e5bf8da1db5a58696c9832768b4b4f47d";
 
 // Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 173 Batch 2g.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.

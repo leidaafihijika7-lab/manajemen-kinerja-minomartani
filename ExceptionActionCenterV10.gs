@@ -1,6 +1,6 @@
 // ============================================================
-// EXCEPTION & ACTION CENTER v1.0 — RC1 (BACKEND WORKING COPY)
-// Target APP_VERSION 2026.10.03.03
+// EXCEPTION & ACTION CENTER v1.0 — RC2 NAVIGATION & ROLE CLARITY
+// Target APP_VERSION 2026.10.04.01
 //
 // Tujuan:
 // - mengagregasi pekerjaan lintas modul menjadi satu read model;
@@ -8,15 +8,15 @@
 // - memakai rule WRE yang sudah ada untuk eskalasi waktu;
 // - tidak mengubah status bisnis, spreadsheet, PropertiesService, trigger, atau schema.
 //
-// Catatan RC1:
+// Catatan scope yang tetap berlaku:
 // - hasil verifikasi arsip GAGAL belum dipersistenkan oleh Monthly Archive sehingga
 //   ARC_VERIFY_FAILED / ARC_FILE_MISSING / ARC_CHECKSUM_MISMATCH / ARC_MANIFEST_INVALID
 //   belum diaktifkan;
-// - status Dikembalikan Lurah belum memiliki transition timestamp di WRE RC2, sehingga
+// - status Dikembalikan Lurah belum memiliki transition timestamp pada model timing WRE, sehingga
 //   EAC menampilkan tindakan tanpa membuat umur/severity palsu.
 // ============================================================
 
-var EXCEPTION_ACTION_CENTER_V10_VERSION_ = 'EAC-v1.0-RC1-2026.10.03.03';
+var EXCEPTION_ACTION_CENTER_V10_VERSION_ = 'EAC-v1.0-RC2-2026.10.04.01';
 var EAC_V10_CACHE_TTL_SECONDS_ = 60;
 
 var EAC_V10_PRIORITY_ = {
@@ -870,7 +870,7 @@ function validasiExceptionActionCenterV10() {
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail == null ? '' : detail) }); }
   var codes = Object.keys(EAC_V10_ACTION_REGISTRY_);
   var routes = Object.keys(EAC_V10_ROUTE_MAP_);
-  add_('VERSION', EXCEPTION_ACTION_CENTER_V10_VERSION_ === 'EAC-v1.0-RC1-2026.10.03.03', EXCEPTION_ACTION_CENTER_V10_VERSION_);
+  add_('VERSION', EXCEPTION_ACTION_CENTER_V10_VERSION_ === 'EAC-v1.0-RC2-2026.10.04.01', EXCEPTION_ACTION_CENTER_V10_VERSION_);
   add_('ACTIVE_CODE_COUNT_27', codes.length === 27, codes.length);
   add_('DEFERRED_CODE_COUNT_8', EAC_V10_DEFERRED_CODES_.length === 8, EAC_V10_DEFERRED_CODES_.length);
   add_('ROUTE_ALLOWLIST_5', routes.length === 5, routes.length);

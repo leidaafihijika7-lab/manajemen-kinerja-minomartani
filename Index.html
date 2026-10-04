@@ -6845,8 +6845,8 @@
         onclick="bukaHalaman(event, 'halMonthlyArchive', 'Arsip Bulanan')"><span
           class="material-symbols-outlined">inventory_2</span><span>Arsip Bulanan</span></div>
       <div id="menuWorkflowReminder" class="menu-item" style="display:none;"
-        onclick="bukaHalaman(event, 'halWorkflowReminder', 'Pengingat Proses Kerja')"><span
-          class="material-symbols-outlined">notifications_active</span><span>Pengingat</span><span id="workflowReminderBadgeV10" class="wre-v10-menu-badge" hidden>0</span></div>
+        onclick="bukaHalaman(event, 'halWorkflowReminder', 'Riwayat Pengingat')"><span
+          class="material-symbols-outlined">history</span><span>Riwayat Pengingat</span><span id="workflowReminderBadgeV10" class="wre-v10-menu-badge" hidden>0</span></div>
       <div id="menuExceptionActionCenter" class="menu-item" style="display:none;"
         onclick="bukaHalaman(event, 'halExceptionActionCenter', 'Perlu Tindakan')"><span
           class="material-symbols-outlined">rule</span><span>Perlu Tindakan</span><span id="exceptionActionBadgeV10" class="eac-v10-menu-badge" hidden>0</span></div>
@@ -7946,27 +7946,30 @@
               <div class="stitch-page-hero-icon"><span class="material-symbols-outlined">notifications_active</span></div>
               <div>
                 <div class="stitch-page-hero-kicker">Workflow Reminder & Escalation Engine v1.0</div>
-                <h2 class="stitch-page-hero-title">Pengingat Proses Kerja</h2>
-                <div class="stitch-page-hero-subtitle">Mendeteksi pekerjaan yang tertunda, meningkatkan tingkat prioritas secara bertahap, dan mengarahkan penanggung jawab ke halaman tindak lanjut yang tepat.</div>
+                <h2 class="stitch-page-hero-title">Riwayat Pengingat</h2>
+                <div class="stitch-page-hero-subtitle">Jejak pengingat dan eskalasi yang dicatat otomatis oleh sistem. Pekerjaan aktif yang perlu diselesaikan sekarang dikelola melalui Perlu Tindakan.</div>
               </div>
             </div>
             <div class="stitch-page-hero-pill"><span class="material-symbols-outlined" style="font-size:18px;">shield_person</span> Carik / Lurah / Bendahara</div>
           </div>
           <section class="wre-v10-shell">
             <div class="wre-v10-toolbar">
-              <div><h3>Daftar Pengingat</h3><p>Pengingat hanya memantau proses kerja dan tidak mengubah status laporan, tunjangan, penutupan bulan, maupun arsip. Pengingat akan hilang otomatis setelah kondisi yang perlu ditindaklanjuti selesai.</p></div>
-              <button type="button" class="wre-v10-btn primary" onclick="muatWorkflowReminderV10(true)"><span class="material-symbols-outlined">refresh</span> Muat Ulang</button>
+              <div><h3>Riwayat Pengingat &amp; Pemeriksaan Otomatis</h3><p>Halaman ini untuk audit operasional: kapan pengingat dicatat, tingkat prioritasnya, serta kapan scheduler terakhir berjalan. Untuk pekerjaan yang masih aktif, gunakan Perlu Tindakan.</p></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="wre-v10-btn" onclick="bukaPerluTindakanDariRiwayatV10_()"><span class="material-symbols-outlined">rule</span> Buka Perlu Tindakan</button>
+                <button type="button" class="wre-v10-btn primary" onclick="muatWorkflowReminderV10(true)"><span class="material-symbols-outlined">refresh</span> Muat Ulang</button>
+              </div>
             </div>
-            <div id="workflowReminderNoticeV10" class="wre-v10-notice">Memuat pengingat yang membutuhkan perhatian akun ini.</div>
+            <div id="workflowReminderNoticeV10" class="wre-v10-notice">Memuat riwayat pengingat untuk akun ini.</div>
             <div class="wre-v10-summary">
-              <div class="wre-v10-card"><span>Total Aktif</span><strong id="wreTotalV10">-</strong><small>Pengingat untuk peran Anda</small></div>
-              <div class="wre-v10-card"><span>Kritis</span><strong id="wreCriticalV10">-</strong><small>Harus segera diprioritaskan</small></div>
-              <div class="wre-v10-card"><span>Mendesak</span><strong id="wreEscalatedV10">-</strong><small>Perlu segera ditangani</small></div>
-              <div class="wre-v10-card"><span>Perlu Ditindaklanjuti</span><strong id="wreDueV10">-</strong><small>Sudah waktunya ditangani</small></div>
+              <div class="wre-v10-card"><span>Riwayat Tercatat</span><strong id="wreTotalV10">-</strong><small>Maksimal 50 kejadian terbaru</small></div>
+              <div class="wre-v10-card"><span>Kritis</span><strong id="wreCriticalV10">-</strong><small>Kejadian Kritis dalam riwayat</small></div>
+              <div class="wre-v10-card"><span>Mendesak</span><strong id="wreEscalatedV10">-</strong><small>Kejadian Mendesak dalam riwayat</small></div>
+              <div class="wre-v10-card"><span>Perlu Ditindaklanjuti</span><strong id="wreDueV10">-</strong><small>Kejadian awal yang dicatat</small></div>
               <div class="wre-v10-card"><span>Pemeriksaan Otomatis</span><strong id="wreSchedulerV10">-</strong><small id="wreSchedulerSubV10">-</small></div>
             </div>
             <div id="workflowReminderListV10" class="wre-v10-list"><div class="wre-v10-loading">Memuat pengingat...</div></div>
-            <div class="wre-v10-footer">Pencegahan pengingat berulang: pengingat yang sama baru dicatat kembali setelah 24 jam atau saat tingkat prioritas meningkat. Pemeriksaan otomatis berjalan setiap 4 jam untuk mencatat kondisi yang perlu perhatian; daftar pada halaman selalu dihitung dari kondisi proses kerja terbaru.</div>
+            <div class="wre-v10-footer">Engine tetap memeriksa workflow setiap 4 jam. Pengingat yang sama baru dicatat ulang setelah 24 jam atau ketika tingkat prioritas meningkat. Riwayat ini bersumber dari Audit_Log dan bersifat baca-saja; pekerjaan aktif dikelola di Perlu Tindakan.</div>
           </section>
         </div>
 
@@ -7987,6 +7990,7 @@
               <div><h3>Pusat Tindakan</h3><p>EAC hanya membaca kondisi terbaru dari Pusat Review, Tunjangan, Penutupan Bulan, Arsip Bulanan, Kesehatan Sistem, dan WRE. Penyelesaian tetap dilakukan melalui modul sumber resmi.</p></div>
               <div class="eac-v10-toolbar-actions">
                 <label class="eac-v10-period">Periode khusus (opsional)<input id="eacPeriodV10" type="month" aria-label="Periode khusus Exception Action Center"></label>
+                <button type="button" class="eac-v10-btn" onclick="bukaRiwayatPengingatDariEacV10_()"><span class="material-symbols-outlined">history</span> Riwayat Pengingat</button>
                 <button type="button" class="eac-v10-btn primary" onclick="muatExceptionActionCenterV10(true)"><span class="material-symbols-outlined">refresh</span> Muat Ulang</button>
               </div>
             </div>
@@ -9454,7 +9458,7 @@
       mulaiMonitorNotifikasiDisposisiBaru_();
       mulaiMonitorSesiPortal_();
       jadwalkanSinkronisasiConstants_();
-      mulaiMonitorWorkflowReminderV10_();
+      // RC2: EAC is the operational inbox; WRE keeps only scheduler/history UI.
       mulaiMonitorExceptionActionV10_();
     }
 
@@ -12584,7 +12588,7 @@
       if (menuReviewCenter) menuReviewCenter.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuMonthlyClosing) menuMonthlyClosing.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuMonthlyArchive) menuMonthlyArchive.style.display = userIsAdminUtama() ? 'flex' : 'none';
-      if (menuWorkflowReminder) menuWorkflowReminder.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
+      if (menuWorkflowReminder) menuWorkflowReminder.style.display = 'none'; // RC2: WRE history is a subview of Perlu Tindakan
       if (menuExceptionActionCenter) menuExceptionActionCenter.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
@@ -19799,7 +19803,7 @@ function adminSpreadsheetFieldRawValue_(field) {
       if (menuReviewCenter) menuReviewCenter.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuMonthlyClosing) menuMonthlyClosing.style.display = userIsAdminUtama() ? 'flex' : 'none';
       if (menuMonthlyArchive) menuMonthlyArchive.style.display = userIsAdminUtama() ? 'flex' : 'none';
-      if (menuWorkflowReminder) menuWorkflowReminder.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
+      if (menuWorkflowReminder) menuWorkflowReminder.style.display = 'none'; // RC2: WRE history is a subview of Perlu Tindakan
       if (menuExceptionActionCenter) menuExceptionActionCenter.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuTunjangan) menuTunjangan.style.display = userCanAccessTunjangan() ? 'flex' : 'none';
       if (menuAdminKinerja) menuAdminKinerja.style.display = userIsAdminUtama() ? 'flex' : 'none';
@@ -22766,31 +22770,42 @@ function adminSpreadsheetFieldRawValue_(field) {
       if(Number(summary&&summary.critical||0)>0)b.style.background='#dc2626'; else if(Number(summary&&summary.escalated||0)>0)b.style.background='#f97316'; else b.style.background='#d97706';
     }
     function renderWorkflowReminderV10_(res){
-      workflowReminderStateV10_.payload=res||null; var sum=res&&res.summary||{};
-      wreV10SetBadge_(sum);
+      workflowReminderStateV10_.payload=res||null;
+      var sum=res&&res.historySummary||{total:0,critical:0,escalated:0,due:0};
       var map={wreTotalV10:sum.total,wreCriticalV10:sum.critical,wreEscalatedV10:sum.escalated,wreDueV10:sum.due};
       Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=String(Number(map[id]||0));});
       var sched=res&&res.scheduler||{}, se=document.getElementById('wreSchedulerV10'), ss=document.getElementById('wreSchedulerSubV10');
-      if(se)se.textContent=sched.installed?'AKTIF':'BELUM AKTIF'; if(ss)ss.textContent=sched.installed?('Setiap '+Number(sched.cadenceHours||4)+' jam'):'Jalankan installer trigger dari Apps Script';
-      var notice=document.getElementById('workflowReminderNoticeV10'); if(notice){notice.className='wre-v10-notice'+(Number(sum.total||0)?' warn':' ok');notice.textContent=Number(sum.total||0)?('Ada '+Number(sum.total||0)+' pengingat aktif untuk '+wreV10RoleLabel_(res.role)+'. Dahulukan pengingat berstatus Kritis, kemudian Mendesak.'):'Tidak ada proses kerja yang melewati batas pengingat untuk peran Anda.';}
-      var list=document.getElementById('workflowReminderListV10'); if(!list)return; var items=Array.isArray(res&&res.items)?res.items:[];
-      if(!items.length){list.innerHTML='<div class="wre-v10-empty"><span class="material-symbols-outlined" style="font-size:32px;color:#16a34a;">task_alt</span><br><b>Tidak ada pengingat aktif.</b><br><small>Workflow yang menjadi tanggung jawab peran Anda masih berada dalam batas waktu yang ditetapkan.</small></div>';return;}
-      list.innerHTML=items.map(function(x){var chips=[];if(x.periode)chips.push('<span class="wre-v10-chip">Periode: '+wreV10Esc_(x.periode)+'</span>');chips.push('<span class="wre-v10-chip">Menunggu: '+wreV10Esc_(x.ageLabel||'-')+'</span>');if(x.metrics&&x.metrics.status)chips.push('<span class="wre-v10-chip">Status: '+wreV10Esc_(x.metrics.status)+'</span>');var route=x.route||{};return '<article class="wre-v10-item '+wreV10Esc_(x.severity)+'"><div class="wre-v10-item-head"><div><div class="wre-v10-item-title">'+wreV10Esc_(x.title)+'</div><p>'+wreV10Esc_(x.message)+'</p></div><span class="wre-v10-badge '+wreV10Esc_(x.severity)+'">'+wreV10Esc_(wreV10SeverityLabel_(x.severity))+'</span></div><div class="wre-v10-meta">'+chips.join('')+'</div><div class="wre-v10-rec"><b>Saran tindakan:</b> '+wreV10Esc_(x.recommendation)+'</div><div class="wre-v10-actions"><button type="button" class="wre-v10-btn" data-menu="'+wreV10Esc_(route.menuId||'')+'" data-page="'+wreV10Esc_(route.pageId||'')+'" data-title="'+wreV10Esc_(route.title||'Tindak Lanjut')+'" onclick="bukaRouteWorkflowReminderV10_(this.dataset.menu,this.dataset.page,this.dataset.title)"><span class="material-symbols-outlined">arrow_forward</span> Buka Tindak Lanjut</button></div></article>';}).join('');
+      if(se)se.textContent=sched.installed?'AKTIF':'BELUM AKTIF';
+      if(ss){var lr=sched&&sched.lastRun&&sched.lastRun.at?String(sched.lastRun.at):'';ss.textContent=sched.installed?(lr?('Terakhir '+lr):('Setiap '+Number(sched.cadenceHours||4)+' jam • belum ada run')):'Trigger belum terpasang';}
+      var active=Number(res&&res.activeSummary&&res.activeSummary.total||0);
+      var notice=document.getElementById('workflowReminderNoticeV10');
+      if(notice){notice.className='wre-v10-notice'+(active?' warn':' ok');notice.textContent=active?('Saat ini ada '+active+' kondisi aktif yang terlihat untuk '+wreV10RoleLabel_(res.role)+'. Pekerjaan yang menjadi tanggung jawab Anda dikelola melalui menu Perlu Tindakan; halaman ini hanya menampilkan jejak pengingat yang sudah dicatat.'):'Tidak ada kondisi aktif yang terlihat untuk '+wreV10RoleLabel_(res.role)+'. Riwayat di bawah tetap dipertahankan sebagai jejak pemeriksaan otomatis.';}
+      var list=document.getElementById('workflowReminderListV10'); if(!list)return; var items=Array.isArray(res&&res.history)?res.history:[];
+      if(!items.length){list.innerHTML='<div class="wre-v10-empty"><span class="material-symbols-outlined" style="font-size:32px;color:#64748b;">history</span><br><b>Belum ada riwayat pengingat.</b><br><small>Riwayat akan muncul ketika scheduler mencatat kondisi yang melewati ambang pengingat.</small></div>';return;}
+      list.innerHTML=items.map(function(x){var chips=[];if(x.at)chips.push('<span class="wre-v10-chip">Dicatat: '+wreV10Esc_(x.at)+'</span>');if(x.periode)chips.push('<span class="wre-v10-chip">Periode: '+wreV10Esc_(x.periode)+'</span>');if(x.ageLabel)chips.push('<span class="wre-v10-chip">Usia saat dicatat: '+wreV10Esc_(x.ageLabel)+'</span>');var route=x.route||{};var source=route.title||x.ruleId||'Workflow';return '<article class="wre-v10-item '+wreV10Esc_(x.severity)+'"><div class="wre-v10-item-head"><div><div class="wre-v10-item-title">'+wreV10Esc_(x.title)+'</div><p>Jejak pengingat otomatis • Sumber tindak lanjut: '+wreV10Esc_(source)+'</p></div><span class="wre-v10-badge '+wreV10Esc_(x.severity)+'">'+wreV10Esc_(wreV10SeverityLabel_(x.severity))+'</span></div><div class="wre-v10-meta">'+chips.join('')+'</div></article>';}).join('');
     }
     function muatWorkflowReminderV10(force){
       if(!sToken||workflowReminderStateV10_.loading)return; workflowReminderStateV10_.loading=true; var seq=++workflowReminderStateV10_.seq;
-      var list=document.getElementById('workflowReminderListV10'); if(list&&force)list.innerHTML='<div class="wre-v10-loading">Memeriksa proses kerja terbaru...</div>';
-      google.script.run.withSuccessHandler(function(res){if(seq!==workflowReminderStateV10_.seq)return;workflowReminderStateV10_.loading=false;if(!res||res.sukses!==true){if(res&&res.kode==='SESSION_EXPIRED'){prosesLogout();return;}if(list)list.innerHTML='<div class="wre-v10-empty">'+wreV10Esc_((res&&res.pesan)||'Pengingat belum dapat dimuat.')+'</div>';return;}renderWorkflowReminderV10_(res);}).withFailureHandler(function(err){if(seq!==workflowReminderStateV10_.seq)return;workflowReminderStateV10_.loading=false;if(list)list.innerHTML='<div class="wre-v10-empty">Gagal memuat pengingat: '+wreV10Esc_(err&&err.message||err||'Unknown')+'</div>';}).ambilWorkflowReminderV10(sToken);
+      var list=document.getElementById('workflowReminderListV10'); if(list&&force)list.innerHTML='<div class="wre-v10-loading">Memuat riwayat pengingat...</div>';
+      google.script.run.withSuccessHandler(function(res){if(seq!==workflowReminderStateV10_.seq)return;workflowReminderStateV10_.loading=false;if(!res||res.sukses!==true){if(res&&res.kode==='SESSION_EXPIRED'){prosesLogout();return;}if(list)list.innerHTML='<div class="wre-v10-empty">'+wreV10Esc_((res&&res.pesan)||'Riwayat pengingat belum dapat dimuat.')+'</div>';return;}renderWorkflowReminderV10_(res);}).withFailureHandler(function(err){if(seq!==workflowReminderStateV10_.seq)return;workflowReminderStateV10_.loading=false;if(list)list.innerHTML='<div class="wre-v10-empty">Gagal memuat riwayat pengingat: '+wreV10Esc_(err&&err.message||err||'Unknown')+'</div>';}).ambilWorkflowReminderV10(sToken);
     }
     function muatWorkflowReminderBadgeV10_(){
       if(!sToken||workflowReminderStateV10_.loading)return; var now=Date.now(); if(now-workflowReminderStateV10_.lastBadgeAt<60000)return; workflowReminderStateV10_.lastBadgeAt=now;
       google.script.run.withSuccessHandler(function(res){if(res&&res.sukses===true)wreV10SetBadge_(res.summary||{});}).withFailureHandler(function(){}).ambilWorkflowReminderV10(sToken);
     }
     function mulaiMonitorWorkflowReminderV10_(){
-      if(workflowReminderStateV10_.badgeTimer)clearInterval(workflowReminderStateV10_.badgeTimer); setTimeout(muatWorkflowReminderBadgeV10_,1200); workflowReminderStateV10_.badgeTimer=setInterval(function(){if(sToken)muatWorkflowReminderBadgeV10_();},15*60*1000);
+      // RC2 Navigation Clarity: WRE no longer owns a sidebar badge or operational inbox polling.
+      if(workflowReminderStateV10_.badgeTimer){clearInterval(workflowReminderStateV10_.badgeTimer);workflowReminderStateV10_.badgeTimer=null;}
     }
     function bukaRouteWorkflowReminderV10_(menuId,pageId,title){
       if(!pageId)return; var menu=document.getElementById(menuId||''); bukaHalaman({currentTarget:menu},pageId,title||'Tindak Lanjut');
+    }
+    function bukaPerluTindakanDariRiwayatV10_(){
+      bukaHalaman(null,'halExceptionActionCenter','Perlu Tindakan');
+      var menu=document.getElementById('menuExceptionActionCenter');if(menu)menu.classList.add('active');
+    }
+    function bukaRiwayatPengingatDariEacV10_(){
+      bukaHalaman(null,'halWorkflowReminder','Riwayat Pengingat');
     }
     // ===== END Workflow Reminder & Escalation Engine v1.0 =====
 
@@ -22842,9 +22857,9 @@ function adminSpreadsheetFieldRawValue_(field) {
     // ===== END Exception & Action Center v1.0 =====
 
     // ===== Production Smoke & Frontend Integrity Guard v1.0 =====
-    var FRONTEND_INTEGRITY_VERSION_V10 = 'PSFIG-v1.0-2026.10.03.03';
-    var FRONTEND_INTEGRITY_BUILD_ID_V10 = 'PSFIG-2026.10.03.03-e0d7076a80b9';
-    var FRONTEND_INTEGRITY_FINGERPRINT_V10 = 'e0d7076a80b923e7096f53770050843f8cfa08fe5fc36085095536ef5738e187';
+    var FRONTEND_INTEGRITY_VERSION_V10 = 'PSFIG-v1.0-2026.10.04.01';
+    var FRONTEND_INTEGRITY_BUILD_ID_V10 = 'PSFIG-2026.10.04.01-1797d2ed8df6';
+    var FRONTEND_INTEGRITY_FINGERPRINT_V10 = '1797d2ed8df6678979113ae3934c77749bc4d8b43ffd2b626e0cc0946a37d465';
     var FRONTEND_INTEGRITY_CRITICAL_DOM_V10 = [
       'halamanLogin','aplikasiUtama','inputUsername','inputPin','btnLogin','pesanLogin','menuNavigasi','judulHal',
       'halDash','halTimeline','halDisposisi','halInput','halRiwayat','halRekap','halTunjangan','halReviewCenter',
