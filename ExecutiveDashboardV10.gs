@@ -1,10 +1,10 @@
 // ============================================================
-// DASHBOARD EKSEKUTIF v1.0 — RC1
-// APP_VERSION 2026.10.04.02
+// DASHBOARD EKSEKUTIF v1.0 — RC2
+// APP_VERSION 2026.10.04.03
 // Hanya-baca. Tidak mengubah Review/Tunjangan/Closing/Arsip/WRE/EAC.
 // ============================================================
 
-var EXECUTIVE_DASHBOARD_V10_VERSION_ = 'EXEC-DASH-v1.0-RC1-2026.10.04.02';
+var EXECUTIVE_DASHBOARD_V10_VERSION_ = 'EXEC-DASH-v1.0-RC2-2026.10.04.03';
 var EXEC_DASH_V10_CACHE_TTL_SECONDS_ = 180;
 var EXEC_DASH_V10_WINDOW_MONTHS_ = 6;
 var EXEC_DASH_V10_MAX_ATTENTION_ = 5;
@@ -25,7 +25,7 @@ function execDashV10NormalizeRequest_(request) {
   var windowMonths = request.windowMonths == null || request.windowMonths === ''
     ? EXEC_DASH_V10_WINDOW_MONTHS_ : Number(request.windowMonths);
   if (windowMonths !== EXEC_DASH_V10_WINDOW_MONTHS_) {
-    var ew = new Error('RC1 hanya mendukung jendela 6 bulan.');
+    var ew = new Error('RC2 hanya mendukung jendela 6 bulan.');
     ew.code = 'WINDOW_UNSUPPORTED';
     throw ew;
   }
@@ -248,26 +248,72 @@ function execDashV10BuildAttention_(rows) {
   return items.slice(0, EXEC_DASH_V10_MAX_ATTENTION_);
 }
 
-function execDashV10AllowancePoint_(periode, estimate, allowance) {
+function execDashV10AllowanceBlockerClass_(blockers) {
+  var soft = {
+    SNAPSHOT_BERBEDA_DENGAN_HITUNG_ULANG:true,
+    PENDING_REVIEW_PENGHAMBAT_TUNJANGAN:true
+  };
+  var list = (blockers || []).map(function (x) { return String(x || ''); }).filter(Boolean);
+  if (!list.length) return 'NONE';
+  return list.every(function (x) { return soft[x] === true; }) ? 'REVALIDATION_ONLY' : 'STRUCTURAL';
+}
+
+function execDashV10AllowanceWorkflowHint_(status) {
+  var s = String(status || '');
+  if (s === 'Disetujui Lurah') return 'Belum diteruskan ke Bendahara';
+  if (s === String(TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA)) return 'Menunggu pencairan Bendahara';
+  if (s === String(TUNJANGAN_STATUS.SUDAH_DICAIRKAN)) return 'Sudah dicairkan';
+  if (s === 'Diajukan ke Lurah') return 'Menunggu persetujuan Lurah';
+  if (s === 'Dikunci Carik') return 'Belum diajukan ke Lurah';
+  if (s === 'Draft') return 'Batch masih draft';
+  if (s === 'Dikembalikan Lurah') return 'Perlu diperbaiki Carik';
+  return '';
+}
+
+function execDashV10AllowancePoint_(periode, estimate, allowance, adminSummary) {
   if (allowance == null) {
-    return { periode:periode, amount:null, kind:'UNKNOWN', status:'BELUM_DAPAT_DIBACA', batchId:'', employees:null, blockers:[] };
+    return { periode:periode, amount:null, kind:'UNKNOWN', status:'BELUM_DAPAT_DIBACA', batchId:'', employees:null, blockers:[], workflowHint:'' };
   }
   if (allowance.exists === false) {
-    return { periode:periode, amount:Number(estimate || 0), kind:'ESTIMASI', status:String(allowance.status || 'BELUM ADA BATCH'), batchId:'', employees:0, blockers:[] };
+    var est = Number(estimate);
+    var reports = adminSummary ? Number(adminSummary.laporanMasuk || 0) : null;
+    var pending = adminSummary ? Number(adminSummary.menungguReview || 0) : null;
+    var canEstimate = isFinite(est) && ((adminSummary && reports > 0 && pending === 0) || (!adminSummary && est > 0));
+    if (!canEstimate) {
+      return {
+        periode:periode, amount:null, kind:'BELUM_DAPAT_DIHITUNG', status:String(allowance.status || 'BELUM ADA BATCH'),
+        batchId:'', employees:0, blockers:[], workflowHint:pending > 0 ? 'Review periode belum selesai' : 'Belum ada data cukup untuk estimasi'
+      };
+    }
+    return {
+      periode:periode, amount:est, kind:'ESTIMASI', status:String(allowance.status || 'BELUM ADA BATCH'),
+      batchId:'', employees:0, blockers:[], workflowHint:'Belum ada batch resmi'
+    };
   }
-  if (allowance.valid !== true) {
-    return { periode:periode, amount:null, kind:'BLOCKED', status:String(allowance.status || 'BATCH TIDAK VALID'), batchId:String(allowance.batchId || ''), employees:Number(allowance.employees || 0), blockers:(allowance.blockers || []).slice() };
+
+  var blockers = (allowance.blockers || []).slice();
+  var blockerClass = execDashV10AllowanceBlockerClass_(blockers);
+  if (allowance.valid !== true && blockerClass === 'STRUCTURAL') {
+    return {
+      periode:periode, amount:null, kind:'BLOCKED', status:String(allowance.status || 'BATCH TIDAK VALID'),
+      batchId:String(allowance.batchId || ''), employees:Number(allowance.employees || 0), blockers:blockers,
+      workflowHint:'Batch perlu diperiksa sebelum dipakai sebagai nilai eksekutif'
+    };
   }
-  var kind = allowance.frozenSnapshot === true ? 'FINAL' : 'BATCH_BELUM_FINAL';
+
+  var status = String(allowance.status || '');
+  var kind = allowance.frozenSnapshot === true ? 'FINAL' : (allowance.valid === true ? 'BATCH_BELUM_FINAL' : 'BATCH_TERCATAT');
   return {
     periode:periode,
     amount:Number(allowance.totalNominal || 0),
     kind:kind,
-    status:String(allowance.status || ''),
+    status:status,
     batchId:String(allowance.batchId || ''),
     employees:Number(allowance.employees || 0),
-    blockers:[],
-    paid:String(allowance.status || '') === String(TUNJANGAN_STATUS.SUDAH_DICAIRKAN)
+    blockers:blockers,
+    dataQuality:allowance.valid === true ? 'TERVALIDASI' : 'PERLU_VERIFIKASI_ULANG',
+    workflowHint:execDashV10AllowanceWorkflowHint_(status),
+    paid:status === String(TUNJANGAN_STATUS.SUDAH_DICAIRKAN)
   };
 }
 
@@ -278,7 +324,7 @@ function execDashV10AllowanceTrend_(periods, adminByPeriod) {
     try {
       var a = mcV10Allowance_(p);
       allowanceByPeriod[p] = a;
-      points.push(execDashV10AllowancePoint_(p, estimate, a));
+      points.push(execDashV10AllowancePoint_(p, estimate, a, adminByPeriod[p] && adminByPeriod[p].summary ? adminByPeriod[p].summary : null));
     } catch (e) {
       var er = { periode:p, code:String(e && e.code || 'ALLOWANCE_READ_FAILED'), message:String(e && e.message || e) };
       errors.push(er);
@@ -301,6 +347,7 @@ function execDashV10CyclePayment_(allowance) {
   var s = String(allowance.status || '');
   if (s === String(TUNJANGAN_STATUS.SUDAH_DICAIRKAN)) return 'SUDAH_DICAIRKAN';
   if (s === String(TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA)) return 'MENUNGGU_PENCAIRAN';
+  if (s === 'Disetujui Lurah') return 'BELUM_DITERUSKAN_KE_BENDAHARA';
   return 'BELUM_SAMPAI_TAHAP_PENCAIRAN';
 }
 
@@ -337,7 +384,7 @@ function execDashV10CycleStatus_(periods, selectedPeriod, trendByPeriod, allowan
       errors.push({ source:'archive', periode:p, code:'ARCHIVE_READ_FAILED', message:String(eA && eA.message || eA) });
       archive = { status:'TIDAK_DAPAT_DIBACA', integrityStatus:'', archiveId:'' };
     }
-    var allowanceStatus = allowance == null ? 'TIDAK_DAPAT_DIBACA' : (allowance.exists === false ? 'BELUM_ADA_BATCH' : (allowance.valid === true ? String(allowance.status || 'BATCH_VALID') : 'TERHAMBAT'));
+    var allowanceStatus = allowance == null ? 'TIDAK_DAPAT_DIBACA' : (allowance.exists === false ? 'BELUM_ADA_BATCH' : (allowance.valid !== true && execDashV10AllowanceBlockerClass_(allowance.blockers || []) === 'STRUCTURAL' ? 'BATCH_BERMASALAH' : String(allowance.status || 'BATCH_VALID')));
     out.push({
       periode:p,
       review:execDashV10CycleReview_(trendByPeriod[p]),
@@ -496,19 +543,21 @@ function ambilExecutiveDashboardV10(request, token) {
 function validasiExecutiveDashboardV10() {
   var checks = [];
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail == null ? '' : detail) }); }
-  add_('VERSION', EXECUTIVE_DASHBOARD_V10_VERSION_ === 'EXEC-DASH-v1.0-RC1-2026.10.04.02', EXECUTIVE_DASHBOARD_V10_VERSION_);
-  add_('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.04.02', typeof APP_VERSION !== 'undefined' ? APP_VERSION : '');
+  add_('VERSION', EXECUTIVE_DASHBOARD_V10_VERSION_ === 'EXEC-DASH-v1.0-RC2-2026.10.04.03', EXECUTIVE_DASHBOARD_V10_VERSION_);
+  add_('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.04.03', typeof APP_VERSION !== 'undefined' ? APP_VERSION : '');
   add_('PUBLIC_ENDPOINT', typeof ambilExecutiveDashboardV10 === 'function', typeof ambilExecutiveDashboardV10);
   add_('WINDOW_6', EXEC_DASH_V10_WINDOW_MONTHS_ === 6, EXEC_DASH_V10_WINDOW_MONTHS_);
   add_('CACHE_180', EXEC_DASH_V10_CACHE_TTL_SECONDS_ === 180, EXEC_DASH_V10_CACHE_TTL_SECONDS_);
   add_('LATE_CUTOFF_DEFERRED', EXEC_DASH_V10_LATE_CUTOFF_DEFERRED_ === true, EXEC_DASH_V10_LATE_CUTOFF_DEFERRED_);
   add_('MEDIAN_ODD', execDashV10Median_([1,3,5]) === 3, execDashV10Median_([1,3,5]));
   add_('MEDIAN_EVEN', execDashV10Median_([1,3,5,7]) === 4, execDashV10Median_([1,3,5,7]));
-  add_('ALLOWANCE_ESTIMATE', execDashV10AllowancePoint_('2026-10',123,{exists:false,status:'BELUM ADA BATCH'}).kind === 'ESTIMASI', 'ESTIMASI');
+  add_('ALLOWANCE_ESTIMATE', execDashV10AllowancePoint_('2026-10',123,{exists:false,status:'BELUM ADA BATCH'},{laporanMasuk:2,menungguReview:0}).kind === 'ESTIMASI', 'ESTIMASI');
   add_('ALLOWANCE_BLOCKED', execDashV10AllowancePoint_('2026-10',123,{exists:true,valid:false,status:'Draft',blockers:['X']}).kind === 'BLOCKED', 'BLOCKED');
   add_('FINAL_REQUIRES_FROZEN', execDashV10AllowancePoint_('2026-10',123,{exists:true,valid:true,frozenSnapshot:false,totalNominal:200,status:'Dikunci Carik'}).kind === 'BATCH_BELUM_FINAL', 'BATCH_BELUM_FINAL');
   add_('ATTENTION_MAX_5', execDashV10BuildAttention_([{idUser:'1',nama:'1',jumlahLaporan:0},{idUser:'2',nama:'2',jumlahLaporan:0},{idUser:'3',nama:'3',jumlahLaporan:0},{idUser:'4',nama:'4',jumlahLaporan:0},{idUser:'5',nama:'5',jumlahLaporan:0},{idUser:'6',nama:'6',jumlahLaporan:0}]).length === 5, EXEC_DASH_V10_MAX_ATTENTION_);
   add_('NO_LATE_CUTOFF_REASON', JSON.stringify(execDashV10BuildAttention_([{idUser:'1',nama:'A',jumlahLaporan:0,jumlahMenunggu:0,jumlahDitolak:0}])).indexOf('LATE_CUTOFF') === -1, 'DEFERRED');
+  add_('NO_ZERO_WHEN_REVIEW_PENDING', execDashV10AllowancePoint_('2026-10',0,{exists:false,status:'BELUM ADA BATCH'},{laporanMasuk:101,menungguReview:101}).kind === 'BELUM_DAPAT_DIHITUNG', 'BELUM_DAPAT_DIHITUNG');
+  add_('HISTORICAL_RECORDED_BATCH_VISIBLE', execDashV10AllowancePoint_('2026-07',0,{exists:true,valid:false,frozenSnapshot:false,totalNominal:5536872,status:'Disetujui Lurah',batchId:'B',employees:19,blockers:['SNAPSHOT_BERBEDA_DENGAN_HITUNG_ULANG']}).kind === 'BATCH_TERCATAT', 'BATCH_TERCATAT');
   add_('READ_ONLY_POLICY', true, 'Tidak ada endpoint write pada modul Dashboard Eksekutif.');
   var passed = checks.filter(function (x) { return x.lulus; }).length;
   return { sukses:passed===checks.length, valid:passed===checks.length, versi:EXECUTIVE_DASHBOARD_V10_VERSION_, appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), jumlah:checks.length, lulus:passed, gagal:checks.length-passed, checks:checks };

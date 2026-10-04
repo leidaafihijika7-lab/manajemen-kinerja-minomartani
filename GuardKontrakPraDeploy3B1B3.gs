@@ -1,8 +1,8 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
-// Baseline kontrak: Dashboard Eksekutif v1.0 RC1 — 191 binding aktif
-// Baseline kode kandidat: APP_VERSION 2026.10.04.02
+// Baseline kontrak: Dashboard Eksekutif v1.0 RC2 — 191 binding aktif
+// Baseline kode kandidat: APP_VERSION 2026.10.04.03
 //
 // READ-ONLY:
 // - tidak memanggil endpoint/fungsi bisnis yang dilindungi;
@@ -11,8 +11,8 @@
 // - tidak mengubah poin/status review/schema.
 // ============================================================
 
-var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3ac-2026.10.04.02";
-var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.04.02";
+var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3ac-2026.10.04.03";
+var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.04.03";
 var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 191;
 var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "01dc3ebc21cc56d115242ecada2c36b13c31a68d498fdd7c760cabc5a0684b59";
 

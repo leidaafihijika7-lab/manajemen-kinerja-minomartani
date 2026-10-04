@@ -1,6 +1,6 @@
 // ============================================================
 // MONTHLY ARCHIVE v1.0 — IMMUTABLE MONTH-END EVIDENCE PACKAGE
-// Module RC1 2026.10.02.04; integrated APP_VERSION 2026.10.04.02
+// Module RC1 2026.10.02.04; integrated APP_VERSION 2026.10.04.03
 //
 // Prinsip:
 // - archive hanya boleh dibuat setelah Monthly Closing lengkap dan batch Sudah Dicairkan;
@@ -438,7 +438,7 @@ function validasiMonthlyArchiveV10() {
   var checks = [];
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail || '') }); }
   add_('MODULE_VERSION', MONTHLY_ARCHIVE_V10_VERSION_ === 'MA-v1.0-RC1-2026.10.02.04', MONTHLY_ARCHIVE_V10_VERSION_);
-  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.04.02', String(APP_VERSION || ''));
+  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.04.03', String(APP_VERSION || ''));
   add_('READ_ENDPOINT', typeof ambilMonthlyArchiveV10 === 'function', typeof ambilMonthlyArchiveV10);
   add_('CREATE_ENDPOINT', typeof buatArsipBulananV10 === 'function', typeof buatArsipBulananV10);
   add_('VERIFY_ENDPOINT', typeof verifikasiArsipBulananV10 === 'function', typeof verifikasiArsipBulananV10);
