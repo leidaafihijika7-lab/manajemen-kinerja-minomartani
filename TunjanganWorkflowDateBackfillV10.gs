@@ -1,6 +1,6 @@
 // ============================================================================
 // TUNJANGAN WORKFLOW DATE & HISTORICAL BACKFILL GUARD v1.0
-// Integrated APP_VERSION 2026.10.03.02
+// Integrated APP_VERSION 2026.10.03.03
 //
 // Prinsip:
 // - Kolom tanggal workflow menyimpan TANGGAL KEJADIAN AKTUAL.
@@ -159,7 +159,7 @@ function validasiTunjanganWorkflowDateBackfillV10() {
   var checks = [];
   function add_(id, ok, detail) { checks.push({ id:id, lulus:!!ok, detail:String(detail == null ? '' : detail) }); }
   add_('MODULE_VERSION', TUNJANGAN_WORKFLOW_DATE_BACKFILL_V10_VERSION_ === 'TWDB-v1.0-RC1-2026.10.02.05', TUNJANGAN_WORKFLOW_DATE_BACKFILL_V10_VERSION_);
-  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.03.02', String(APP_VERSION || ''));
+  add_('APP_VERSION', String(APP_VERSION || '') === '2026.10.03.03', String(APP_VERSION || ''));
   var n = twdbV10NormalizeTransitionInput_({ tanggalAktual:'2026-09-29', catatan:'Sesuai', expectedBatchId:'B' });
   add_('NORMALIZE_DATE', n.valid && n.tanggalAktualIso === '2026-09-29', n.tanggalAktualIso || n.pesan);
   var future = new Date(); future.setDate(future.getDate()+2);

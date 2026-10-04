@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.03.02
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.03.03
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1v-2026.10.03.02";
+  "3B1B1v-2026.10.03.03";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.10.03.02",
+  baselineAppVersion: "2026.10.03.03",
 
   policy: {
     privateByDefault: true,
@@ -51,6 +51,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilMetadataLampiranAdminLazy",
       "ambilOperationalHealthCenterV10",
       "ambilWorkflowReminderV10",
+      "ambilExceptionActionCenterV10",
       "ambilReviewCenterAdminV10",
       "ambilMonthlyClosingV10",
       "ambilMonthlyArchiveV10",
@@ -180,6 +181,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiTunjanganWorkflowDateBackfillV10",
       "validasiKoreksiAdministratifTanggalPembayaranV10",
       "validasiWorkflowReminderEscalationV10",
+      "validasiExceptionActionCenterV10",
       "ambilFrontendIntegrityManifestV10",
       "validasiProductionSmokeFrontendV10",
       "validasiPreflightSeptember2026V01",

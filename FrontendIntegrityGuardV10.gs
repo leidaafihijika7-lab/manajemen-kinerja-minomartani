@@ -1,6 +1,6 @@
 // ============================================================
 // PRODUCTION SMOKE & FRONTEND INTEGRITY GUARD v1.0
-// Kandidat APP_VERSION 2026.10.03.02
+// Kandidat APP_VERSION 2026.10.03.03
 //
 // READ-ONLY:
 // - tidak membaca/menulis Spreadsheet;
@@ -8,17 +8,18 @@
 // - manifest publik hanya berisi metadata build non-sensitif.
 // ============================================================
 
-var PORTAL_FRONTEND_INTEGRITY_V10_VERSION = "PSFIG-v1.0-2026.10.03.02";
-var PORTAL_FRONTEND_INTEGRITY_APP_VERSION_V10 = "2026.10.03.02";
-var PORTAL_FRONTEND_INTEGRITY_BUILD_ID_V10 = "PSFIG-2026.10.03.02-86403d7e6dc8";
-var PORTAL_FRONTEND_INTEGRITY_FINGERPRINT_V10 = "86403d7e6dc8fac11e8d7aad64efc0791f9ea85bb70d61ff71373cd2f9def1b7";
+var PORTAL_FRONTEND_INTEGRITY_V10_VERSION = "PSFIG-v1.0-2026.10.03.03";
+var PORTAL_FRONTEND_INTEGRITY_APP_VERSION_V10 = "2026.10.03.03";
+var PORTAL_FRONTEND_INTEGRITY_BUILD_ID_V10 = "PSFIG-2026.10.03.03-e0d7076a80b9";
+var PORTAL_FRONTEND_INTEGRITY_FINGERPRINT_V10 = "e0d7076a80b923e7096f53770050843f8cfa08fe5fc36085095536ef5738e187";
 
 var PORTAL_FRONTEND_CRITICAL_DOM_IDS_V10_ = [
   "halamanLogin", "aplikasiUtama", "inputUsername", "inputPin", "btnLogin", "pesanLogin",
   "menuNavigasi", "judulHal", "halDash", "halTimeline", "halDisposisi", "halInput",
   "halRiwayat", "halRekap", "halTunjangan", "halReviewCenter", "halAdminKinerja",
   "halMonthlyClosing", "halMonthlyArchive", "halOperationalHealth", "menuReviewCenter", "menuMonthlyClosing", "menuMonthlyArchive", "menuAdminKinerja", "menuOperationalHealth",
-  "btnKoreksiTanggalPembayaran", "modalKoreksiTanggalPembayaran", "halWorkflowReminder", "menuWorkflowReminder", "workflowReminderBadgeV10"
+  "btnKoreksiTanggalPembayaran", "modalKoreksiTanggalPembayaran", "halWorkflowReminder", "menuWorkflowReminder", "workflowReminderBadgeV10",
+  "halExceptionActionCenter", "menuExceptionActionCenter", "exceptionActionBadgeV10", "exceptionActionNoticeV10", "exceptionActionSummaryV10", "exceptionActionMineV10", "exceptionActionMonitoringV10", "exceptionActionListV10"
 ];
 
 var PORTAL_FRONTEND_CRITICAL_FUNCTIONS_V10_ = [
@@ -26,20 +27,20 @@ var PORTAL_FRONTEND_CRITICAL_FUNCTIONS_V10_ = [
   "bukaHalaman", "muatDashboard", "muatTimeline", "muatRiwayat", "muatRekap", "muatTunjangan",
   "muatReviewCenterAdminV10", "muatDashboardAdminKinerja", "muatOperationalHealthV10", "muatMonthlyClosingV10", "muatMonthlyArchiveV10",
   "userIsAdminUtama", "terapkanAksesDisposisiDariSesi_", "koreksiAdministratifTanggalPembayaranUI_", "simpanKoreksiTanggalPembayaranUI_",
-  "muatWorkflowReminderV10", "mulaiMonitorWorkflowReminderV10_"
+  "muatWorkflowReminderV10", "mulaiMonitorWorkflowReminderV10_", "muatExceptionActionCenterV10", "mulaiMonitorExceptionActionV10_"
 ];
 
 var PORTAL_FRONTEND_ROUTE_TARGETS_V10_ = [
   "halDash", "halTimeline", "halDisposisi", "halInput", "halRiwayat", "halRekap",
-  "halTunjangan", "halReviewCenter", "halMonthlyClosing", "halMonthlyArchive", "halWorkflowReminder", "halAdminKinerja", "halOperationalHealth"
+  "halTunjangan", "halReviewCenter", "halMonthlyClosing", "halMonthlyArchive", "halWorkflowReminder", "halExceptionActionCenter", "halAdminKinerja", "halOperationalHealth"
 ];
 
 var PORTAL_FRONTEND_FORBIDDEN_LEGACY_IDS_V10_ = ["menuAdmin", "halAdmin"];
 
 var PORTAL_FRONTEND_STATIC_ATTESTATION_V10_ = {
-  appVersion: "2026.10.03.02",
-  buildId: "PSFIG-2026.10.03.02-86403d7e6dc8",
-  fingerprint: "86403d7e6dc8fac11e8d7aad64efc0791f9ea85bb70d61ff71373cd2f9def1b7",
+  appVersion: "2026.10.03.03",
+  buildId: "PSFIG-2026.10.03.03-e0d7076a80b9",
+  fingerprint: "e0d7076a80b923e7096f53770050843f8cfa08fe5fc36085095536ef5738e187",
   staticAuditPassed: true,
   unexpectedMissingDomRefs: 0,
   missingCriticalDom: 0,
@@ -109,10 +110,10 @@ function validasiProductionSmokeFrontendV10() {
   add_("FUNCTION_REGISTRY", struktur.valid === true, struktur.valid ? "valid" : "invalid");
 
   var snap = typeof bangunSnapshotKontrakAktif3B1B2_ === "function" ? bangunSnapshotKontrakAktif3B1B2_() : { rows:[], checksumAktif:"" };
-  var bindingOk = snap.rows.length === 189 && snap.rows.every(function (r) { return r.match === true; }) && String(snap.checksumAktif || "") === String(PORTAL_FUNCTION_CONTRACT_CHECKSUM_3B1B2_ || "");
-  add_("BUSINESS_BINDING_189", bindingOk, snap.rows.length + "/189");
+  var bindingOk = snap.rows.length === 190 && snap.rows.every(function (r) { return r.match === true; }) && String(snap.checksumAktif || "") === String(PORTAL_FUNCTION_CONTRACT_CHECKSUM_3B1B2_ || "");
+  add_("BUSINESS_BINDING_190", bindingOk, snap.rows.length + "/190");
 
-  var backendNames = ["cekLogin","cekSessionAktif","getAppVersion","ambilReviewCenterAdminV10","ambilOperationalHealthCenterV10","ambilMonthlyClosingV10","tutupPeriodeMonthlyClosingV10","ambilMonthlyArchiveV10","buatArsipBulananV10","verifikasiArsipBulananV10","prosesReviewAdmin","ambilWorkflowReminderV10"];
+  var backendNames = ["cekLogin","cekSessionAktif","getAppVersion","ambilReviewCenterAdminV10","ambilOperationalHealthCenterV10","ambilMonthlyClosingV10","tutupPeriodeMonthlyClosingV10","ambilMonthlyArchiveV10","buatArsipBulananV10","verifikasiArsipBulananV10","prosesReviewAdmin","ambilWorkflowReminderV10","ambilExceptionActionCenterV10"];
   var missingBackend = backendNames.filter(function (name) { return typeof resolveBindingFungsi3B1B2_ === "function" ? !resolveBindingFungsi3B1B2_(name) : true; });
   add_("CRITICAL_BACKEND_FUNCTIONS", missingBackend.length === 0, missingBackend.join(", "));
 
