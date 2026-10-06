@@ -112,8 +112,8 @@ function validasiProductionSmokeFrontendV10() {
   add_("FUNCTION_REGISTRY", struktur.valid === true, struktur.valid ? "valid" : "invalid");
 
   var snap = typeof bangunSnapshotKontrakAktif3B1B2_ === "function" ? bangunSnapshotKontrakAktif3B1B2_() : { rows:[], checksumAktif:"" };
-  var bindingOk = snap.rows.length === 204 && snap.rows.every(function (r) { return r.match === true; }) && String(snap.checksumAktif || "") === String(PORTAL_FUNCTION_CONTRACT_CHECKSUM_3B1B2_ || "");
-  add_("BUSINESS_BINDING_204", bindingOk, snap.rows.length + "/204");
+  var bindingOk = snap.rows.length === 206 && snap.rows.every(function (r) { return r.match === true; }) && String(snap.checksumAktif || "") === String(PORTAL_FUNCTION_CONTRACT_CHECKSUM_3B1B2_ || "");
+  add_("BUSINESS_BINDING_206", bindingOk, snap.rows.length + "/206");
 
   var backendNames = ["cekLogin","cekSessionAktif","getAppVersion","ambilReviewCenterAdminV10","ambilOperationalHealthCenterV10","ambilMonthlyClosingV10","tutupPeriodeMonthlyClosingV10","ambilMonthlyArchiveV10","buatArsipBulananV10","verifikasiArsipBulananV10","prosesReviewAdmin","ambilWorkflowReminderV10","ambilExceptionActionCenterV10","ambilExecutiveDashboardV10","ambilBackupRecoveryCenterV10"];
   var missingBackend = backendNames.filter(function (name) { return typeof resolveBindingFungsi3B1B2_ === "function" ? !resolveBindingFungsi3B1B2_(name) : true; });

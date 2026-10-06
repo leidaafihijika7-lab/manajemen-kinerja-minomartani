@@ -5,7 +5,7 @@
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1v-2026.10.05.01";
+  "3B1B1x-2026.10.05.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
@@ -132,6 +132,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "hapusTriggerWorkflowReminderV10",
       "maintenanceBuatRecoveryCandidateBDRV10",
       "maintenanceDryRunRecoveryBDRV10",
+      "maintenanceJalankanDrDrillBDRV10",
+      "maintenanceJalankanDrDrillTerbaruBDRV10",
       "maintenanceAktifkanRecoveryCandidateBDRV10",
       "maintenanceRollbackRecoveryBDRV10",
       "maintenancePulihkanKonfigurasiBDRV10",

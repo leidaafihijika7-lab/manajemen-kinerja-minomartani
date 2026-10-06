@@ -1,7 +1,7 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 3
 // GUARD KONTRAK PRA-DEPLOY
-// Baseline kontrak: BDR v1.0 RC1 read-only integration — 204 binding aktif
+// Baseline kontrak: BDR v1.0 RC1 + DR Drill — 206 binding aktif
 // Baseline kode kandidat: APP_VERSION 2026.10.05.01
 //
 // READ-ONLY:
@@ -13,8 +13,8 @@
 
 var PORTAL_PREDEPLOY_GUARD_3B1B3_VERSION = "3B1B3ad-2026.10.05.01";
 var PORTAL_PREDEPLOY_BASELINE_APP_VERSION_3B1B3 = "2026.10.05.01";
-var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 204;
-var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "936f289d899eb988dbdb818c267be735f55b87bb449152ead0dda53705197c27";
+var PORTAL_PREDEPLOY_BASELINE_TOTAL_3B1B3 = 206;
+var PORTAL_PREDEPLOY_BASELINE_CHECKSUM_3B1B3 = "24414c4797d36b0a4d0eba30b341260795a9a43b935aaa91fcc401609de33dc8";
 
 // Tool governance Batch 3 sengaja tidak menjadi bagian snapshot 173 Batch 2g.
 // Nama-nama ini boleh tercatat di registry tanpa dianggap ekspansi kontrak bisnis.

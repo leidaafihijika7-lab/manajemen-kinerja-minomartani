@@ -28,7 +28,7 @@
 // - deployment produksi dan pemasangan trigger BDR
 // ============================================================
 
-var BACKUP_DISASTER_RECOVERY_V10_VERSION_ = 'BDR-v1.0-RC1-HF1-2026.10.05.01';
+var BACKUP_DISASTER_RECOVERY_V10_VERSION_ = 'BDR-v1.0-RC1-DRILL-2026.10.05.01';
 var BDR_V10_STABLE_SOURCE_AUTHORITY_ = 'SCRIPT_PROPERTY_RELEASE_POINTER';
 var BDR_V10_ROOT_PROP_ = 'FOLDER_ID_BDR';
 var BDR_V10_STABLE_GIT_SHA_PROP_ = 'BDR_STABLE_GIT_SHA';
@@ -44,6 +44,8 @@ var BDR_V10_CHUNK_ROWS_ = 250;
 var BDR_V10_FOLDER_RECOVERY_POINTS_ = 'RECOVERY_POINTS';
 var BDR_V10_FOLDER_RECOVERY_CANDIDATES_ = 'RECOVERY_CANDIDATES';
 var BDR_V10_FOLDER_DR_DRILLS_ = 'DR_DRILLS';
+var BDR_V10_DRILL_MANIFEST_NAME_ = '00_DR_DRILL.json';
+var BDR_V10_DRILL_VALIDATION_NAME_ = '01_DR_DRILL_VALIDATION.json';
 var BDR_V10_MANIFEST_NAME_ = '00_BDR_MANIFEST.json';
 var BDR_V10_FINGERPRINTS_NAME_ = '01_SHEET_FINGERPRINTS.json';
 var BDR_V10_CONFIG_NAME_ = '02_CONFIG_SNAPSHOT.json';
@@ -720,6 +722,222 @@ function bdrV10FindCandidateFolder_(rootFolder, candidateId) {
 function bdrV10CandidateManifest_(folder) {
   var pack = bdrV10ReadJsonFile_(folder, BDR_V10_CANDIDATE_MANIFEST_NAME_);
   return pack ? pack.value : null;
+}
+
+
+function bdrV10DrillRoot_(rootFolder, createIfMissing) {
+  return bdrV10GetSingleChildFolder_(rootFolder, BDR_V10_FOLDER_DR_DRILLS_, createIfMissing);
+}
+
+function bdrV10BuildDrillId_(recoveryPointId, date, uuid) {
+  var suffix = String(uuid || Utilities.getUuid()).replace(/[^A-Za-z0-9]/g, '').slice(-8) || '00000000';
+  return 'DR-' + String(recoveryPointId || '').replace(/[^A-Za-z0-9._-]/g, '_') + '-' + bdrV10FormatIdTime_(date || bdrV10Now_()) + '-' + suffix;
+}
+
+function bdrV10FindDrillFolder_(rootFolder, drillId) {
+  var drills = bdrV10DrillRoot_(rootFolder, false);
+  if (!drills) return null;
+  var it = drills.getFoldersByName(String(drillId || ''));
+  if (!it.hasNext()) return null;
+  var folder = it.next();
+  if (it.hasNext()) throw new Error('BDR_DUPLICATE_DRILL_FOLDER:' + drillId);
+  return folder;
+}
+
+function bdrV10DrillManifest_(folder) {
+  var pack = bdrV10ReadJsonFile_(folder, BDR_V10_DRILL_MANIFEST_NAME_);
+  return pack ? pack.value : null;
+}
+
+function bdrV10ListDrillRecords_(rootFolder) {
+  var root = bdrV10DrillRoot_(rootFolder, false);
+  if (!root) return [];
+  var out = [], it = root.getFolders();
+  while (it.hasNext()) {
+    var folder = it.next();
+    var record = null;
+    try { record = bdrV10DrillManifest_(folder); } catch (e) { record = null; }
+    if (!record) continue;
+    record._folder = folder;
+    out.push(record);
+  }
+  out.sort(function (a, b) {
+    return bdrV10ParseDateMs_(b.completedAt || b.startedAt || b.createdAt) - bdrV10ParseDateMs_(a.completedAt || a.startedAt || a.createdAt);
+  });
+  return out;
+}
+
+function bdrV10LatestDrillView_(rootFolder, nowMs) {
+  var rows = bdrV10ListDrillRecords_(rootFolder);
+  if (!rows.length) return { status:'BELUM_PERNAH', createdAt:'', completedAt:'', ageHours:null, drillId:'', recoveryPointId:'', candidateId:'', blockers:[], warnings:[] };
+  var x = rows[0] || {};
+  return {
+    status:String(x.status || 'UNKNOWN'),
+    createdAt:String(x.startedAt || x.createdAt || ''),
+    completedAt:String(x.completedAt || ''),
+    ageHours:bdrV10AgeHours_(x.completedAt || x.startedAt || x.createdAt, nowMs),
+    drillId:String(x.drillId || ''),
+    recoveryPointId:String(x.recoveryPointId || ''),
+    candidateId:String(x.candidateId || ''),
+    candidateSpreadsheetId:String(x.candidateSpreadsheetId || ''),
+    durationMs:Number(x.durationMs || 0),
+    blockers:Array.isArray(x.blockers) ? x.blockers.slice() : [],
+    warnings:Array.isArray(x.warnings) ? x.warnings.slice() : [],
+    productionPointerUnchanged:x.safety && x.safety.productionPointerUnchanged === true,
+    cutoverStateUnchanged:x.safety && x.safety.cutoverStateUnchanged === true
+  };
+}
+
+function bdrV10RunDrill_(recoveryPointId, options) {
+  options = options || {};
+  recoveryPointId = String(recoveryPointId || '').trim();
+  var startedAt = bdrV10Now_();
+  var runId = String(options.runId || Utilities.getUuid());
+  var claim = bdrV10ClaimRun_(runId, 'DR_DRILL');
+  if (!claim.claimed) return { sukses:false, code:claim.code || 'LOCK_BUSY', recoveryPointId:recoveryPointId, dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+
+  var root = null, folder = null, record = null;
+  try {
+    root = bdrV10ResolveRoot_();
+    if (!root.valid) throw new Error(root.code || 'BDR_ROOT_UNAVAILABLE');
+    if (!recoveryPointId) throw new Error('RECOVERY_POINT_ID_REQUIRED');
+
+    var props = portalScriptProperties_();
+    var pointerBefore = String(props.getProperty('SPREADSHEET_ID') || '');
+    var cutoverBefore = String(props.getProperty(BDR_V10_LAST_CUTOVER_PROP_) || '');
+    var drillId = bdrV10BuildDrillId_(recoveryPointId, startedAt, runId);
+    var drillRoot = bdrV10DrillRoot_(root.folder, true);
+    folder = drillRoot.createFolder(drillId);
+    record = {
+      schemaVersion:'BDR-DR-DRILL-1.0',
+      bdrVersion:BACKUP_DISASTER_RECOVERY_V10_VERSION_,
+      appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''),
+      stableGitSha:String(props.getProperty(BDR_V10_STABLE_GIT_SHA_PROP_) || ''),
+      drillId:drillId,
+      recoveryPointId:recoveryPointId,
+      status:'RUNNING',
+      startedAt:bdrV10Iso_(startedAt),
+      completedAt:'',
+      durationMs:0,
+      candidateId:'',
+      candidateSpreadsheetId:'',
+      parentVerification:{ status:'PENDING', code:'' },
+      validation:{ status:'PENDING', blockers:[], warnings:[] },
+      blockers:[],
+      warnings:[],
+      safety:{
+        productionSpreadsheetIdBefore:pointerBefore,
+        productionSpreadsheetIdAfter:'',
+        productionPointerUnchanged:false,
+        cutoverStateBeforeHash:bdrV10Sha256_(cutoverBefore),
+        cutoverStateAfterHash:'',
+        cutoverStateUnchanged:false,
+        activationAttempted:false,
+        rollbackAttempted:false,
+        dataBisnisDiubah:false,
+        spreadsheetPointerDiubah:false
+      }
+    };
+    bdrV10WriteJsonFile_(folder, BDR_V10_DRILL_MANIFEST_NAME_, record);
+
+    var parentVerify = bdrV10VerifyRecoveryPoint_(recoveryPointId);
+    record.parentVerification = { status:parentVerify.sukses ? 'VERIFIED' : 'FAILED', code:String(parentVerify.code || '') };
+    bdrV10WriteJsonFile_(folder, BDR_V10_DRILL_MANIFEST_NAME_, record);
+    if (!parentVerify.sukses) throw new Error('RECOVERY_POINT_NOT_VERIFIED');
+
+    var create = bdrV10CreateCandidate_(recoveryPointId);
+    record.candidateId = String(create.candidateId || '');
+    record.candidateSpreadsheetId = String(create.candidateSpreadsheetId || '');
+
+    var dry = null;
+    if (create.candidateId) dry = bdrV10ValidateCandidateById_(create.candidateId);
+    else dry = { sukses:false, code:String(create.code || 'CANDIDATE_CREATE_FAILED'), validation:create.validation || {valid:false,status:'INVALID',blockers:['CANDIDATE_CREATE_FAILED'],warnings:[]} };
+
+    var validation = dry.validation || create.validation || { valid:false, status:'INVALID', blockers:[String(dry.code || create.code || 'DRILL_VALIDATION_MISSING')], warnings:[] };
+    var blockers = Array.isArray(validation.blockers) ? validation.blockers.slice() : [];
+    var warnings = Array.isArray(validation.warnings) ? validation.warnings.slice() : [];
+    if (create.sukses !== true) blockers.push(String(create.code || 'CANDIDATE_CREATE_FAILED'));
+    if (dry.sukses !== true) blockers.push(String(dry.code || 'CANDIDATE_INVALID'));
+
+    var pointerAfter = String(props.getProperty('SPREADSHEET_ID') || '');
+    var cutoverAfter = String(props.getProperty(BDR_V10_LAST_CUTOVER_PROP_) || '');
+    var pointerUnchanged = pointerAfter === pointerBefore;
+    var cutoverUnchanged = cutoverAfter === cutoverBefore;
+    if (!pointerUnchanged) blockers.push('PRODUCTION_POINTER_CHANGED_DURING_DRILL');
+    if (!cutoverUnchanged) blockers.push('CUTOVER_STATE_CHANGED_DURING_DRILL');
+
+    var seen = {};
+    blockers = blockers.filter(function (x) { x=String(x || ''); if (!x || seen['B:'+x]) return false; seen['B:'+x]=true; return true; });
+    warnings = warnings.filter(function (x) { x=String(x || ''); if (!x || seen['W:'+x]) return false; seen['W:'+x]=true; return true; });
+    var completedAt = bdrV10Now_();
+    record.completedAt = bdrV10Iso_(completedAt);
+    record.durationMs = Math.max(0, completedAt.getTime() - startedAt.getTime());
+    record.blockers = blockers;
+    record.warnings = warnings;
+    record.validation = { status:blockers.length ? 'INVALID' : String(validation.status || 'VALID'), blockers:blockers.slice(), warnings:warnings.slice(), candidateValidationCode:String(dry.code || create.code || '') };
+    record.safety.productionSpreadsheetIdAfter = pointerAfter;
+    record.safety.productionPointerUnchanged = pointerUnchanged;
+    record.safety.cutoverStateAfterHash = bdrV10Sha256_(cutoverAfter);
+    record.safety.cutoverStateUnchanged = cutoverUnchanged;
+    record.status = blockers.length ? 'FAILED' : (warnings.length ? 'PASSED_WITH_WARNINGS' : 'PASSED');
+
+    bdrV10WriteJsonFile_(folder, BDR_V10_DRILL_VALIDATION_NAME_, {
+      schemaVersion:'BDR-DR-DRILL-VALIDATION-1.0',
+      drillId:drillId,
+      recoveryPointId:recoveryPointId,
+      candidateId:record.candidateId,
+      candidateSpreadsheetId:record.candidateSpreadsheetId,
+      candidateCreate:create,
+      dryRun:dry,
+      safety:record.safety,
+      status:record.status,
+      blockers:blockers,
+      warnings:warnings,
+      completedAt:record.completedAt
+    });
+    bdrV10WriteJsonFile_(folder, BDR_V10_DRILL_MANIFEST_NAME_, record);
+    bdrV10Audit_('DR_DRILL_COMPLETED', {drillId:drillId,recoveryPointId:recoveryPointId,candidateId:record.candidateId,status:record.status,blockers:blockers,warnings:warnings});
+    return {
+      sukses:blockers.length === 0,
+      code:blockers.length ? 'DR_DRILL_FAILED' : (warnings.length ? 'DR_DRILL_PASSED_WITH_WARNINGS' : 'DR_DRILL_PASSED'),
+      drillId:drillId,
+      recoveryPointId:recoveryPointId,
+      candidateId:record.candidateId,
+      candidateSpreadsheetId:record.candidateSpreadsheetId,
+      status:record.status,
+      blockers:blockers,
+      warnings:warnings,
+      durationMs:record.durationMs,
+      productionSpreadsheetIdBefore:pointerBefore,
+      productionSpreadsheetIdAfter:pointerAfter,
+      dataBisnisDiubah:false,
+      spreadsheetPointerDiubah:false
+    };
+  } catch (e) {
+    var completed = bdrV10Now_();
+    var errorCode = String(e && e.message ? e.message : e || 'DR_DRILL_FAILED');
+    if (record && folder) {
+      try {
+        record.status = 'FAILED';
+        record.completedAt = bdrV10Iso_(completed);
+        record.durationMs = Math.max(0, completed.getTime() - startedAt.getTime());
+        record.blockers = [errorCode];
+        record.validation = {status:'INVALID',blockers:[errorCode],warnings:[]};
+        var props2 = portalScriptProperties_();
+        var after2 = String(props2.getProperty('SPREADSHEET_ID') || '');
+        var cut2 = String(props2.getProperty(BDR_V10_LAST_CUTOVER_PROP_) || '');
+        record.safety.productionSpreadsheetIdAfter = after2;
+        record.safety.productionPointerUnchanged = after2 === String(record.safety.productionSpreadsheetIdBefore || '');
+        record.safety.cutoverStateAfterHash = bdrV10Sha256_(cut2);
+        record.safety.cutoverStateUnchanged = record.safety.cutoverStateAfterHash === String(record.safety.cutoverStateBeforeHash || '');
+        bdrV10WriteJsonFile_(folder, BDR_V10_DRILL_MANIFEST_NAME_, record);
+      } catch (eWrite) { }
+    }
+    bdrV10Audit_('DR_DRILL_FAILED', {recoveryPointId:recoveryPointId,error:errorCode});
+    return { sukses:false, code:'DR_DRILL_FAILED', recoveryPointId:recoveryPointId, drillId:record && record.drillId || '', error:errorCode, dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+  } finally {
+    bdrV10ReleaseRun_(runId);
+  }
 }
 
 function bdrV10ValidationCheck_(checks, code, status, detail) {
@@ -1479,6 +1697,34 @@ function maintenanceDryRunRecoveryBDRV10(candidateId) {
   return result;
 }
 
+
+function maintenanceJalankanDrDrillBDRV10(recoveryPointId) {
+  var ctx = pastikanMaintainerPortal3B0_('JALANKAN_DR_DRILL_BDR_V10');
+  var result = bdrV10RunDrill_(recoveryPointId, {});
+  try { catatMaintenancePortal3B0_(ctx, result.sukses ? 'SUCCESS' : 'FAILED', result); } catch (e) { }
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+
+function maintenanceJalankanDrDrillTerbaruBDRV10() {
+  var ctx = pastikanMaintainerPortal3B0_('JALANKAN_DR_DRILL_TERBARU_BDR_V10');
+  var root = bdrV10ResolveRoot_();
+  var result = null;
+  if (!root.valid) {
+    result = { sukses:false, code:root.code || 'BDR_ROOT_UNAVAILABLE', dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+  } else {
+    var points = bdrV10ListRecoveryPoints_(root.folder) || [];
+    var verified = points.filter(function (p) { return p.manifestValid === true && String(p.status || '').toUpperCase() === 'VERIFIED'; });
+    verified.sort(function (a, b) { return bdrV10ParseDateMs_(b.completedAt || b.createdAt) - bdrV10ParseDateMs_(a.completedAt || a.createdAt); });
+    if (!verified.length) result = { sukses:false, code:'NO_VERIFIED_RECOVERY_POINT', dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+    else result = bdrV10RunDrill_(String(verified[0].backupId || ''), {});
+  }
+  try { catatMaintenancePortal3B0_(ctx, result.sukses ? 'SUCCESS' : 'FAILED', result); } catch (e) { }
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
 // ============================================================
 // BATCH C — ACTIVATION/CUTOVER + ROLLBACK + CONFIG RECOVERY
 // ============================================================
@@ -2085,15 +2331,15 @@ function bdrV10BuildHealthSnapshot_() {
   var evidenceStatus = latestVerifiedPoint ? String(latestVerifiedPoint.evidenceStatus || 'UNAVAILABLE').toUpperCase() : 'UNAVAILABLE';
   var evidenceUnavailable = evidenceStatus === 'UNAVAILABLE' || evidenceStatus === 'MISSING_FOUND';
 
-  var latestDrill = null;
-  for (var i=0;i<views.length;i++) {
-    if (String(views[i].type || '').toUpperCase() === 'DR_DRILL') { latestDrill = views[i]; break; }
-  }
+  var latestDrill = root.valid && rootCode === 'OK' ? bdrV10LatestDrillView_(root.folder, nowMs) : { status:'UNAVAILABLE', createdAt:'', completedAt:'', ageHours:null, drillId:'', recoveryPointId:'', candidateId:'', blockers:['BDR_ROOT_UNAVAILABLE'], warnings:[] };
+  var drillStatus = String(latestDrill.status || '').toUpperCase();
+  var drillFailed = drillStatus === 'FAILED';
+  var drillWarning = drillStatus === 'PASSED_WITH_WARNINGS';
 
   var overall = 'SEHAT';
-  if (!root.valid || rootCode !== 'OK' || !latestVerifiedPoint || rpoPriority === 'KRITIS') overall = 'KRITIS';
+  if (!root.valid || rootCode !== 'OK' || !latestVerifiedPoint || rpoPriority === 'KRITIS' || drillFailed) overall = 'KRITIS';
   else if (rpoPriority === 'MENDESAK') overall = 'MENDESAK';
-  else if (backupStale || verifyFailed || triggerInvalid || sourceBaselineIssue || evidenceUnavailable) overall = 'PERLU_DITINDAKLANJUTI';
+  else if (backupStale || verifyFailed || triggerInvalid || sourceBaselineIssue || evidenceUnavailable || drillWarning) overall = 'PERLU_DITINDAKLANJUTI';
 
   return {
     generatedAt:bdrV10Iso_(now),
@@ -2108,8 +2354,8 @@ function bdrV10BuildHealthSnapshot_() {
     scheduler:{ installed:!!scheduler.installed, triggerCount:Number(scheduler.triggerCount || 0), cadence:String(scheduler.cadence || 'DAILY_AROUND_02_WIB'), unavailable:scheduler.unavailable === true, lastRun:lastRun },
     source:{ appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), stableGitSha:stableGitSha, stableGitShaShort:stableGitSha ? stableGitSha.substring(0,12) : '', expectedGitSha:sourceShaConfigured ? stableGitSha : '', expectedGitShaShort:sourceShaConfigured ? stableGitSha.substring(0,12) : '', configured:sourceShaConfigured, matches:sourceShaMatches, authority:BDR_V10_STABLE_SOURCE_AUTHORITY_, designBaselineGitSha:BDR_V10_DESIGN_BASELINE_GIT_SHA_ },
     evidence:{ status:evidenceStatus, unavailable:evidenceUnavailable, missing:Number(latestVerifiedPoint && latestVerifiedPoint.evidenceMissing || 0), notChecked:Number(latestVerifiedPoint && latestVerifiedPoint.evidenceNotChecked || 0) },
-    drDrill:latestDrill ? { status:String(latestDrill.status || ''), createdAt:String(latestDrill.createdAt || ''), ageHours:latestDrill.ageHours } : { status:'BELUM_PERNAH', createdAt:'', ageHours:null },
-    signals:{ backupStale:backupStale, verifyFailed:verifyFailed, triggerInvalid:triggerInvalid, sourceBaselineIssue:sourceBaselineIssue, sourceMismatch:false, evidenceUnavailable:evidenceUnavailable },
+    drDrill:latestDrill,
+    signals:{ backupStale:backupStale, verifyFailed:verifyFailed, triggerInvalid:triggerInvalid, sourceBaselineIssue:sourceBaselineIssue, sourceMismatch:false, evidenceUnavailable:evidenceUnavailable, drillFailed:drillFailed, drillWarning:drillWarning },
     lastRunCorrupt:lastRunRead.corrupt === true
   };
 }
@@ -2124,6 +2370,8 @@ function bdrV10BuildHealthCheck_() {
   if (h.signals.triggerInvalid) samples.push('Trigger backup otomatis tidak tepat satu.');
   if (h.signals.sourceBaselineIssue) samples.push('Stable Git SHA belum dikonfigurasi atau formatnya tidak valid.');
   if (h.signals.evidenceUnavailable) samples.push('Inventaris bukti Drive tidak lengkap atau menemukan referensi hilang.');
+  if (h.signals.drillFailed) samples.push('DR Drill terakhir gagal; jalur pemulihan perlu diperiksa sebelum insiden nyata.');
+  if (h.signals.drillWarning) samples.push('DR Drill terakhir lulus dengan peringatan yang perlu ditinjau.');
   var headline = status === 'PASS' ? 'Cadangan terverifikasi, trigger otomatis, dan baseline sumber berada dalam kondisi sehat.' :
     (status === 'CRITICAL' ? 'Kesiapan pemulihan memiliki masalah kritis yang dapat menghambat recovery.' : 'Kesiapan pemulihan memerlukan tindak lanjut administratif/teknis.');
   var recommendation = status === 'PASS' ? '' : 'Buka Cadangan & Pemulihan untuk melihat recovery point, RPO, trigger, baseline sumber, dan status bukti.';
@@ -2145,7 +2393,11 @@ function bdrV10BuildHealthCheck_() {
     verifyFailed:h.signals.verifyFailed === true,
     triggerInvalid:h.signals.triggerInvalid === true,
     sourceBaselineIssue:h.signals.sourceBaselineIssue === true,
-    evidenceUnavailable:h.signals.evidenceUnavailable === true
+    evidenceUnavailable:h.signals.evidenceUnavailable === true,
+    drDrillStatus:String(h.drDrill && h.drDrill.status || ''),
+    drDrillAt:String(h.drDrill && (h.drDrill.completedAt || h.drDrill.createdAt) || ''),
+    drDrillFailed:h.signals.drillFailed === true,
+    drDrillWarning:h.signals.drillWarning === true
   };
   if (typeof ohicCheckV10_ === 'function') return ohicCheckV10_('backup_recovery','BACKUP_RECOVERY',status,'Cadangan & pemulihan',headline,metrics,samples,recommendation);
   return { id:'backup_recovery', group:'BACKUP_RECOVERY', status:status, title:'Cadangan & pemulihan', headline:headline, metrics:metrics, samples:samples, recommendation:recommendation };
@@ -2185,7 +2437,7 @@ function ambilBackupRecoveryCenterV10(token) {
 function validasiBackupDisasterRecoveryV10() {
   var checks = [];
   function add(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail === null || typeof detail === 'undefined' ? '' : detail) }); }
-  add('VERSION', BACKUP_DISASTER_RECOVERY_V10_VERSION_ === 'BDR-v1.0-RC1-HF1-2026.10.05.01', BACKUP_DISASTER_RECOVERY_V10_VERSION_);
+  add('VERSION', BACKUP_DISASTER_RECOVERY_V10_VERSION_ === 'BDR-v1.0-RC1-DRILL-2026.10.05.01', BACKUP_DISASTER_RECOVERY_V10_VERSION_);
   add('STABLE_SOURCE_AUTHORITY', BDR_V10_STABLE_SOURCE_AUTHORITY_ === 'SCRIPT_PROPERTY_RELEASE_POINTER', BDR_V10_STABLE_SOURCE_AUTHORITY_);
   add('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.05.01', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''));
   add('CHUNK_250', BDR_V10_CHUNK_ROWS_ === 250, BDR_V10_CHUNK_ROWS_);
@@ -2227,6 +2479,11 @@ function validasiBackupDisasterRecoveryV10() {
   add('HEALTH_SNAPSHOT', typeof bdrV10BuildHealthSnapshot_ === 'function', typeof bdrV10BuildHealthSnapshot_);
   add('OHIC_HEALTH_CHECK', typeof bdrV10BuildHealthCheck_ === 'function', typeof bdrV10BuildHealthCheck_);
   add('RPO_THRESHOLDS', BDR_V10_RPO_PASS_HOURS_ === 30 && BDR_V10_RPO_URGENT_HOURS_ === 48 && BDR_V10_RPO_CRITICAL_HOURS_ === 72, [BDR_V10_RPO_PASS_HOURS_,BDR_V10_RPO_URGENT_HOURS_,BDR_V10_RPO_CRITICAL_HOURS_]);
+  add('DR_DRILL_ORCHESTRATOR', typeof bdrV10RunDrill_ === 'function', typeof bdrV10RunDrill_);
+  add('DR_DRILL_PERSISTENT_LIST', typeof bdrV10ListDrillRecords_ === 'function', typeof bdrV10ListDrillRecords_);
+  add('DR_DRILL_MAINTENANCE', typeof maintenanceJalankanDrDrillBDRV10 === 'function', typeof maintenanceJalankanDrDrillBDRV10);
+  add('DR_DRILL_LATEST_RUNNER', typeof maintenanceJalankanDrDrillTerbaruBDRV10 === 'function', typeof maintenanceJalankanDrDrillTerbaruBDRV10);
+  add('DR_DRILL_FILES', BDR_V10_DRILL_MANIFEST_NAME_ === '00_DR_DRILL.json' && BDR_V10_DRILL_VALIDATION_NAME_ === '01_DR_DRILL_VALIDATION.json', [BDR_V10_DRILL_MANIFEST_NAME_,BDR_V10_DRILL_VALIDATION_NAME_]);
   var passed = checks.filter(function (x) { return x.lulus; }).length;
   var result = { sukses:passed === checks.length, valid:passed === checks.length, versi:BACKUP_DISASTER_RECOVERY_V10_VERSION_, appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), jumlah:checks.length, lulus:passed, gagal:checks.length-passed, checks:checks, batch:'INTEGRATED', dataBisnisDiubah:false };
   Logger.log(JSON.stringify(result, null, 2));
