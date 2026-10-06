@@ -1,6 +1,6 @@
 // ============================================================
 // EXCEPTION & ACTION CENTER v1.0 — RC2 NAVIGATION & ROLE CLARITY
-// Target APP_VERSION 2026.10.04.01
+// Integrated with BDR read-only health on APP_VERSION 2026.10.05.01
 //
 // Tujuan:
 // - mengagregasi pekerjaan lintas modul menjadi satu read model;
@@ -30,7 +30,8 @@ var EAC_V10_ROUTE_MAP_ = {
   'tunjangan': { key:'tunjangan', menuId:'menuTunjangan', pageId:'halTunjangan', title:'Tunjangan', actionLabel:'Buka Tunjangan' },
   'monthly-closing': { key:'monthly-closing', menuId:'menuMonthlyClosing', pageId:'halMonthlyClosing', title:'Penutupan Bulan', actionLabel:'Buka Penutupan Bulan' },
   'monthly-archive': { key:'monthly-archive', menuId:'menuMonthlyArchive', pageId:'halMonthlyArchive', title:'Arsip Bulanan', actionLabel:'Buka Arsip Bulanan' },
-  'system-health': { key:'system-health', menuId:'menuOperationalHealth', pageId:'halOperationalHealth', title:'Kesehatan Sistem', actionLabel:'Buka Kesehatan Sistem' }
+  'system-health': { key:'system-health', menuId:'menuOperationalHealth', pageId:'halOperationalHealth', title:'Kesehatan Sistem', actionLabel:'Buka Kesehatan Sistem' },
+  'backup-recovery': { key:'backup-recovery', menuId:'menuBackupRecovery', pageId:'halBackupRecovery', title:'Cadangan & Pemulihan', actionLabel:'Buka Cadangan & Pemulihan' }
 };
 
 // Registry aktif RC1. Action code adalah akar masalah, bukan severity.
@@ -63,7 +64,12 @@ var EAC_V10_ACTION_REGISTRY_ = {
   SYS_PERIOD_CONFIG_INVALID: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'system-health', basePriority:'KRITIS', mode:'ACTION' },
   SYS_BATCH_RESIDUAL_METADATA: { domain:'SYSTEM', ownerRoles:[], viewerRoles:['CARIK','LURAH'], route:'system-health', basePriority:'PERLU_DITINDAKLANJUTI', mode:'MONITOR_ONLY' },
   SYS_INDEX_STALE_QUEUE: { domain:'SYSTEM', ownerRoles:[], viewerRoles:['CARIK','LURAH'], route:'system-health', basePriority:'PERLU_DITINDAKLANJUTI', mode:'MONITOR_ONLY' },
-  SYS_EAC_SOURCE_UNAVAILABLE: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'system-health', basePriority:'KRITIS', mode:'ACTION' }
+  SYS_EAC_SOURCE_UNAVAILABLE: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'system-health', basePriority:'KRITIS', mode:'ACTION' },
+  SYS_BDR_BACKUP_STALE: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'backup-recovery', mode:'ACTION' },
+  SYS_BDR_VERIFY_FAILED: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'backup-recovery', basePriority:'MENDESAK', mode:'ACTION' },
+  SYS_BDR_TRIGGER_INVALID: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'backup-recovery', basePriority:'MENDESAK', mode:'ACTION' },
+  SYS_BDR_SOURCE_MISMATCH: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'backup-recovery', basePriority:'KRITIS', mode:'ACTION' },
+  SYS_BDR_EVIDENCE_UNAVAILABLE: { domain:'SYSTEM', ownerRoles:['CARIK'], viewerRoles:['LURAH'], route:'backup-recovery', basePriority:'PERLU_DITINDAKLANJUTI', mode:'ACTION' }
 };
 
 var EAC_V10_DEFERRED_CODES_ = [
@@ -589,6 +595,19 @@ function eacV10BuildOhicAction_(code, check, options) {
   });
 }
 
+
+function eacV10BuildBdrAction_(code, baseCheck, title, description, priority) {
+  var c = {
+    id:String(baseCheck && baseCheck.id || 'backup_recovery') + ':' + String(code || ''),
+    status:String(baseCheck && baseCheck.status || 'WARN'),
+    title:String(title || 'Cadangan & pemulihan'),
+    headline:String(description || baseCheck && baseCheck.headline || ''),
+    recommendation:'Buka Cadangan & Pemulihan untuk melihat recovery point, RPO, trigger, baseline sumber, dan status bukti.',
+    metrics:baseCheck && baseCheck.metrics && typeof baseCheck.metrics === 'object' ? baseCheck.metrics : {}
+  };
+  return eacV10BuildOhicAction_(code, c, { priority:priority, impacts:['SYSTEM','RECOVERY'] });
+}
+
 function eacV10BuildSystemActions_(ohicSource) {
   var out = [];
   if (!ohicSource || ohicSource.ok !== true || !ohicSource.ohic) return out;
@@ -624,6 +643,30 @@ function eacV10BuildSystemActions_(ohicSource) {
   c = byId.allowance_batch;
   if (c && Number(c.metrics && c.metrics.residualMetadataRows || 0) > 0) {
     out.push(eacV10BuildOhicAction_('SYS_BATCH_RESIDUAL_METADATA', c, { priority:'PERLU_DITINDAKLANJUTI' }));
+  }
+
+  c = byId.backup_recovery;
+  if (c) {
+    var bm = c.metrics || {};
+    if (bm.backupStale === true) {
+      var rpo = String(bm.rpoPriority || '').toUpperCase();
+      var rp = rpo === 'KRITIS' ? 'KRITIS' : (rpo === 'MENDESAK' ? 'MENDESAK' : 'PERLU_DITINDAKLANJUTI');
+      out.push(eacV10BuildBdrAction_('SYS_BDR_BACKUP_STALE', c, 'Cadangan terverifikasi melewati target RPO', 'Recovery point VERIFIED terbaru terlalu lama atau belum tersedia.', rp));
+    }
+    if (bm.verifyFailed === true) {
+      out.push(eacV10BuildBdrAction_('SYS_BDR_VERIFY_FAILED', c, 'Backup/verifikasi BDR gagal', 'Run atau recovery point terbaru memiliki status gagal dan perlu diperiksa.', 'MENDESAK'));
+    }
+    if (bm.triggerInvalid === true) {
+      out.push(eacV10BuildBdrAction_('SYS_BDR_TRIGGER_INVALID', c, 'Trigger backup otomatis tidak sehat', 'Trigger backup otomatis BDR tidak tepat satu atau statusnya tidak dapat dibaca.', 'MENDESAK'));
+    }
+    if (bm.sourceBaselineIssue === true) {
+      var sourcePriority = bm.sourceShaConfigured === true && bm.sourceShaMatches === false ? 'KRITIS' : 'MENDESAK';
+      out.push(eacV10BuildBdrAction_('SYS_BDR_SOURCE_MISMATCH', c, 'Baseline source pemulihan perlu diperiksa', 'Stable Git SHA belum dikonfigurasi atau tidak cocok dengan baseline source yang diharapkan.', sourcePriority));
+    }
+    if (bm.evidenceUnavailable === true) {
+      var evPriority = Number(bm.evidenceMissing || 0) > 0 ? 'MENDESAK' : 'PERLU_DITINDAKLANJUTI';
+      out.push(eacV10BuildBdrAction_('SYS_BDR_EVIDENCE_UNAVAILABLE', c, 'Inventaris bukti Drive belum sehat', Number(bm.evidenceMissing || 0) > 0 ? 'Inventaris BDR menemukan referensi bukti yang hilang.' : 'Inventaris bukti Drive belum dapat diperiksa secara lengkap.', evPriority));
+    }
   }
   return out;
 }
@@ -871,9 +914,9 @@ function validasiExceptionActionCenterV10() {
   var codes = Object.keys(EAC_V10_ACTION_REGISTRY_);
   var routes = Object.keys(EAC_V10_ROUTE_MAP_);
   add_('VERSION', EXCEPTION_ACTION_CENTER_V10_VERSION_ === 'EAC-v1.0-RC2-2026.10.04.01', EXCEPTION_ACTION_CENTER_V10_VERSION_);
-  add_('ACTIVE_CODE_COUNT_27', codes.length === 27, codes.length);
+  add_('ACTIVE_CODE_COUNT_32', codes.length === 32, codes.length);
   add_('DEFERRED_CODE_COUNT_8', EAC_V10_DEFERRED_CODES_.length === 8, EAC_V10_DEFERRED_CODES_.length);
-  add_('ROUTE_ALLOWLIST_5', routes.length === 5, routes.length);
+  add_('ROUTE_ALLOWLIST_6', routes.length === 6, routes.length);
   add_('PUBLIC_ENDPOINT', typeof ambilExceptionActionCenterV10 === 'function', typeof ambilExceptionActionCenterV10);
   add_('NO_WRITE_ENDPOINT', true, 'EAC RC1 hanya memiliki endpoint baca.');
   add_('WRE_PRIORITY_CRITICAL', eacV10PriorityFromWre_('CRITICAL') === 'KRITIS', eacV10PriorityFromWre_('CRITICAL'));

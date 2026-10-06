@@ -1,15 +1,15 @@
 // ============================================================
 // TAHAP 3B-1B BATCH 1
 // REGISTRY FUNGSI EKSPLISIT — RILIS KEBIJAKAN/PERFORMA 3C-4
-// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.04.04
+// Baseline aplikasi terintegrasi: APP_VERSION 2026.10.05.01
 // ============================================================
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION =
-  "3B1B1v-2026.10.04.04";
+  "3B1B1v-2026.10.05.01";
 
 var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   registryVersion: PORTAL_FUNCTION_REGISTRY_3B1B1_VERSION,
-  baselineAppVersion: "2026.10.04.04",
+  baselineAppVersion: "2026.10.05.01",
 
   policy: {
     privateByDefault: true,
@@ -28,7 +28,8 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
   categories: {
     appsScriptTriggers: [
       "doGet",
-      "prosesWorkflowReminderTerjadwalV10"
+      "prosesWorkflowReminderTerjadwalV10",
+      "prosesBackupOtomatisBDRV10"
     ],
 
     frontendEndpoints: [
@@ -53,6 +54,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "ambilWorkflowReminderV10",
       "ambilExceptionActionCenterV10",
       "ambilExecutiveDashboardV10",
+      "ambilBackupRecoveryCenterV10",
       "ambilReviewCenterAdminV10",
       "ambilMonthlyClosingV10",
       "ambilMonthlyArchiveV10",
@@ -128,6 +130,17 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "statusTriggerWorkflowReminderV10",
       "pasangTriggerWorkflowReminderV10",
       "hapusTriggerWorkflowReminderV10",
+      "maintenanceBuatRecoveryCandidateBDRV10",
+      "maintenanceDryRunRecoveryBDRV10",
+      "maintenanceAktifkanRecoveryCandidateBDRV10",
+      "maintenanceRollbackRecoveryBDRV10",
+      "maintenancePulihkanKonfigurasiBDRV10",
+      "maintenanceBuatBackupBDRV10",
+      "maintenanceBuatPreMaintenanceBackupBDRV10",
+      "maintenanceVerifikasiBackupBDRV10",
+      "statusTriggerBackupBDRV10",
+      "pasangTriggerBackupBDRV10",
+      "hapusTriggerBackupBDRV10",
       "statusRegistryFungsi3B1B1",
       "validasiRegistryFungsi3B1B1",
       "statusPenandaLewatPeriodeAdmin3B04B1",
@@ -184,6 +197,7 @@ var PORTAL_FUNCTION_REGISTRY_3B1B1_ = {
       "validasiWorkflowReminderEscalationV10",
       "validasiExceptionActionCenterV10",
       "validasiExecutiveDashboardV10",
+      "validasiBackupDisasterRecoveryV10",
       "ambilFrontendIntegrityManifestV10",
       "validasiProductionSmokeFrontendV10",
       "validasiPreflightSeptember2026V01",

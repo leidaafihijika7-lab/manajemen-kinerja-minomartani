@@ -1,6 +1,6 @@
 // ============================================================
 // DASHBOARD EKSEKUTIF v1.0 — RC2
-// APP_VERSION 2026.10.04.04
+// Module RC3 2026.10.04.04; integrated APP_VERSION 2026.10.05.01
 // Hanya-baca. Tidak mengubah Review/Tunjangan/Closing/Arsip/WRE/EAC.
 // ============================================================
 
@@ -550,7 +550,7 @@ function validasiExecutiveDashboardV10() {
   var checks = [];
   function add_(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail == null ? '' : detail) }); }
   add_('VERSION', EXECUTIVE_DASHBOARD_V10_VERSION_ === 'EXEC-DASH-v1.0-RC3-2026.10.04.04', EXECUTIVE_DASHBOARD_V10_VERSION_);
-  add_('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.04.04', typeof APP_VERSION !== 'undefined' ? APP_VERSION : '');
+  add_('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.05.01', typeof APP_VERSION !== 'undefined' ? APP_VERSION : '');
   add_('PUBLIC_ENDPOINT', typeof ambilExecutiveDashboardV10 === 'function', typeof ambilExecutiveDashboardV10);
   add_('WINDOW_6', EXEC_DASH_V10_WINDOW_MONTHS_ === 6, EXEC_DASH_V10_WINDOW_MONTHS_);
   add_('CACHE_180', EXEC_DASH_V10_CACHE_TTL_SECONDS_ === 180, EXEC_DASH_V10_CACHE_TTL_SECONDS_);

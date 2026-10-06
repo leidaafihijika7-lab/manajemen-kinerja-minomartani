@@ -15,7 +15,7 @@ function doGet() {
 // Pastikan SheetSchema.gs ikut ada di project Apps Script bersama Kode.gs.
 // ===== END SHEET SCHEMA =====
 
-var APP_VERSION = "2026.10.05.01"; // Backup & Disaster Recovery v1.0 RC1 - Batch A
+var APP_VERSION = "2026.10.05.01"; // Backup & Disaster Recovery v1.0 RC1 - integrated read-only
 // WAJIB diganti setiap kali Anda deploy versi baru
 
 var CONFIG = {

@@ -350,6 +350,27 @@ function ohicAllowanceCheckV10_(ss) {
     critical ? 'Jangan lanjutkan workflow tunjangan sebelum perbedaan batch/snapshot diperiksa.' : (residual.length ? 'Pisahkan pembersihan metadata batch lama sebagai pekerjaan audit tersendiri; jangan menghapusnya dari halaman ini.' : ''));
 }
 
+
+function ohicBackupRecoveryCheckV10_() {
+  if (typeof bdrV10BuildHealthCheck_ !== 'function') {
+    return ohicCheckV10_('backup_recovery','BACKUP_RECOVERY','CRITICAL',
+      'Cadangan & pemulihan',
+      'Modul Backup & Disaster Recovery tidak tersedia pada deployment aktif.',
+      { dependencyAvailable:false, backupStale:true, triggerInvalid:true },
+      ['BackupDisasterRecoveryV10.gs / helper bdrV10BuildHealthCheck_ tidak tersedia.'],
+      'Gunakan deployment rollback atau pasang modul BDR lengkap sebelum mengandalkan pemulihan.');
+  }
+  try { return bdrV10BuildHealthCheck_(); }
+  catch (e) {
+    return ohicCheckV10_('backup_recovery','BACKUP_RECOVERY','CRITICAL',
+      'Cadangan & pemulihan',
+      'Status Backup & Disaster Recovery gagal diperiksa secara aman.',
+      { dependencyAvailable:true, healthReadFailed:true, backupStale:true },
+      [String(e && e.message ? e.message : e)],
+      'Buka Cadangan & Pemulihan dan periksa konfigurasi folder, trigger, serta recovery point.');
+  }
+}
+
 function ambilOperationalHealthCenterV10(token) {
   var started = Date.now();
   try {
@@ -368,6 +389,7 @@ function ambilOperationalHealthCenterV10(token) {
     checks.push(ohicIndexCheckV10_(ss, reportDiag));
     checks.push(ohicPeriodCheckV10_());
     checks.push(ohicAllowanceCheckV10_(ss));
+    checks.push(ohicBackupRecoveryCheckV10_());
 
     var counts = { PASS:0, WARN:0, CRITICAL:0, INFO:0 }, maxRank = 0;
     checks.forEach(function (c) { var s=String(c.status || 'PASS').toUpperCase(); counts[s]=(counts[s]||0)+1; maxRank=Math.max(maxRank,ohicStatusRankV10_(s)); });
