@@ -1,5 +1,5 @@
 // ============================================================
-// BACKUP & DISASTER RECOVERY v1.0 — RC1 BATCH B
+// BACKUP & DISASTER RECOVERY v1.0 — RC1 BATCH C
 // APP_VERSION 2026.10.05.01
 //
 // Batch A foundation:
@@ -9,22 +9,28 @@
 // - trigger snapshot + daily trigger maintenance
 // - retention GFS
 //
-// Batch B scope:
+// Batch B foundation:
 // - evidence reference inventory + budgeted Drive metadata (maks. 200/run)
 // - recovery candidate as native copy (backup original tetap immutable)
 // - deep candidate validation (fingerprint, ID, employee, tunjangan, index, config)
 //
+// Batch C scope:
+// - activation/cutover guard SPREADSHEET_ID
+// - rollback pointer + sanity guard
+// - Script Properties recovery transaction (secret/session excluded)
+//
 // Belum termasuk:
-// - activation/cutover SPREADSHEET_ID + rollback
 // - OHIC/EAC/frontend/registry integration
 // ============================================================
 
-var BACKUP_DISASTER_RECOVERY_V10_VERSION_ = 'BDR-v1.0-RC1-BATCH-B-2026.10.05.01';
+var BACKUP_DISASTER_RECOVERY_V10_VERSION_ = 'BDR-v1.0-RC1-BATCH-C-2026.10.05.01';
 var BDR_V10_ROOT_PROP_ = 'FOLDER_ID_BDR';
 var BDR_V10_STABLE_GIT_SHA_PROP_ = 'BDR_STABLE_GIT_SHA';
 var BDR_V10_LAST_RUN_PROP_ = 'BDR_V10_LAST_RUN';
 var BDR_V10_ACTIVE_RUN_PROP_ = 'BDR_V10_ACTIVE_RUN';
 var BDR_V10_LAST_VERIFIED_PROP_ = 'BDR_V10_LAST_VERIFIED_ID';
+var BDR_V10_LAST_CUTOVER_PROP_ = 'BDR_V10_LAST_CUTOVER';
+var BDR_V10_LAST_CONFIG_RESTORE_PROP_ = 'BDR_V10_LAST_CONFIG_RESTORE';
 var BDR_V10_TRIGGER_FUNCTION_ = 'prosesBackupOtomatisBDRV10';
 var BDR_V10_WRE_TRIGGER_FUNCTION_ = 'prosesWorkflowReminderTerjadwalV10';
 var BDR_V10_LEASE_MS_ = 20 * 60 * 1000;
@@ -1463,6 +1469,407 @@ function maintenanceDryRunRecoveryBDRV10(candidateId) {
   return result;
 }
 
+// ============================================================
+// BATCH C — ACTIVATION/CUTOVER + ROLLBACK + CONFIG RECOVERY
+// ============================================================
+
+function bdrV10ReadJsonProperty_(key) {
+  try {
+    var raw = portalScriptProperties_().getProperty(String(key || ''));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function bdrV10WriteJsonProperty_(key, value) {
+  portalScriptProperties_().setProperty(String(key || ''), JSON.stringify(value || {}));
+  return value;
+}
+
+function bdrV10ReadCutoverState_() {
+  var raw = '';
+  try { raw = String(portalScriptProperties_().getProperty(BDR_V10_LAST_CUTOVER_PROP_) || ''); }
+  catch (eRead) { return { status:'CORRUPT', corrupt:true, error:'CUTOVER_STATE_READ_FAILED' }; }
+  if (!raw) return null;
+  try { return JSON.parse(raw); }
+  catch (eParse) { return { status:'CORRUPT', corrupt:true, error:'CUTOVER_STATE_JSON_INVALID' }; }
+}
+
+function bdrV10BuildCutoverId_(candidateId, date, uuid) {
+  var suffix = String(uuid || Utilities.getUuid()).replace(/[^A-Za-z0-9]/g, '').slice(-8) || '00000000';
+  return 'CUT-' + bdrV10FormatIdTime_(date || bdrV10Now_()) + '-' + String(candidateId || '').replace(/[^A-Za-z0-9._-]/g, '_').slice(-32) + '-' + suffix;
+}
+
+function bdrV10CutoverBlocksNew_(state) {
+  var s = String(state && state.status || '').toUpperCase();
+  return s === 'PREPARED' || s === 'ACTIVE' || s === 'ROLLBACK_PREPARED' || s === 'CORRUPT' || !!(state && state.corrupt);
+}
+
+function bdrV10InvalidateAfterPointerChange_() {
+  var warnings = [];
+  try {
+    if (typeof PORTAL_RUNTIME_CACHE_ !== 'undefined' && PORTAL_RUNTIME_CACHE_) {
+      PORTAL_RUNTIME_CACHE_.scriptPropertiesSnapshot = null;
+      PORTAL_RUNTIME_CACHE_.spreadsheet = null;
+      PORTAL_RUNTIME_CACHE_.sheets = {};
+      PORTAL_RUNTIME_CACHE_.rekapReadOnlyValues = null;
+      PORTAL_RUNTIME_CACHE_.pegawaiData = null;
+      PORTAL_RUNTIME_CACHE_.cutoffRawMetaByPeriode = {};
+      PORTAL_RUNTIME_CACHE_.tutupPeriodeResmiV36 = null;
+      PORTAL_RUNTIME_CACHE_.disposisiSheetValues = {};
+      PORTAL_RUNTIME_CACHE_.disposisiSuratRows = null;
+      PORTAL_RUNTIME_CACHE_.disposisiPenerimaRows = null;
+      PORTAL_RUNTIME_CACHE_.disposisiPetugasAktifLoaded = false;
+      PORTAL_RUNTIME_CACHE_.disposisiPetugasAktif = null;
+      PORTAL_RUNTIME_CACHE_.laporanDisposisiIndexByUser = {};
+      PORTAL_RUNTIME_CACHE_.rekapDisposisiProjectionV2A1B = null;
+      PORTAL_RUNTIME_CACHE_.disposisiSayaByUserV2A1C = {};
+      PORTAL_RUNTIME_CACHE_.disposisiSharedByUserV2A1C2 = {};
+      PORTAL_RUNTIME_CACHE_.disposisiManagementByUserV2A1C3 = {};
+      PORTAL_RUNTIME_CACHE_.adminDashboardProjectionV2A2 = null;
+      PORTAL_RUNTIME_CACHE_.adminDashboardBaseByPeriodV2A2 = {};
+      PORTAL_RUNTIME_CACHE_.adminDashboardDetailByKeyV2A2 = {};
+      if (Object.prototype.hasOwnProperty.call(PORTAL_RUNTIME_CACHE_, 'masterTarifV03')) PORTAL_RUNTIME_CACHE_.masterTarifV03 = null;
+    }
+  } catch (eRuntime) { warnings.push('RUNTIME_CACHE_RESET_FAILED'); }
+  [
+    ['invalidasiRuntimeCutoffTunjangan_', typeof invalidasiRuntimeCutoffTunjangan_ === 'function' ? invalidasiRuntimeCutoffTunjangan_ : null],
+    ['invalidasiCacheRekapKinerjaReadOnly_', typeof invalidasiCacheRekapKinerjaReadOnly_ === 'function' ? invalidasiCacheRekapKinerjaReadOnly_ : null],
+    ['bersihkanCacheDataPegawai_', typeof bersihkanCacheDataPegawai_ === 'function' ? bersihkanCacheDataPegawai_ : null],
+    ['invalidasiCacheAdminDashboardV2A2_', typeof invalidasiCacheAdminDashboardV2A2_ === 'function' ? invalidasiCacheAdminDashboardV2A2_ : null],
+    ['invalidasiCacheDisposisiV38_', typeof invalidasiCacheDisposisiV38_ === 'function' ? invalidasiCacheDisposisiV38_ : null]
+  ].forEach(function (x) {
+    if (!x[1]) return;
+    try { x[1](); } catch (e) { warnings.push(x[0] + '_FAILED'); }
+  });
+  return { ok:true, warnings:warnings };
+}
+
+function bdrV10SanityCheckSpreadsheet_(spreadsheetId) {
+  var id = String(spreadsheetId || '').trim();
+  var issues = [];
+  if (!id) return { ok:false, spreadsheetId:id, issues:['SPREADSHEET_ID_MISSING'], checkedAt:bdrV10Iso_(bdrV10Now_()) };
+  var ss = null;
+  try { ss = SpreadsheetApp.openById(id); } catch (eOpen) { issues.push('SPREADSHEET_UNAVAILABLE'); }
+  if (ss) {
+    var missing = [];
+    BDR_V10_REQUIRED_CORE_SHEETS_.forEach(function (name) {
+      try { if (!ss.getSheetByName(name)) missing.push(name); } catch (eSheet) { missing.push(name); }
+    });
+    if (missing.length) issues.push('REQUIRED_CORE_SHEET_MISSING:' + missing.join(','));
+  }
+  return { ok:issues.length === 0, spreadsheetId:id, issues:issues, checkedAt:bdrV10Iso_(bdrV10Now_()) };
+}
+
+function bdrV10UpdateCandidateActivation_(rootFolder, candidateId, payload) {
+  try {
+    var folder = bdrV10FindCandidateFolder_(rootFolder, candidateId);
+    if (!folder) return false;
+    var manifest = bdrV10CandidateManifest_(folder);
+    if (!manifest) return false;
+    manifest.activation = payload || {};
+    bdrV10WriteJsonFile_(folder, BDR_V10_CANDIDATE_MANIFEST_NAME_, manifest);
+    return true;
+  } catch (e) { return false; }
+}
+
+function bdrV10EmergencyRestorePointer_(previousSpreadsheetId, failedSpreadsheetId) {
+  var props = portalScriptProperties_();
+  var result = { attempted:true, restored:false, previousSpreadsheetId:String(previousSpreadsheetId || ''), failedSpreadsheetId:String(failedSpreadsheetId || ''), sanity:null, error:'' };
+  try {
+    if (previousSpreadsheetId) props.setProperty('SPREADSHEET_ID', String(previousSpreadsheetId));
+    else props.deleteProperty('SPREADSHEET_ID');
+    bdrV10InvalidateAfterPointerChange_();
+    if (previousSpreadsheetId) {
+      result.sanity = bdrV10SanityCheckSpreadsheet_(previousSpreadsheetId);
+      result.restored = result.sanity.ok === true;
+    } else {
+      result.restored = String(props.getProperty('SPREADSHEET_ID') || '') === '';
+    }
+  } catch (e) { result.error = String(e && e.message ? e.message : e); }
+  return result;
+}
+
+function bdrV10ActivateCandidate_(candidateId, expectedCurrentSpreadsheetId, recoveryPointId, confirmation) {
+  candidateId = String(candidateId || '').trim();
+  recoveryPointId = String(recoveryPointId || '').trim();
+  expectedCurrentSpreadsheetId = String(expectedCurrentSpreadsheetId || '').trim();
+  var exactConfirmation = 'AKTIFKAN ' + candidateId;
+  if (!candidateId) return { sukses:false, code:'CANDIDATE_ID_REQUIRED', spreadsheetPointerDiubah:false };
+  if (String(confirmation || '') !== exactConfirmation) return { sukses:false, code:'CONFIRMATION_MISMATCH', expectedConfirmation:exactConfirmation, spreadsheetPointerDiubah:false };
+  if (!expectedCurrentSpreadsheetId) return { sukses:false, code:'EXPECTED_CURRENT_SPREADSHEET_ID_REQUIRED', spreadsheetPointerDiubah:false };
+  if (!recoveryPointId) return { sukses:false, code:'RECOVERY_POINT_ID_REQUIRED', spreadsheetPointerDiubah:false };
+
+  var root = bdrV10ResolveRoot_();
+  if (!root.valid) return { sukses:false, code:root.code || 'BDR_ROOT_UNAVAILABLE', spreadsheetPointerDiubah:false };
+  var folder = bdrV10FindCandidateFolder_(root.folder, candidateId);
+  if (!folder) return { sukses:false, code:'CANDIDATE_NOT_FOUND', candidateId:candidateId, spreadsheetPointerDiubah:false };
+  var manifest = bdrV10CandidateManifest_(folder);
+  if (!manifest) return { sukses:false, code:'CANDIDATE_MANIFEST_MISSING', candidateId:candidateId, spreadsheetPointerDiubah:false };
+  if (String(manifest.recoveryPointId || '') !== recoveryPointId) return { sukses:false, code:'RECOVERY_POINT_CANDIDATE_MISMATCH', candidateId:candidateId, recoveryPointId:recoveryPointId, spreadsheetPointerDiubah:false };
+  if (String(manifest.status || '') !== 'VALID') return { sukses:false, code:'CANDIDATE_NOT_VALID', candidateId:candidateId, status:String(manifest.status || ''), spreadsheetPointerDiubah:false };
+  var candidateSpreadsheetId = String(manifest.candidateSpreadsheetId || '').trim();
+  if (!candidateSpreadsheetId) return { sukses:false, code:'CANDIDATE_SPREADSHEET_ID_MISSING', candidateId:candidateId, spreadsheetPointerDiubah:false };
+
+  var parentVerify = bdrV10VerifyRecoveryPoint_(recoveryPointId);
+  if (!parentVerify.sukses) return { sukses:false, code:'RECOVERY_POINT_NOT_VERIFIED', verify:parentVerify, candidateId:candidateId, spreadsheetPointerDiubah:false };
+  var deep = bdrV10DeepValidateCandidate_(candidateSpreadsheetId, recoveryPointId);
+  if (!deep.valid) return { sukses:false, code:'CANDIDATE_DEEP_VALIDATION_FAILED', candidateId:candidateId, validation:deep, spreadsheetPointerDiubah:false };
+
+  var props = portalScriptProperties_();
+  var currentPointer = String(props.getProperty('SPREADSHEET_ID') || '').trim();
+  if (currentPointer !== expectedCurrentSpreadsheetId) return { sukses:false, code:'CURRENT_SPREADSHEET_ID_MISMATCH', expected:expectedCurrentSpreadsheetId, actual:currentPointer, spreadsheetPointerDiubah:false };
+  if (currentPointer === candidateSpreadsheetId) return { sukses:false, code:'CANDIDATE_ALREADY_ACTIVE', candidateId:candidateId, spreadsheetPointerDiubah:false };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return { sukses:false, code:'CUTOVER_LOCK_BUSY', candidateId:candidateId, spreadsheetPointerDiubah:false };
+  var cutoverId = '';
+  var state = null;
+  try {
+    currentPointer = String(props.getProperty('SPREADSHEET_ID') || '').trim();
+    if (currentPointer !== expectedCurrentSpreadsheetId) return { sukses:false, code:'CURRENT_SPREADSHEET_ID_MISMATCH', expected:expectedCurrentSpreadsheetId, actual:currentPointer, spreadsheetPointerDiubah:false };
+    var last = bdrV10ReadCutoverState_();
+    if (last && last.corrupt) return { sukses:false, code:'CUTOVER_STATE_CORRUPT', activeCutover:last, spreadsheetPointerDiubah:false };
+    if (bdrV10CutoverBlocksNew_(last)) return { sukses:false, code:'CUTOVER_ALREADY_ACTIVE', activeCutover:last, spreadsheetPointerDiubah:false };
+    cutoverId = bdrV10BuildCutoverId_(candidateId, bdrV10Now_(), Utilities.getUuid());
+    state = {
+      version:'BDR-CUTOVER-STATE-1.0', cutoverId:cutoverId, status:'PREPARED', preparedAt:bdrV10Iso_(bdrV10Now_()), activatedAt:'', rolledBackAt:'',
+      candidateId:candidateId, recoveryPointId:recoveryPointId, previousSpreadsheetId:currentPointer, newSpreadsheetId:candidateSpreadsheetId,
+      appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), bdrVersion:BACKUP_DISASTER_RECOVERY_V10_VERSION_, sanity:null, cacheWarnings:[], rollback:null
+    };
+    try { bdrV10WriteJsonProperty_(BDR_V10_LAST_CUTOVER_PROP_, state); }
+    catch (ePrepare) { return { sukses:false, code:'CUTOVER_STATE_PREPARE_FAILED', error:String(ePrepare && ePrepare.message ? ePrepare.message : ePrepare), spreadsheetPointerDiubah:false }; }
+  } finally { try { lock.releaseLock(); } catch (eRelease) { } }
+
+  bdrV10UpdateCandidateActivation_(root.folder, candidateId, { cutoverId:cutoverId, status:'PREPARED', preparedAt:state.preparedAt });
+
+  try {
+    props.setProperty('SPREADSHEET_ID', candidateSpreadsheetId);
+    var cacheReset = bdrV10InvalidateAfterPointerChange_();
+    state.cacheWarnings = (cacheReset && cacheReset.warnings) || [];
+    var pointerAfter = String(props.getProperty('SPREADSHEET_ID') || '').trim();
+    var sanity = pointerAfter === candidateSpreadsheetId ? bdrV10SanityCheckSpreadsheet_(candidateSpreadsheetId) : { ok:false, spreadsheetId:pointerAfter, issues:['POINTER_NOT_SET_TO_CANDIDATE'], checkedAt:bdrV10Iso_(bdrV10Now_()) };
+    state.sanity = sanity;
+    if (!sanity.ok) throw new Error('CUTOVER_SANITY_FAILED:' + (sanity.issues || []).join('|'));
+    state.status = 'ACTIVE';
+    state.activatedAt = bdrV10Iso_(bdrV10Now_());
+    bdrV10WriteJsonProperty_(BDR_V10_LAST_CUTOVER_PROP_, state);
+    bdrV10UpdateCandidateActivation_(root.folder, candidateId, { cutoverId:cutoverId, status:'ACTIVE', activatedAt:state.activatedAt, previousSpreadsheetId:state.previousSpreadsheetId, newSpreadsheetId:state.newSpreadsheetId });
+    bdrV10Audit_('RECOVERY_CANDIDATE_ACTIVATED', {cutoverId:cutoverId,candidateId:candidateId,recoveryPointId:recoveryPointId,previousSpreadsheetId:state.previousSpreadsheetId,newSpreadsheetId:state.newSpreadsheetId});
+    return { sukses:true, code:'CUTOVER_ACTIVE', cutoverId:cutoverId, candidateId:candidateId, recoveryPointId:recoveryPointId, previousSpreadsheetId:state.previousSpreadsheetId, activeSpreadsheetId:state.newSpreadsheetId, status:state.status, sanity:sanity, cacheWarnings:state.cacheWarnings, dataBisnisDiubah:false, spreadsheetPointerDiubah:true };
+  } catch (eCutover) {
+    var rollback = bdrV10EmergencyRestorePointer_(state.previousSpreadsheetId, state.newSpreadsheetId);
+    state.rollback = rollback;
+    state.status = rollback.restored ? 'FAILED_ROLLED_BACK' : 'FAILED_ROLLBACK_REQUIRED';
+    state.failedAt = bdrV10Iso_(bdrV10Now_());
+    state.error = String(eCutover && eCutover.message ? eCutover.message : eCutover);
+    try { bdrV10WriteJsonProperty_(BDR_V10_LAST_CUTOVER_PROP_, state); } catch (eState) { }
+    bdrV10UpdateCandidateActivation_(root.folder, candidateId, { cutoverId:cutoverId, status:state.status, failedAt:state.failedAt, error:state.error });
+    bdrV10Audit_('RECOVERY_CANDIDATE_ACTIVATION_FAILED', {cutoverId:cutoverId,candidateId:candidateId,status:state.status,error:state.error,rollback:rollback});
+    return { sukses:false, code:rollback.restored?'CUTOVER_SANITY_FAILED_AUTO_ROLLED_BACK':'CUTOVER_FAILED_ROLLBACK_REQUIRED', cutoverId:cutoverId, candidateId:candidateId, error:state.error, rollback:rollback, dataBisnisDiubah:false, spreadsheetPointerDiubah:!rollback.restored };
+  }
+}
+
+function bdrV10RollbackCutover_(cutoverId, confirmation) {
+  cutoverId = String(cutoverId || '').trim();
+  var exactConfirmation = 'ROLLBACK ' + cutoverId;
+  if (!cutoverId) return { sukses:false, code:'CUTOVER_ID_REQUIRED', spreadsheetPointerDiubah:false };
+  if (String(confirmation || '') !== exactConfirmation) return { sukses:false, code:'CONFIRMATION_MISMATCH', expectedConfirmation:exactConfirmation, spreadsheetPointerDiubah:false };
+  var props = portalScriptProperties_();
+  var state = bdrV10ReadCutoverState_();
+  if (state && state.corrupt) return { sukses:false, code:'CUTOVER_STATE_CORRUPT', cutoverId:cutoverId, spreadsheetPointerDiubah:false };
+  if (!state || String(state.cutoverId || '') !== cutoverId) return { sukses:false, code:'CUTOVER_NOT_FOUND', cutoverId:cutoverId, spreadsheetPointerDiubah:false };
+  if (String(state.status || '') !== 'ACTIVE') return { sukses:false, code:'CUTOVER_NOT_ACTIVE', cutoverId:cutoverId, status:String(state.status || ''), spreadsheetPointerDiubah:false };
+  var current = String(props.getProperty('SPREADSHEET_ID') || '').trim();
+  if (current !== String(state.newSpreadsheetId || '')) return { sukses:false, code:'CURRENT_SPREADSHEET_ID_MISMATCH', expected:String(state.newSpreadsheetId || ''), actual:current, spreadsheetPointerDiubah:false };
+  var previous = String(state.previousSpreadsheetId || '').trim();
+  if (!previous) return { sukses:false, code:'PREVIOUS_SPREADSHEET_ID_MISSING', cutoverId:cutoverId, spreadsheetPointerDiubah:false };
+  var preSanity = bdrV10SanityCheckSpreadsheet_(previous);
+  if (!preSanity.ok) return { sukses:false, code:'PREVIOUS_SPREADSHEET_NOT_HEALTHY', sanity:preSanity, spreadsheetPointerDiubah:false };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return { sukses:false, code:'CUTOVER_LOCK_BUSY', cutoverId:cutoverId, spreadsheetPointerDiubah:false };
+  try {
+    var latest = bdrV10ReadCutoverState_();
+    var latestCurrent = String(props.getProperty('SPREADSHEET_ID') || '').trim();
+    if (!latest || String(latest.cutoverId || '') !== cutoverId || String(latest.status || '') !== 'ACTIVE') return { sukses:false, code:'CUTOVER_NOT_ACTIVE', cutoverId:cutoverId, spreadsheetPointerDiubah:false };
+    if (latestCurrent !== String(latest.newSpreadsheetId || '')) return { sukses:false, code:'CURRENT_SPREADSHEET_ID_MISMATCH', expected:String(latest.newSpreadsheetId || ''), actual:latestCurrent, spreadsheetPointerDiubah:false };
+    latest.status = 'ROLLBACK_PREPARED';
+    latest.rollbackPreparedAt = bdrV10Iso_(bdrV10Now_());
+    try { bdrV10WriteJsonProperty_(BDR_V10_LAST_CUTOVER_PROP_, latest); }
+    catch (ePrepare) { return { sukses:false, code:'ROLLBACK_STATE_PREPARE_FAILED', error:String(ePrepare && ePrepare.message ? ePrepare.message : ePrepare), cutoverId:cutoverId, spreadsheetPointerDiubah:false }; }
+    state = latest;
+  } finally { try { lock.releaseLock(); } catch (eRelease) { } }
+
+  try {
+    props.setProperty('SPREADSHEET_ID', previous);
+    var cacheReset = bdrV10InvalidateAfterPointerChange_();
+    var sanity = bdrV10SanityCheckSpreadsheet_(previous);
+    if (!sanity.ok) throw new Error('ROLLBACK_SANITY_FAILED:' + (sanity.issues || []).join('|'));
+    state.status = 'ROLLED_BACK';
+    state.rolledBackAt = bdrV10Iso_(bdrV10Now_());
+    state.rollback = { restored:true, sanity:sanity, cacheWarnings:(cacheReset && cacheReset.warnings) || [] };
+    bdrV10WriteJsonProperty_(BDR_V10_LAST_CUTOVER_PROP_, state);
+    var root = bdrV10ResolveRoot_();
+    if (root.valid) bdrV10UpdateCandidateActivation_(root.folder, String(state.candidateId || ''), {cutoverId:cutoverId,status:'ROLLED_BACK',rolledBackAt:state.rolledBackAt,activeSpreadsheetId:previous});
+    bdrV10Audit_('RECOVERY_CUTOVER_ROLLED_BACK', {cutoverId:cutoverId,from:String(state.newSpreadsheetId || ''),to:previous});
+    return { sukses:true, code:'ROLLBACK_COMPLETED', cutoverId:cutoverId, restoredSpreadsheetId:previous, previousCandidateSpreadsheetId:String(state.newSpreadsheetId || ''), status:state.status, sanity:sanity, dataBisnisDiubah:false, spreadsheetPointerDiubah:true };
+  } catch (eRollback) {
+    var restoreCandidate = bdrV10EmergencyRestorePointer_(String(state.newSpreadsheetId || ''), previous);
+    state.status = restoreCandidate.restored ? 'ROLLBACK_FAILED_RESTORED_CANDIDATE' : 'ROLLBACK_FAILED_DUAL_SANITY_FAILURE';
+    state.rollbackFailedAt = bdrV10Iso_(bdrV10Now_());
+    state.rollbackError = String(eRollback && eRollback.message ? eRollback.message : eRollback);
+    state.rollback = { restored:false, candidateRestored:restoreCandidate.restored, detail:restoreCandidate };
+    try { bdrV10WriteJsonProperty_(BDR_V10_LAST_CUTOVER_PROP_, state); } catch (eState) { }
+    return { sukses:false, code:restoreCandidate.restored?'ROLLBACK_SANITY_FAILED_CANDIDATE_RESTORED':'ROLLBACK_FAILED_MANUAL_INTERVENTION_REQUIRED', cutoverId:cutoverId, error:state.rollbackError, detail:restoreCandidate, dataBisnisDiubah:false, spreadsheetPointerDiubah:restoreCandidate.restored };
+  }
+}
+
+function bdrV10ConfigRestoreConfirmation_(recoveryPointId) { return 'PULIHKAN KONFIGURASI ' + String(recoveryPointId || ''); }
+function bdrV10PointerRestoreConfirmation_(recoveryPointId) { return 'PULIHKAN POINTER ' + String(recoveryPointId || ''); }
+
+function bdrV10BuildConfigRestorePlan_(recoveryPointId, options) {
+  options = options || {};
+  recoveryPointId = String(recoveryPointId || '').trim();
+  var root = bdrV10ResolveRoot_();
+  if (!root.valid) return { ok:false, code:root.code || 'BDR_ROOT_UNAVAILABLE', recoveryPointId:recoveryPointId };
+  var verify = bdrV10VerifyRecoveryPoint_(recoveryPointId);
+  if (!verify.sukses) return { ok:false, code:'RECOVERY_POINT_NOT_VERIFIED', recoveryPointId:recoveryPointId, verify:verify };
+  var folder = bdrV10FindRecoveryPointFolder_(root.folder, recoveryPointId);
+  var cfgPack = bdrV10ReadJsonFile_(folder, BDR_V10_CONFIG_NAME_);
+  var manifestPack = bdrV10ReadJsonFile_(folder, BDR_V10_MANIFEST_NAME_);
+  if (!cfgPack || !manifestPack) return { ok:false, code:'CONFIG_SNAPSHOT_MISSING', recoveryPointId:recoveryPointId };
+  var snapshot = cfgPack.value || {}, values = snapshot.values || {}, manifest = manifestPack.value || {};
+  var props = portalScriptProperties_();
+  var currentProps = props.getProperties();
+  var includePointer = options.includeSpreadsheetPointer === true;
+  var writes = [], skipped = [];
+  Object.keys(values).sort().forEach(function (key) {
+    if (!bdrV10IsRestorableProperty_(key)) { skipped.push({key:key,reason:'NOT_ALLOWED'}); return; }
+    if (key === 'SPREADSHEET_ID' && !includePointer) { skipped.push({key:key,reason:'POINTER_EXCLUDED_BY_DEFAULT'}); return; }
+    var backupValue = String(values[key]);
+    var currentValue = Object.prototype.hasOwnProperty.call(currentProps,key) ? String(currentProps[key]) : null;
+    writes.push({key:key,backupValue:backupValue,currentValue:currentValue,changed:currentValue !== backupValue});
+  });
+  var pointerTarget = includePointer ? String(values.SPREADSHEET_ID || '') : '';
+  var manifestSource = String(manifest.source && manifest.source.spreadsheetId || '');
+  var issues = [];
+  if (includePointer) {
+    var cutoverState = bdrV10ReadCutoverState_();
+    if (cutoverState && cutoverState.corrupt) issues.push('CUTOVER_STATE_CORRUPT');
+    else if (bdrV10CutoverBlocksNew_(cutoverState)) issues.push('ACTIVE_CUTOVER_PRESENT');
+    if (!pointerTarget) issues.push('SNAPSHOT_SPREADSHEET_ID_MISSING');
+    if (pointerTarget && manifestSource && pointerTarget !== manifestSource) issues.push('SNAPSHOT_POINTER_MANIFEST_MISMATCH');
+    var expectedCurrent = String(options.expectedCurrentSpreadsheetId === null || typeof options.expectedCurrentSpreadsheetId === 'undefined' ? '' : options.expectedCurrentSpreadsheetId).trim();
+    var currentPointer = String(props.getProperty('SPREADSHEET_ID') || '').trim();
+    if (currentPointer !== expectedCurrent) issues.push('CURRENT_SPREADSHEET_ID_MISMATCH');
+    if (String(options.pointerConfirmation || '') !== bdrV10PointerRestoreConfirmation_(recoveryPointId)) issues.push('POINTER_CONFIRMATION_MISMATCH');
+  }
+  return {
+    ok:issues.length === 0,
+    code:issues.length ? 'CONFIG_RESTORE_PLAN_BLOCKED' : 'CONFIG_RESTORE_PLAN_READY',
+    recoveryPointId:recoveryPointId,
+    includeSpreadsheetPointer:includePointer,
+    pointerTarget:pointerTarget,
+    manifestSourceSpreadsheetId:manifestSource,
+    writes:writes,
+    changedCount:writes.filter(function (x) { return x.changed; }).length,
+    skipped:skipped,
+    issues:issues,
+    secretPresence:(snapshot.secretPresence || []).map(function (x) { return {key:String(x.key || ''),required:x.required===true,presentAtBackup:x.present===true,valueStored:false}; }),
+    dataBisnisDiubah:false
+  };
+}
+
+function bdrV10RollbackPropertyWrites_(before) {
+  var props = portalScriptProperties_(), errors = [];
+  for (var i = before.length - 1; i >= 0; i--) {
+    var item = before[i];
+    try {
+      if (item.existed) props.setProperty(item.key, item.value);
+      else props.deleteProperty(item.key);
+    } catch (e) { errors.push(item.key); }
+  }
+  bdrV10InvalidateAfterPointerChange_();
+  return { ok:errors.length === 0, failedKeys:errors };
+}
+
+function bdrV10RestoreConfig_(recoveryPointId, confirmation, options) {
+  options = options || {};
+  recoveryPointId = String(recoveryPointId || '').trim();
+  var expectedConfirmation = bdrV10ConfigRestoreConfirmation_(recoveryPointId);
+  if (String(confirmation || '') !== expectedConfirmation) return { sukses:false, code:'CONFIRMATION_MISMATCH', expectedConfirmation:expectedConfirmation, dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+  var plan = bdrV10BuildConfigRestorePlan_(recoveryPointId, options);
+  if (!plan.ok) return { sukses:false, code:plan.code, plan:plan, dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+  if (options.apply !== true) return { sukses:true, code:'CONFIG_RESTORE_DRY_RUN', applied:false, plan:plan, dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+
+  var changed = plan.writes.filter(function (x) { return x.changed; });
+  var props = portalScriptProperties_();
+  var beforeByKey = {};
+  changed.forEach(function (x) { beforeByKey[x.key] = {key:x.key,existed:x.currentValue !== null,value:x.currentValue === null ? '' : String(x.currentValue)}; });
+  var appliedBefore = [];
+  var state = {
+    version:'BDR-CONFIG-RESTORE-STATE-1.0', restoreId:'CFG-' + bdrV10FormatIdTime_(bdrV10Now_()) + '-' + String(Utilities.getUuid()).replace(/[^A-Za-z0-9]/g,'').slice(-8),
+    status:'PREPARED', preparedAt:bdrV10Iso_(bdrV10Now_()), appliedAt:'', recoveryPointId:recoveryPointId,
+    includeSpreadsheetPointer:plan.includeSpreadsheetPointer, changedKeys:changed.map(function (x) { return x.key; }), pointerBefore:String(props.getProperty('SPREADSHEET_ID') || ''), pointerTarget:plan.pointerTarget
+  };
+  try { bdrV10WriteJsonProperty_(BDR_V10_LAST_CONFIG_RESTORE_PROP_, state); }
+  catch (ePrepare) { return { sukses:false, code:'CONFIG_RESTORE_STATE_PREPARE_FAILED', error:String(ePrepare && ePrepare.message ? ePrepare.message : ePrepare), dataBisnisDiubah:false, spreadsheetPointerDiubah:false }; }
+  try {
+    changed.filter(function (x) { return x.key !== 'SPREADSHEET_ID'; }).forEach(function (x) {
+      props.setProperty(x.key, x.backupValue);
+      appliedBefore.push(beforeByKey[x.key]);
+    });
+    if (plan.includeSpreadsheetPointer) {
+      props.setProperty('SPREADSHEET_ID', plan.pointerTarget);
+      if (beforeByKey.SPREADSHEET_ID) appliedBefore.push(beforeByKey.SPREADSHEET_ID);
+      bdrV10InvalidateAfterPointerChange_();
+      var sanity = bdrV10SanityCheckSpreadsheet_(plan.pointerTarget);
+      if (!sanity.ok) throw new Error('CONFIG_POINTER_SANITY_FAILED:' + (sanity.issues || []).join('|'));
+      state.pointerSanity = sanity;
+    } else {
+      try { if (typeof PORTAL_RUNTIME_CACHE_ !== 'undefined' && PORTAL_RUNTIME_CACHE_) PORTAL_RUNTIME_CACHE_.scriptPropertiesSnapshot = null; } catch (eCache) { }
+    }
+    state.status = 'APPLIED';
+    state.appliedAt = bdrV10Iso_(bdrV10Now_());
+    bdrV10WriteJsonProperty_(BDR_V10_LAST_CONFIG_RESTORE_PROP_, state);
+    bdrV10Audit_('CONFIG_RESTORED_FROM_RECOVERY_POINT', {restoreId:state.restoreId,recoveryPointId:recoveryPointId,changedKeys:state.changedKeys,includeSpreadsheetPointer:plan.includeSpreadsheetPointer});
+    return { sukses:true, code:'CONFIG_RESTORE_APPLIED', applied:true, restoreId:state.restoreId, recoveryPointId:recoveryPointId, changedKeys:state.changedKeys, skipped:plan.skipped, includeSpreadsheetPointer:plan.includeSpreadsheetPointer, spreadsheetPointerDiubah:plan.includeSpreadsheetPointer && state.pointerBefore !== plan.pointerTarget, dataBisnisDiubah:false };
+  } catch (eApply) {
+    var rollback = bdrV10RollbackPropertyWrites_(appliedBefore);
+    state.status = rollback.ok ? 'FAILED_ROLLED_BACK' : 'FAILED_ROLLBACK_REQUIRED';
+    state.failedAt = bdrV10Iso_(bdrV10Now_());
+    state.error = String(eApply && eApply.message ? eApply.message : eApply);
+    state.rollback = rollback;
+    try { bdrV10WriteJsonProperty_(BDR_V10_LAST_CONFIG_RESTORE_PROP_, state); } catch (eState) { }
+    return { sukses:false, code:rollback.ok?'CONFIG_RESTORE_FAILED_ROLLED_BACK':'CONFIG_RESTORE_FAILED_MANUAL_INTERVENTION_REQUIRED', restoreId:state.restoreId, error:state.error, rollback:rollback, dataBisnisDiubah:false, spreadsheetPointerDiubah:false };
+  }
+}
+
+function maintenanceAktifkanRecoveryCandidateBDRV10(candidateId, expectedCurrentSpreadsheetId, recoveryPointId, confirmation) {
+  var ctx = pastikanMaintainerPortal3B0_('AKTIFKAN_RECOVERY_CANDIDATE_BDR_V10');
+  var result = bdrV10ActivateCandidate_(candidateId, expectedCurrentSpreadsheetId, recoveryPointId, confirmation);
+  try { catatMaintenancePortal3B0_(ctx, result.sukses ? 'SUCCESS' : 'FAILED', result); } catch (e) { }
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+function maintenanceRollbackRecoveryBDRV10(cutoverId, confirmation) {
+  var ctx = pastikanMaintainerPortal3B0_('ROLLBACK_RECOVERY_BDR_V10');
+  var result = bdrV10RollbackCutover_(cutoverId, confirmation);
+  try { catatMaintenancePortal3B0_(ctx, result.sukses ? 'SUCCESS' : 'FAILED', result); } catch (e) { }
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+function maintenancePulihkanKonfigurasiBDRV10(recoveryPointId, confirmation, options) {
+  var ctx = pastikanMaintainerPortal3B0_('PULIHKAN_KONFIGURASI_BDR_V10');
+  var result = bdrV10RestoreConfig_(recoveryPointId, confirmation, options || {});
+  try { catatMaintenancePortal3B0_(ctx, result.sukses ? 'SUCCESS' : 'FAILED', result); } catch (e) { }
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+
 function bdrV10SchedulerStatus_() {
   var snapshot = bdrV10SnapshotTriggers_();
   var known = snapshot.known.filter(function (x) { return x.functionName === BDR_V10_TRIGGER_FUNCTION_; })[0] || { actualCount:0 };
@@ -1564,7 +1971,7 @@ function hapusTriggerBackupBDRV10() {
 function validasiBackupDisasterRecoveryV10() {
   var checks = [];
   function add(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail === null || typeof detail === 'undefined' ? '' : detail) }); }
-  add('VERSION', BACKUP_DISASTER_RECOVERY_V10_VERSION_ === 'BDR-v1.0-RC1-BATCH-B-2026.10.05.01', BACKUP_DISASTER_RECOVERY_V10_VERSION_);
+  add('VERSION', BACKUP_DISASTER_RECOVERY_V10_VERSION_ === 'BDR-v1.0-RC1-BATCH-C-2026.10.05.01', BACKUP_DISASTER_RECOVERY_V10_VERSION_);
   add('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.05.01', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''));
   add('CHUNK_250', BDR_V10_CHUNK_ROWS_ === 250, BDR_V10_CHUNK_ROWS_);
   add('LEASE_20_MIN', BDR_V10_LEASE_MS_ === 1200000, BDR_V10_LEASE_MS_);
@@ -1589,11 +1996,20 @@ function validasiBackupDisasterRecoveryV10() {
   add('MAINTENANCE_CANDIDATE', typeof maintenanceBuatRecoveryCandidateBDRV10 === 'function', typeof maintenanceBuatRecoveryCandidateBDRV10);
   add('MAINTENANCE_DRY_RUN', typeof maintenanceDryRunRecoveryBDRV10 === 'function', typeof maintenanceDryRunRecoveryBDRV10);
   add('REQUIRED_CORE_SHEETS', BDR_V10_REQUIRED_CORE_SHEETS_.indexOf('Rekap_Kinerja') !== -1 && BDR_V10_REQUIRED_CORE_SHEETS_.indexOf('Data_Pegawai') !== -1, BDR_V10_REQUIRED_CORE_SHEETS_);
-  add('NO_ACTIVATION_BATCH_B', typeof maintenanceAktifkanRecoveryCandidateBDRV10 === 'undefined', typeof maintenanceAktifkanRecoveryCandidateBDRV10);
-  add('NO_ROLLBACK_BATCH_B', typeof maintenanceRollbackRecoveryBDRV10 === 'undefined', typeof maintenanceRollbackRecoveryBDRV10);
+  add('CUTOVER_STATE_PROPERTY', BDR_V10_LAST_CUTOVER_PROP_ === 'BDR_V10_LAST_CUTOVER', BDR_V10_LAST_CUTOVER_PROP_);
+  add('CONFIG_RESTORE_STATE_PROPERTY', BDR_V10_LAST_CONFIG_RESTORE_PROP_ === 'BDR_V10_LAST_CONFIG_RESTORE', BDR_V10_LAST_CONFIG_RESTORE_PROP_);
+  add('ACTIVATION_PRIVATE', typeof bdrV10ActivateCandidate_ === 'function', typeof bdrV10ActivateCandidate_);
+  add('ROLLBACK_PRIVATE', typeof bdrV10RollbackCutover_ === 'function', typeof bdrV10RollbackCutover_);
+  add('CONFIG_RESTORE_PRIVATE', typeof bdrV10RestoreConfig_ === 'function', typeof bdrV10RestoreConfig_);
+  add('MAINTENANCE_ACTIVATE', typeof maintenanceAktifkanRecoveryCandidateBDRV10 === 'function', typeof maintenanceAktifkanRecoveryCandidateBDRV10);
+  add('MAINTENANCE_ROLLBACK', typeof maintenanceRollbackRecoveryBDRV10 === 'function', typeof maintenanceRollbackRecoveryBDRV10);
+  add('MAINTENANCE_CONFIG_RESTORE', typeof maintenancePulihkanKonfigurasiBDRV10 === 'function', typeof maintenancePulihkanKonfigurasiBDRV10);
+  add('CACHE_INVALIDATOR', typeof bdrV10InvalidateAfterPointerChange_ === 'function', typeof bdrV10InvalidateAfterPointerChange_);
+  add('SANITY_CHECK', typeof bdrV10SanityCheckSpreadsheet_ === 'function', typeof bdrV10SanityCheckSpreadsheet_);
+  add('CONFIG_POINTER_DEFAULT_EXCLUDED', true, 'SPREADSHEET_ID hanya ikut bila includeSpreadsheetPointer=true');
   add('TRIGGER_INSTALLER', typeof pasangTriggerBackupBDRV10 === 'function', typeof pasangTriggerBackupBDRV10);
   var passed = checks.filter(function (x) { return x.lulus; }).length;
-  var result = { sukses:passed === checks.length, valid:passed === checks.length, versi:BACKUP_DISASTER_RECOVERY_V10_VERSION_, appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), jumlah:checks.length, lulus:passed, gagal:checks.length-passed, checks:checks, batch:'B', dataBisnisDiubah:false };
+  var result = { sukses:passed === checks.length, valid:passed === checks.length, versi:BACKUP_DISASTER_RECOVERY_V10_VERSION_, appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), jumlah:checks.length, lulus:passed, gagal:checks.length-passed, checks:checks, batch:'C', dataBisnisDiubah:false };
   Logger.log(JSON.stringify(result, null, 2));
   return result;
 }
