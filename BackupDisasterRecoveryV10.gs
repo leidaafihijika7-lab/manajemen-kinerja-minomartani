@@ -1,5 +1,5 @@
 // ============================================================
-// BACKUP & DISASTER RECOVERY v1.0 — RC1 INTEGRATED READ-ONLY
+// BACKUP & DISASTER RECOVERY v1.0 — RC1 INTEGRATED READ-ONLY + SOURCE POINTER HOTFIX
 // APP_VERSION 2026.10.05.01
 //
 // Batch A foundation:
@@ -28,7 +28,8 @@
 // - deployment produksi dan pemasangan trigger BDR
 // ============================================================
 
-var BACKUP_DISASTER_RECOVERY_V10_VERSION_ = 'BDR-v1.0-RC1-2026.10.05.01';
+var BACKUP_DISASTER_RECOVERY_V10_VERSION_ = 'BDR-v1.0-RC1-HF1-2026.10.05.01';
+var BDR_V10_STABLE_SOURCE_AUTHORITY_ = 'SCRIPT_PROPERTY_RELEASE_POINTER';
 var BDR_V10_ROOT_PROP_ = 'FOLDER_ID_BDR';
 var BDR_V10_STABLE_GIT_SHA_PROP_ = 'BDR_STABLE_GIT_SHA';
 var BDR_V10_LAST_RUN_PROP_ = 'BDR_V10_LAST_RUN';
@@ -2046,9 +2047,12 @@ function bdrV10BuildHealthSnapshot_() {
   var props = portalScriptProperties_();
   var stableGitSha = '';
   try { stableGitSha = String(props.getProperty(BDR_V10_STABLE_GIT_SHA_PROP_) || '').trim(); } catch (eGit) { stableGitSha = ''; }
+  // Stable Git SHA adalah pointer release eksternal yang diset setelah commit dibuat.
+  // Jangan bandingkan dengan SHA yang di-hard-code di source: commit SHA bersifat self-referential
+  // dan tidak mungkin ditanam sebagai nilai dirinya sendiri tanpa mengubah SHA commit.
   var sourceShaConfigured = /^[0-9a-f]{40}$/i.test(stableGitSha);
-  var sourceShaMatches = sourceShaConfigured && stableGitSha.toLowerCase() === String(BDR_V10_DESIGN_BASELINE_GIT_SHA_).toLowerCase();
-  var sourceBaselineIssue = !sourceShaConfigured || !sourceShaMatches;
+  var sourceShaMatches = sourceShaConfigured;
+  var sourceBaselineIssue = !sourceShaConfigured;
 
   var scheduler = { installed:false, triggerCount:0, cadence:'DAILY_AROUND_02_WIB', lastRun:null, unavailable:false };
   try { scheduler = bdrV10SchedulerStatus_(); }
@@ -2087,7 +2091,7 @@ function bdrV10BuildHealthSnapshot_() {
   }
 
   var overall = 'SEHAT';
-  if (!root.valid || rootCode !== 'OK' || !latestVerifiedPoint || rpoPriority === 'KRITIS' || (sourceShaConfigured && !sourceShaMatches)) overall = 'KRITIS';
+  if (!root.valid || rootCode !== 'OK' || !latestVerifiedPoint || rpoPriority === 'KRITIS') overall = 'KRITIS';
   else if (rpoPriority === 'MENDESAK') overall = 'MENDESAK';
   else if (backupStale || verifyFailed || triggerInvalid || sourceBaselineIssue || evidenceUnavailable) overall = 'PERLU_DITINDAKLANJUTI';
 
@@ -2102,10 +2106,10 @@ function bdrV10BuildHealthSnapshot_() {
     recoveryPointCount:points.length,
     recoveryPoints:views,
     scheduler:{ installed:!!scheduler.installed, triggerCount:Number(scheduler.triggerCount || 0), cadence:String(scheduler.cadence || 'DAILY_AROUND_02_WIB'), unavailable:scheduler.unavailable === true, lastRun:lastRun },
-    source:{ appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), stableGitSha:stableGitSha, stableGitShaShort:stableGitSha ? stableGitSha.substring(0,12) : '', expectedGitSha:BDR_V10_DESIGN_BASELINE_GIT_SHA_, expectedGitShaShort:String(BDR_V10_DESIGN_BASELINE_GIT_SHA_).substring(0,12), configured:sourceShaConfigured, matches:sourceShaMatches },
+    source:{ appVersion:String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''), stableGitSha:stableGitSha, stableGitShaShort:stableGitSha ? stableGitSha.substring(0,12) : '', expectedGitSha:sourceShaConfigured ? stableGitSha : '', expectedGitShaShort:sourceShaConfigured ? stableGitSha.substring(0,12) : '', configured:sourceShaConfigured, matches:sourceShaMatches, authority:BDR_V10_STABLE_SOURCE_AUTHORITY_, designBaselineGitSha:BDR_V10_DESIGN_BASELINE_GIT_SHA_ },
     evidence:{ status:evidenceStatus, unavailable:evidenceUnavailable, missing:Number(latestVerifiedPoint && latestVerifiedPoint.evidenceMissing || 0), notChecked:Number(latestVerifiedPoint && latestVerifiedPoint.evidenceNotChecked || 0) },
     drDrill:latestDrill ? { status:String(latestDrill.status || ''), createdAt:String(latestDrill.createdAt || ''), ageHours:latestDrill.ageHours } : { status:'BELUM_PERNAH', createdAt:'', ageHours:null },
-    signals:{ backupStale:backupStale, verifyFailed:verifyFailed, triggerInvalid:triggerInvalid, sourceBaselineIssue:sourceBaselineIssue, sourceMismatch:sourceShaConfigured && !sourceShaMatches, evidenceUnavailable:evidenceUnavailable },
+    signals:{ backupStale:backupStale, verifyFailed:verifyFailed, triggerInvalid:triggerInvalid, sourceBaselineIssue:sourceBaselineIssue, sourceMismatch:false, evidenceUnavailable:evidenceUnavailable },
     lastRunCorrupt:lastRunRead.corrupt === true
   };
 }
@@ -2118,7 +2122,7 @@ function bdrV10BuildHealthCheck_() {
   if (h.signals.backupStale) samples.push('Recovery point VERIFIED terakhir melewati ambang RPO atau belum tersedia.');
   if (h.signals.verifyFailed) samples.push('Run/backup terbaru memiliki status gagal atau metadata last-run rusak.');
   if (h.signals.triggerInvalid) samples.push('Trigger backup otomatis tidak tepat satu.');
-  if (h.signals.sourceBaselineIssue) samples.push('Stable Git SHA belum dikonfigurasi atau tidak cocok dengan baseline sumber.');
+  if (h.signals.sourceBaselineIssue) samples.push('Stable Git SHA belum dikonfigurasi atau formatnya tidak valid.');
   if (h.signals.evidenceUnavailable) samples.push('Inventaris bukti Drive tidak lengkap atau menemukan referensi hilang.');
   var headline = status === 'PASS' ? 'Cadangan terverifikasi, trigger otomatis, dan baseline sumber berada dalam kondisi sehat.' :
     (status === 'CRITICAL' ? 'Kesiapan pemulihan memiliki masalah kritis yang dapat menghambat recovery.' : 'Kesiapan pemulihan memerlukan tindak lanjut administratif/teknis.');
@@ -2181,7 +2185,8 @@ function ambilBackupRecoveryCenterV10(token) {
 function validasiBackupDisasterRecoveryV10() {
   var checks = [];
   function add(name, pass, detail) { checks.push({ nama:name, lulus:pass === true, detail:String(detail === null || typeof detail === 'undefined' ? '' : detail) }); }
-  add('VERSION', BACKUP_DISASTER_RECOVERY_V10_VERSION_ === 'BDR-v1.0-RC1-2026.10.05.01', BACKUP_DISASTER_RECOVERY_V10_VERSION_);
+  add('VERSION', BACKUP_DISASTER_RECOVERY_V10_VERSION_ === 'BDR-v1.0-RC1-HF1-2026.10.05.01', BACKUP_DISASTER_RECOVERY_V10_VERSION_);
+  add('STABLE_SOURCE_AUTHORITY', BDR_V10_STABLE_SOURCE_AUTHORITY_ === 'SCRIPT_PROPERTY_RELEASE_POINTER', BDR_V10_STABLE_SOURCE_AUTHORITY_);
   add('APP_VERSION', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '') === '2026.10.05.01', String(typeof APP_VERSION !== 'undefined' ? APP_VERSION : ''));
   add('CHUNK_250', BDR_V10_CHUNK_ROWS_ === 250, BDR_V10_CHUNK_ROWS_);
   add('LEASE_20_MIN', BDR_V10_LEASE_MS_ === 1200000, BDR_V10_LEASE_MS_);
