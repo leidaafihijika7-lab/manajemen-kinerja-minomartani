@@ -10,10 +10,10 @@ var ACE_REV003_HISTORICAL_EVIDENCE_V10_VERSION_ =
 
 function aceRev003ParseReviewAuditV10_(entry, reportId) {
   var detail=String(entry&&entry.detail||'').trim();
-  var parts=detail.split(/\\s*\\|\\s*/);
+  var parts=detail.split(/\s*\|\s*/);
   var belongs=parts.length>=4&&parts[0].trim()===String(reportId||'');
   var rawPoints=belongs?String(parts[3]||'').trim():'';
-  var numeric=!!rawPoints&&/^-?\\d+(?:\\.\\d+)?$/.test(rawPoints);
+  var numeric=!!rawPoints&&/^-?\d+(?:\.\d+)?$/.test(rawPoints);
   var score=belongs&&numeric?Number(rawPoints):null;
   return {
     auditRow:Number(entry&&entry.row||0),
@@ -24,8 +24,8 @@ function aceRev003ParseReviewAuditV10_(entry, reportId) {
     auditedStatus:belongs?String(parts[2]||'').trim():null,
     auditedPoints:belongs&&numeric&&isFinite(score)?score:null,
     auditReportIdMatched:belongs,
-    auditRekapRow:belongs&&/^row\\s+\\d+$/i.test(String(parts[1]||'').trim())
-      ?Number(String(parts[1]).replace(/[^\\d]/g,'')):null
+    auditRekapRow:belongs&&/^row\s+\d+$/i.test(String(parts[1]||'').trim())
+      ?Number(String(parts[1]).replace(/[^\d]/g,'')):null
   };
 }
 
