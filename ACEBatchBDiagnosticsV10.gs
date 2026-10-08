@@ -1,7 +1,7 @@
 // ACE Batch B RC1 - diagnostik temuan non-PASS (read-only)
 // Tidak membuat sheet, cache, trigger, file, atau mengubah data bisnis.
 // Jalankan hanya melalui Apps Script editor dengan otorisasi maintainer.
-var ACE_BATCH_B_DIAGNOSTICS_V10_VERSION_ = 'ACE-BB-DIAG-v1.0-RC1-2026.10.08.01';
+var ACE_BATCH_B_DIAGNOSTICS_V10_VERSION_ = 'ACE-BB-DIAG-v1.0-RC2-2026.10.08.02';
 
 function aceBatchBNonPassSummarizeV10_(liveResult) {
   if (!liveResult || liveResult.sukses !== true || !Array.isArray(liveResult.findings)) {
@@ -57,6 +57,34 @@ function aceBatchBNonPassSummarizeV10_(liveResult) {
     dataBisnisDiubah:false
   };
 }
+
+// Log terpisah: satu execution dengan tiga temuan per halaman; hindari Logger output truncation.
+// Parameter page=1..N; satu page per run; full live scan tetap read-only.
+function diagnostikACEBatchBNonPassHalamanV10(page) {
+  var result=aceBatchBNonPassSummarizeV10_(auditComplianceLiveReadSmokeBatchBV10());
+  var size=3, totalPages=Math.max(1,Math.ceil(result.findings.length/size));
+  var p=Number(page);
+  if (!isFinite(p) || Math.floor(p)!==p || p<1 || p>totalPages) {
+    throw new Error('ACE_DIAG_PAGE_INVALID: 1..'+totalPages);
+  }
+  var start=(p-1)*size;
+  var rows=result.findings.slice(start,start+size);
+  // Tetap ringkas; tidak mencetak seluruh raw data dan event.
+  var out={sukses:result.sukses,versi:result.versi,batchVersion:result.batchVersion,
+    period:result.period,posture:result.posture,totals:result.totals,
+    sesuaiPostureCounts:result.sesuaiPostureCounts,
+    page:p,totalPages:totalPages,pageSize:size,returned:rows.length,
+    findings:rows,readOnly:true,dataBisnisDiubah:false};
+  Logger.log('ACE_BB_DIAG_PAGE '+p+'/'+totalPages+' '+JSON.stringify(out));
+  return out;
+}
+
+// Fungsi tanpa argumen agar mudah dipilih di dropdown Apps Script.
+function diagnostikACEBatchBHalaman1V10(){return diagnostikACEBatchBNonPassHalamanV10(1);}
+function diagnostikACEBatchBHalaman2V10(){return diagnostikACEBatchBNonPassHalamanV10(2);}
+function diagnostikACEBatchBHalaman3V10(){return diagnostikACEBatchBNonPassHalamanV10(3);}
+function diagnostikACEBatchBHalaman4V10(){return diagnostikACEBatchBNonPassHalamanV10(4);}
+function diagnostikACEBatchBHalaman5V10(){return diagnostikACEBatchBNonPassHalamanV10(5);}
 
 function diagnostikACEBatchBNonPassV10() {
   // Live smoke sudah mempunyai otorisasi maintainer dan tidak melakukan write.
