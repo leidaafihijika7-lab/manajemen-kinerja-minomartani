@@ -80,7 +80,7 @@ function aceRev003AllowanceReadRowsV10_(ss,C){
 function aceRev003AllowanceReadAuditV10_(ss,C){
   var sh=ss.getSheetByName('Audit_Tunjangan');
   if(!sh)return {available:false,records:[]};
-  if(!C||typeof C.DETAIL!=='number)
+  if(!C||typeof C.DETAIL!=='number')
     throw new Error('ACE_REV003_TUN_AUDIT_SCHEMA_UNAVAILABLE');
   var last=sh.getLastRow();
   if(last<2)return {available:true,records:[]};
