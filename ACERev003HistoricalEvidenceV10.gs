@@ -6,26 +6,24 @@
 // ============================================================================
 
 var ACE_REV003_HISTORICAL_EVIDENCE_V10_VERSION_ =
-  'ACE-REV003-HISTORY-v1.0-RC1-2026.10.08.01';
+  'ACE-REV003-HISTORY-v1.0-RC2-2026.10.09.02';
 
 function aceRev003ParseReviewAuditV10_(entry, reportId) {
-  var detail=String(entry&&entry.detail||'').trim();
-  var parts=detail.split(/\s*\|\s*/);
-  var belongs=parts.length>=4&&parts[0].trim()===String(reportId||'');
-  var rawPoints=belongs?String(parts[3]||'').trim():'';
-  var numeric=!!rawPoints&&/^-?\d+(?:\.\d+)?$/.test(rawPoints);
-  var score=belongs&&numeric?Number(rawPoints):null;
+  var format=aceRev003SummarizeAuditFormatV10_(entry&&entry.detail,reportId);
+  var action=String(entry&&entry.action||'').trim();
+  var actionValid=!action||action==='REVIEW_LAPORAN';
+  var parsed=actionValid&&format.firstSegmentIdMatches&&format.decisionParsed;
   return {
     auditRow:Number(entry&&entry.row||0),
     time:String(entry&&entry.waktu||''),
-    action:String(entry&&entry.action||''),
+    action:action,
     actorRecorded:!!String(entry&&entry.actor||'').trim(),
-    parsed:belongs&&numeric&&isFinite(score),
-    auditedStatus:belongs?String(parts[2]||'').trim():null,
-    auditedPoints:belongs&&numeric&&isFinite(score)?score:null,
-    auditReportIdMatched:belongs,
-    auditRekapRow:belongs&&/^row\s+\d+$/i.test(String(parts[1]||'').trim())
-      ?Number(String(parts[1]).replace(/[^\d]/g,'')):null
+    parsed:parsed,
+    auditedStatus:parsed?format.parsedStatus:null,
+    auditedPoints:parsed?format.parsedPoints:null,
+    auditReportIdMatched:format.firstSegmentIdMatches,
+    auditRekapRow:parsed?format.parsedRow:null,
+    auditTemplate:format.template
   };
 }
 
@@ -133,6 +131,13 @@ function validasiJejakHistorisACERev003V10(){
   ck('UNPARSEABLE_IS_NOT_PROVEN',
     aceRev003ClassifyHistoricalV10_('Ditolak',25,{parsed:false})
     ==='AUDIT_DETAIL_UNVERIFIABLE');
+  var parsedLegacy=aceRev003ParseReviewAuditV10_({
+    row:11,actor:'ADMIN',action:'REVIEW_LAPORAN',
+    detail:'TEST-REPORT | Ditolak | 25'},id);
+  ck('LEGACY_THREE_PART_AUDIT_PARSED',
+    parsedLegacy.parsed&&parsedLegacy.auditedStatus==='Ditolak'&&
+    parsedLegacy.auditedPoints===25&&parsedLegacy.auditRekapRow===null&&
+    parsedLegacy.auditTemplate==='ID_STATUS_POINTS_LEGACY');
   ck('SOURCE_RECONCILIATION_HELPERS',
     typeof aceRev003ReportV10_==='function'&&typeof aceBv10BuildSourceBundle_==='function');
   var fails=tests.filter(function(t){return !t.pass;});
