@@ -279,7 +279,8 @@ function validasiACEDsp004V10() {
   var logs=[
     {row:40,idDisposisi:'D1',targetId:'R2',targetType:'REPORT',action:'LINK_REPORT',
       actorId:'U2',waktu:'2026-09-01T00:00:00Z'},
-    {row:41,idDisposisi:'OTHER',targetId:'R2',action:'OTHER_EVENT'},
+    {row:41,idDisposisi:'D1',targetId:'R1',action:'OTHER_EVENT',
+      actorName:'SENSITIVE_PERSON_NAME',detail:'SENSITIVE_PERSON_NAME'},
     {row:42,idDisposisi:'D2',targetId:'',action:'REVIEW'},
     {row:43,idDisposisi:'OTHER',targetId:'',detailJson:{reportId:'R-GONE'},
       action:'REPORT_ATTEMPT'}
@@ -310,7 +311,7 @@ function validasiACEDsp004V10() {
   check('TRACE_NO_UNRELATED_EVENTS',gap.sourceEvidence.relatedDispositionLogCount===2);
   check('TRACE_NOT_AUTOMATIC_WAIVER',
     gap.sourceEvidence.historicalE1Compensation==='NOT_DETERMINED_BY_DIAGNOSTIC');
-  check('NO_PRIVATE_DETAILS_IN_RESULT',JSON.stringify(gap).indexOf('OTHER_EVENT')===-1&&
+  check('NO_PRIVATE_DETAILS_IN_RESULT',JSON.stringify(gap).indexOf('SENSITIVE_PERSON_NAME')===-1&&
     JSON.stringify(gap).indexOf('U2')===-1);
   var none={period:'2026-09',reports:{available:true,records:[r1],byId:{R1:r1}},
     index:{records:[],byId:{}},
