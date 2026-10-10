@@ -20297,6 +20297,10 @@ function sinkronkanSatuRowIndexLaporan2B1Internal_(rowRekap, context, force) {
       }
     }
 
+    // ACE-DSP-004 Integrity RC1: do not overwrite a different report ID at the same ROW_REKAP.
+    // Guard is read-only and executes inside the pre-existing index sync lock.
+    aceDsp004AssertIndexCollisionSafeRC1_(shRekap, shIndex, rowRekap, targetRow, idLaporan, expected);
+
     formatSatuBarisIndexLaporan2B1_(shIndex, targetRow);
     shIndex.getRange(targetRow, 1, 1, expected.length).setValues([expected]);
     SpreadsheetApp.flush();
