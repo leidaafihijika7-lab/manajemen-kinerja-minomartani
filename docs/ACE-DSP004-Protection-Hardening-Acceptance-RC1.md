@@ -249,3 +249,27 @@ Official source references:
 - https://developers.google.com/apps-script/guides/web
 - https://developers.google.com/apps-script/manifest/web-app-api-executable
 - https://developers.google.com/apps-script/reference/spreadsheet/protection
+
+
+## O. Isolated native Google Sheets sandbox verified
+
+Maintainer provided native Google Sheet **SANDBOX_PHA_RC1_SYNTHETIC_ONLY**. The connected Drive metadata resolves the supplied exact file ID as MIME `application/vnd.google-apps.spreadsheet`, not an XLSX preview. Sandbox spreadsheet ID is distinct from the canonical production spreadsheet ID (not reproduced here).
+
+| Item | Read-only evidence |
+|---|---|
+| Sheets | `MULAI_DI_SINI`, `Rekap_Kinerja`, `Index_Laporan`, `Disposisi_Penerima`, `Audit_Log`, `Disposisi_Log` (6 sheets) |
+| Source structure | Core sheet headers match the required basic production column shape: Rekap 71 columns, Index 12 populated headers, recipient 12, Audit 4, Disposition log 14 |
+| Synthetic reports | `PHA-TEST-RPT-0001` and `PHA-TEST-RPT-0002` in Rekap; both have matching ID/row pointers in Index |
+| Synthetic disposition | `PHA-TEST-DSP-0001` and associated recipient/report/event ID matches the first test report |
+| Audit evidence | Two synthetic `SUBMIT_LAPORAN` log entries; one synthetic disposition-create event |
+| Sharing metadata | One owner/user permission returned, no broad reader/editor grant in the returned permissions (verify with UI when testing roles) |
+| Live production data copied | None observed in sampled six-tab records; the test workbook is explicitly synthetic |
+| Production writes or deployment | NONE |
+
+### Safe first test (PHA-05 only)
+
+Use the sandbox Google Sheets UI, select `Rekap_Kinerja` sheet → Data → Protect sheets and ranges → Add sheet/range → Sheet → `Rekap_Kinerja` → Set permissions → **Show a warning when editing this range** → Done. This affects only the verified sandbox sheet. Attempt to edit a synthetic description cell, verify that a warning appears, then **Cancel** to leave the test value unchanged. Do not edit or delete real production rows.
+
+PHA-05 should be marked PASS only after screenshot evidence confirms the warning and preserved synthetic values; the warning alone never proves that editing is blocked. PHA-06 requires an isolated **non-owner test editor** and further scripted-write acceptance checks. Do not attach the production Apps Script, copy Script Properties, or install triggers.
+
+**Sandbox provisioning verified; protection behavior itself NOT YET TESTED. Production remains NO-GO.**
