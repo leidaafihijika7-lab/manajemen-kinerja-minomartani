@@ -295,3 +295,24 @@ A separate **read-only Google Sheets API check** found:
 Testing **restricted editors** requires a **non-owner** sandbox test collaborator (not a real staff member and not a production editor), an explicit test-only sharing approval, and an isolated test Apps Script for authorized server write-flow checks. Owner permissions cannot be made immutable using Sheets protection.
 
 Do not enable restricted protection on production, change production sharing, run production triggers or apply production deployment. Keep the sandbox synthetic records and warning-protection baseline until PHA-06 test actors are ready.
+
+## Q. PHA-06 non-owner editor block — verified 10 October 2026
+
+The maintainer used a **second Google account** as a collaborator of the isolated `SANDBOX_PHA_RC1_SYNTHETIC_ONLY` file. They reported that this account saw no warning dialog when trying to edit or delete data in `Rekap_Kinerja`, but that the edit/delete action was **not allowed**. This is expected for a **restricting-editor** protection, unlike PHA-05 warning-only protection.
+
+Independent read-only connector verification on the exact sandbox ID (not on production):
+
+| Check | Actual value |
+|---|---|
+| Drive permission roles | One `owner` user and one `writer` user; addresses intentionally excluded |
+| `MULAI_DI_SINI!D16` | `PHA06-EDITOR-ACCESS-OK`, confirming an unprotected control sheet was editable |
+| `Rekap_Kinerja!E3` | `Laporan kedua untuk memvalidasi index satu-ke-satu.`, unchanged from test baseline |
+| Spreadsheet file type | Native Google Sheets, not production spreadsheet |
+
+**Decision: PHA-06 RESTRICTED-EDITOR USER-UI BLOCK = PASS.** A non-owner with file-level writer access can edit the unprotected control sheet but reports being unable to edit or delete cells from the restricted sheet. The lack of a warning dialog is **not** a failure; Google Sheets protection can deny edits instead of merely prompting.
+
+**Important limit:** This is not end-to-end protected Apps Script-write acceptance. The production Web App runs as its deploying account, but the protected sandbox has not yet been exercised through a separate Apps Script test project. Do not infer that production submit/review/disposition/audit writes will continue under proposed protections.
+
+**Next PHA-07:** create a **separate standalone Apps Script test project** (not a clone of the live project), point it **only** at the verified synthetic sandbox spreadsheet ID, and use harmless test IDs to exercise authorized append/update and cross-ID index guard behavior. Project must have no deployments, time triggers, production Script Properties or production file references. Require explicit sandbox target check, dry-run and rollback test.
+
+**Production decision: NO-GO. Canonical ACE-DSP-004: FAIL.**
