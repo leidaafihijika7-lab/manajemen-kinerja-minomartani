@@ -16,6 +16,12 @@ function aceDsp004TextV10_(value) {
 function aceDsp004HasV10_(obj,key) {
   return !!obj&&Object.prototype.hasOwnProperty.call(obj,key);
 }
+function aceDsp004CanonicalSummaryV10_(value) {
+  // Never print arbitrary canonical explanation text (it may embed entity names).
+  var head=aceDsp004TextV10_(value).split('|')[0];
+  var m=/:\s*([0-9]+)(?:\s*(?:;|$))/.exec(head);
+  return m?'FIRST_CANONICAL_NUMERIC_COUNT:'+m[1]:'CANONICAL_TEXT_REDACTED';
+}
 function aceDsp004SafeActionV10_(value) {
   var s=aceDsp004TextV10_(value).toUpperCase();
   return /^[A-Z][A-Z0-9_]{0,79}$/.test(s)?s:'OTHER_ACTION_REDACTED';
@@ -196,7 +202,7 @@ function aceDsp004ReportV10_(bundle,ss) {
   var counts=Object.create(null);
   issues.forEach(function(r){counts[r.kind]=(counts[r.kind]||0)+1;});
   var checked=ss?issues.every(function(r){return r.sourceAnchorVerified===true;}):null;
-  var reconciliation=String(canonical.explanation||'').split('|')[0].trim().slice(0,240);
+  var reconciliation=aceDsp004CanonicalSummaryV10_(canonical.explanation);
   return {
     sukses:checked!==false,
     versi:ACE_DSP004_DIAGNOSTICS_V10_VERSION_,
@@ -326,6 +332,11 @@ function validasiACEDsp004V10() {
     aceDsp004DetailReportIdV10_({idLaporan:'R1'})==='R1');
   check('NO_GUESS_FROM_FREE_TEXT',
     aceDsp004DetailReportIdV10_({message:'R1'})==='');
+  check('CANONICAL_COUNT_SANITIZED',
+    aceDsp004CanonicalSummaryV10_('Linkage tidak dua arah: 1 | ID-SECRET')
+      ==='FIRST_CANONICAL_NUMERIC_COUNT:1');
+  check('CANONICAL_FREE_TEXT_REDACTED',
+    aceDsp004CanonicalSummaryV10_('PRIVATE PERSON DATA | foo')==='CANONICAL_TEXT_REDACTED');
   var failed=checks.filter(function(c){return !c.lulus;});
   var ret={sukses:failed.length===0,lulus:checks.length-failed.length,
     gagal:failed.length,checks:checks,readOnly:true,dataBisnisDiubah:false};
