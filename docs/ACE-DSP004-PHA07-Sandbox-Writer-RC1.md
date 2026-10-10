@@ -57,3 +57,21 @@ This is an **owner-authorized protected-cell smoke test**, not an end-to-end Por
 6. Keep `PHA07_ALLOW_WRITE_RC1=false`. No protected write test until user and assistant verify preflight.
 
 **GO/NO-GO for production remains NO-GO regardless of success of this isolated smoke test.**
+
+## Verified real preflight — 10 October 2026, 18:05–18:06 WIB
+
+The maintainer ran both safe entrypoints in the separate `SANDBOX_PHA_RC1_SCRIPT_TEST` Apps Script project:
+
+- `PHA07_PURE_VALIDATION`: `sukses=true`, `lulus=7`, `gagal=0`, `readOnly=true`, `dataBisnisDiubah=false`.
+- `PHA07_PREFLIGHT`: `sukses=true`, `mode=READ_ONLY`, `spreadsheetIsSynthetic=true`, `strictProtectionPresent=true`, `noVisibleTriggers=true`, `writeEnabled=false`, `productionDataWritten=false`.
+- Independent connector read of the sandbox fixture confirmed `Rekap_Kinerja!R2` is **empty** and `S2=PHA-TEST-RPT-0001`; the second row remains `S3=PHA-TEST-RPT-0002`. No actual protected-cell write test has been run.
+
+**Read-only preflight acceptance: PASS.** This authorizes ONLY a single controlled reversible probe on the known sandbox `Rekap_Kinerja!R2`, not any production edit or wider Portal business-flow test.
+
+### Authorized next sandbox-only smoke test
+
+After an operator confirms the correct separate Apps Script project, change **only** `var PHA07_ALLOW_WRITE_RC1 = false;` to `true` inside its local `Kode.gs`; save; run `ujiPenulisanTerproteksiPHA07RC1()` **once**; collect `PHA07_WRITE_TEST` log; immediately return the setting to `false` and save. Success requires `status=PASS_WRITE_AND_RESTORE`, `writeObserved=true`, `restoreVerified=true`, `manualRestoreRequired=false`. Verify `R2` blank after.
+
+If the log shows `SANDBOX_RESTORE_NEEDS_ATTENTION` or `manualRestoreRequired=true`, **stop** and manually restore `Rekap_Kinerja!R2` in sandbox to blank. Do not rerun until reviewed. If `WRITE_TEST_DISABLED`, no writes were attempted and the flag must be checked. Do not deploy, add triggers or copy this test function to production.
+
+**Production remains NO-GO; canonical ACE-DSP-004 remains FAIL.**
