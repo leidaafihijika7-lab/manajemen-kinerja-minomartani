@@ -316,3 +316,16 @@ Independent read-only connector verification on the exact sandbox ID (not on pro
 **Next PHA-07:** create a **separate standalone Apps Script test project** (not a clone of the live project), point it **only** at the verified synthetic sandbox spreadsheet ID, and use harmless test IDs to exercise authorized append/update and cross-ID index guard behavior. Project must have no deployments, time triggers, production Script Properties or production file references. Require explicit sandbox target check, dry-run and rollback test.
 
 **Production decision: NO-GO. Canonical ACE-DSP-004: FAIL.**
+
+## R. Isolated PHA-07 Apps Script project provisioned
+
+On 10 October 2026 the maintainer supplied a screenshot of a freshly created standalone Apps Script project named `SANDBOX_PHA_RC1_SCRIPT_TEST`, initially containing only `myFunction()`. No deployment or triggers were visible in the screenshot; absence of triggers must still be checked at runtime.
+
+A separate `PHASandboxWriteAcceptanceRC1.gs` and the operating guide at `docs/ACE-DSP004-PHA07-Sandbox-Writer-RC1.md` have now been authored on this feature branch.
+
+- Guard uses **only the existing synthetic sandbox ID**, explicit synthetic fixture validation, strict-sheet protection inspection, and current-caller trigger count.
+- Functions `validasiLogikaPHA07RC1()` and `praUjiSandboxPHA07RC1()` are read-only. Both require operator execution; no production invocation has taken place.
+- Opt-in write probe remains **disabled by default** (`PHA07_ALLOW_WRITE_RC1=false`). No write-test execution authorized until successful live sandbox preflight.
+- Offline mocks: 7/7 pure tests pass; fixture accepted, lack of authorization and nonzero trigger counts fail closed; opt-in reversible `Rekap_Kinerja!R2` probe restores original synthetic value in simulated environment.
+
+**PHA-07 status: SANDBOX PROJECT CREATED; PRE-FLIGHT PENDING. Production protection changes remain NO-GO; ACE-DSP-004 remains FAIL.**
