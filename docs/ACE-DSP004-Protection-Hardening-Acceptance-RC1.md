@@ -109,3 +109,33 @@ Only a future, explicit human approval after isolated acceptance, source-integri
 - Apps Script Web apps: https://developers.google.com/apps-script/guides/web
 - Installable triggers: https://developers.google.com/apps-script/guides/triggers/installable
 - Google Sheets protected sheets and ranges: https://support.google.com/docs/answer/1218656
+
+## J. Execution evidence: 10 October 2026, 17:15 WIB
+
+This section records the actual Apps Script logs supplied by the maintainer. It does **not** represent a deployment, data edit, permission change, or sandbox write acceptance.
+
+| Source log | Observed outcome |
+|---|---|
+| `ACE_DSP004_PHA_VALIDATION` (17:15:16 WIB) | `sukses=true`, `lulus=20`, `gagal=0`; 20 synthetic checks passed, no business data changed |
+| `ACE_DSP004_PHA_SUMMARY` (17:15:59 WIB) | `sukses=true`, `protectedSheetsInspected=5`; `diagnosticComplete=true` |
+| `ACE_DSP004_PHA_SHEET` for five named tabs | All five available; each `sheetInspected=true`, `rangeInspected=true`; `sheetProtectionCount=0`, `rangeProtectionCount=0`, `inspectionErrorCount=0`; `state=NO_PROTECTION_OBSERVED` |
+| Editor execution identity | Active user and effective user both available, `currentExecutionIdentityRelation=MATCH` |
+| Installable triggers for current examiner | Exactly **two** triggers visible, both event type `CLOCK` and source type `CLOCK`. Other accounts' triggers unknown |
+| Explicit decision flags | `noProtectionsOnAllFive=true`, `triggerInventoryComplete=false`, `webAppExecuteAsVerified=false`, `protectedWriteFlowSandboxTested=false`, `ownerEditBlockVerified=false`, `productionChangeAuthorized=false`, `acceptanceApproved=false` |
+| Read-only assertion | `readOnly=true`, `dataBisnisDiubah=false` |
+
+### Acceptance progress
+
+- **PHA-01**: PASS (20/20 synthetic tests).
+- **PHA-02**: PASS (both SHEET and RANGE metadata inspected across five tabs with no errors).
+- **PHA-03 through PHA-09**: NOT YET ACCEPTED, pending active Web App deployer/executeAs confirmation, full trigger-owner inspection, isolated copy's protected write-flow tests, rollback readiness and authorized BDR.
+- **PHA-10**: NOT ACCEPTED; `ACTIVE_622` remains an unresolved historical backlink, with no verified replacement; canonical `ACE-DSP-004` remains **FAIL**.
+
+### Immediate next check (non-mutating)
+
+1. Use the **actual** active deployment details to record its `executeAs` behavior and deployed version; do not deploy or edit the deployment.
+2. Use Apps Script's Triggers page to view two `CLOCK` triggers and determine their handler functions/creator scope. Do not disable/change triggers.
+3. Collect *only* sanitized function names, versions, executor/trigger types, and counts. Do not publish account emails, deployment URLs, script IDs, or credentials.
+4. After identifying effective writers, prepare a **separate** sandbox spreadsheet and **separate** sandbox script project with synthetic records before any protective write test.
+
+The current runtime diagnostic stage is complete. **Production protection rollout remains NO-GO**.
