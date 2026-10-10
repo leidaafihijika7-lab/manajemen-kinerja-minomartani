@@ -190,3 +190,37 @@ The maintainer supplied an Apps Script Executions screenshot.
 In Apps Script Executions choose Tambahkan filter / Add filter, filter function `prosesBackupOtomatisBDRV10`, and then choose failed status (`Gagal`). Inspect one failed invocation and record concise timestamp, error message and failing function/line, without email addresses, private Drive IDs, script IDs or unrelated log payloads.
 
 Do **not** manually run backups, edit triggers, modify Script Properties or deploy. PHA production protection remains **NO-GO**.
+
+## M. Failed executions screen: 10 October 2026, 17:27 WIB
+
+Maintainer supplied the Apps Script **Executions** UI filtered to `Status: Gagal (Failed)`, which displayed **one failed execution in the previous seven days**. It was **not** a BDR trigger execution:
+
+| Attribute | Observed value |
+|---|---|
+| Handler | `simpanDataKinerja` |
+| Deployment | Version 681 (pinned Web App), not HEAD time trigger |
+| Event/start | Web App, 2026-10-08 15:02:43 WIB |
+| Duration/status | 5.313 seconds; Failed |
+| Error ID | `0174E4292B` |
+| Source stack | `pasangSubmitNonceInFlight_` (`Kode.gs:6311:18`) → `simpanDataKinerja` (`Kode.gs:6185:22`) |
+| Visible message | Generic server error: retry later |
+
+### Source-code correlation and constraints
+
+GitHub `main` contains `pasangSubmitNonceInFlight_` at line 6304. Line **6311** calls `nonceLock.tryLock(5000)` after obtaining a script lock; `simpanDataKinerja` invokes this helper at line **6185**, before payload normalization and before appending any record to `Rekap_Kinerja`. Those line numbers match the screenshot. An ordinary lock contention timeout would normally return `false` from `tryLock` and use the helper's human-friendly queue message, whereas the screenshot contains an `Exception` with a generic server error. This points to an error during/at the lock-service call or its backing runtime, but **does not prove the exact underlying service condition**. Official API documentation: https://developers.google.com/apps-script/reference/lock/lock
+
+The failed call happened on **2026-10-08**, two days **before** the RC1 index guard was introduced on **2026-10-10**, and ran deployed Web App version 681. Do **not** attribute the failure to RC1, nor conflate it with the **2026-10-01 ACTIVE_622** manual-deletion incident.
+
+Because the stack terminates at the pre-save nonce-guard call, the shown invocation did **not reach the normal report append stage** as structured in GitHub main. The evidence does not establish whether the employee retried successfully in a separate invocation. **Do not recreate reports automatically or modify production records on this basis.**
+
+### BDR error percentage interpretation
+
+The screenshot's *Failed* filter shows **no failed `prosesBackupOtomatisBDRV10` execution during the displayed seven-day window**, but the earlier Triggers panel showed a **25%** BDR error rate. That percentage remains unexplained: it could use a different historical window/denominator, and the UI does not expose that breakdown here. Do not reset/disable the BDR trigger or assume its historical rate has been remediated.
+
+### Recommended disposition
+
+- Mark this as **a separate Web App submission/nonce lock incident** pending evidence; avoid a speculative production patch for a single generic exception.
+- If the employee reports missing work, inspect the employee's report history and corresponding successful submit audit entries **read-only** before advising a resubmission.
+- The current PHA guard and production protection rollout remain **NO-GO**; continue with confirming active Web App `executeAs` and isolated sandbox acceptance.
+
+All source and evidence review above was read-only; no live report, deployment, trigger, script properties or protections were modified.
