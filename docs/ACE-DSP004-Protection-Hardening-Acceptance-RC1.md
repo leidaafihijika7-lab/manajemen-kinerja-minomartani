@@ -162,3 +162,31 @@ Observed in the production Apps Script editor's **Pemicu / Triggers** panel, as 
 Open Apps Script → **Executions / Eksekusi** (not Triggers). Filter for the backup handler and unsuccessful runs; record the error timestamp, concise error code/message, and any failing function/line. Avoid publishing account emails, file IDs, credentials, Drive share links, or unrelated log payloads. Do **not** manually run `prosesBackupOtomatisBDRV10`, replay a failed job, edit either trigger, modify database or deploy.
 
 **Production protection acceptance remains NO-GO; canonical ACE-DSP-004 remains FAIL.**
+
+## L. Execution UI cross-check: 10 October 2026, approximately 17:23 WIB
+
+The maintainer supplied an Apps Script Executions screenshot.
+
+| Field | Observed |
+|---|---|
+| Handler | `prosesBackupOtomatisBDRV10` |
+| Deployment | `Head` |
+| Invocation | Time-based trigger |
+| Started | 10 October 2026, 02:43:26 WIB |
+| Duration | **313.889 seconds (approximately 5m14s)** |
+| UI status | **Selesai / Completed** |
+| Corresponding BDR evidence | Prior manifest scan found 10 October `AUTO_DAILY` recovery point starting about 02:43:31 WIB with status `VERIFIED` |
+
+### Interpretation and remaining uncertainty
+
+1. This invocation completed without an unhandled error according to the Executions UI. `Selesai` by itself is not a business-level success assertion, since scripts may return `{sukses:false}` without throwing; the VERIFIED backup manifest is independent supporting evidence.
+2. Official Google Apps Script quotas currently list a **360-second per-execution limit**. At 313.889 seconds, this completed run had approximately **46.111 seconds of headroom**: https://developers.google.com/apps-script/guides/services/quotas. This is a timeout **risk warning**, not proof that any specific earlier failure timed out.
+3. The 25% error indication in the Triggers UI remains unexplained. No BDR failed execution is shown in this screenshot.
+4. Version-681 Web App calls are also visible. This supports that some UI calls use pinned code, whereas the BDR time trigger runs HEAD. It does not establish deployed Web App execute-as identity.
+5. UI only shows 200 of many executions in a seven-day window. Visible completed entries cannot exclude unseen failed executions.
+
+### Next safe read-only step
+
+In Apps Script Executions choose Tambahkan filter / Add filter, filter function `prosesBackupOtomatisBDRV10`, and then choose failed status (`Gagal`). Inspect one failed invocation and record concise timestamp, error message and failing function/line, without email addresses, private Drive IDs, script IDs or unrelated log payloads.
+
+Do **not** manually run backups, edit triggers, modify Script Properties or deploy. PHA production protection remains **NO-GO**.
