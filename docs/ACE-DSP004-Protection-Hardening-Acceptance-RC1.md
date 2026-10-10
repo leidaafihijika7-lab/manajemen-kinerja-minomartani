@@ -224,3 +224,28 @@ The screenshot's *Failed* filter shows **no failed `prosesBackupOtomatisBDRV10` 
 - The current PHA guard and production protection rollout remain **NO-GO**; continue with confirming active Web App `executeAs` and isolated sandbox acceptance.
 
 All source and evidence review above was read-only; no live report, deployment, trigger, script properties or protections were modified.
+
+## N. Web App execute-as screenshot — 10 October 2026, approx. 17:32 WIB
+
+Maintainer screenshot of the deployment configuration dialog showed:
+
+| Field | UI observation |
+|---|---|
+| `Jalankan sebagai` | `Saya` (account identity withheld from this repository) |
+| `Yang memiliki akses` | `Siapa saja` |
+| Dialog | An enabled `Terapkan` button and a `Batal` button were visible |
+
+**Interpretation and evidence limit**
+
+- The **editor-visible** Web App configuration uses the deploying account authority (`USER_DEPLOYING`-style execution). Google Apps Script documentation confirms that `Execute as me` means browser visitors do not need their own spreadsheet/Drive permissions for server calls to execute as the deploying principal.
+- `Siapa saja` indicates broad Web App URL reachability. The screenshot alone does not establish the exact manifest `access` enum (`ANYONE` versus `ANYONE_ANONYMOUS`) or the efficacy of the Portal's server-side login and permission gates. Do not conclude employee data is publicly disclosed just from this selection.
+- Because an enabled `Terapkan` button was visible, this might show **editable/staged deployment configuration** rather than an independently confirmed already-saved active version. Do not click `Terapkan`; leave using `Batal` unless an explicitly approved deployment change exists. Confirm the version and selected active deployment by read-only view if necessary.
+- Protections cannot remove spreadsheet owners' right to edit protected areas. If the Web App deployer is the spreadsheet owner, restricted-editor protections should normally preserve server-side app writes but cannot prevent manual deletion by that owner. Test this in an isolated sandbox; avoid extrapolating to all ownership scenarios.
+- App hardening should combine least-privilege file sharing, warning-only confirmation where useful, intentional cancellation/replacement workflow, source integrity checks, and server-side authentication/authorization checks for all privileged endpoints. The GitHub `simpanDataKinerja` entrypoint calls `validasiSession(token)` early, but this observation is **not** a comprehensive endpoint security review.
+
+**PHA-03 status**: Execution mode and broad access setting **OBSERVED**. Effective writer identity is provisionally the deploying account; independently verifying the **active saved deployment** and authorization boundaries is still required for full acceptance. **NO PRODUCTION MUTATIONS APPROVED.**
+
+Official source references:
+- https://developers.google.com/apps-script/guides/web
+- https://developers.google.com/apps-script/manifest/web-app-api-executable
+- https://developers.google.com/apps-script/reference/spreadsheet/protection
