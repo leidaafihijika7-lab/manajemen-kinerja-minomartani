@@ -329,3 +329,15 @@ A separate `PHASandboxWriteAcceptanceRC1.gs` and the operating guide at `docs/AC
 - Offline mocks: 7/7 pure tests pass; fixture accepted, lack of authorization and nonzero trigger counts fail closed; opt-in reversible `Rekap_Kinerja!R2` probe restores original synthetic value in simulated environment.
 
 **PHA-07 status: SANDBOX PROJECT CREATED; PRE-FLIGHT PENDING. Production protection changes remain NO-GO; ACE-DSP-004 remains FAIL.**
+
+## S. PHA-07 protected synthetic write smoke — 10 October 2026, 18:09 WIB
+
+Maintainer Apps Script output: `PHA07_WRITE_TEST` returned `sukses=true`, `status=PASS_WRITE_AND_RESTORE`, `target=SANDBOX_ONLY_REKAP_R2`, `writeObserved=true`, `restoreVerified=true`, `manualRestoreRequired=false`, `productionDataWritten=false`.
+
+Independent read-only check confirmed sandbox `Rekap_Kinerja!R2` blank (restored), `S2=PHA-TEST-RPT-0001`, and `S3=PHA-TEST-RPT-0002`.
+
+**Acceptance scope:** PHA-07 **protected-write smoke subtest PASS** for isolated test principal and one known synthetic cell, but PHA-07 **full Portal business-flow compatibility NOT YET ACCEPTED**. PHA-08 foreign-ID collision acceptance remains pending. Neither result justifies modifying production protections or deploying the branch.
+
+**Operator safety:** Set `PHA07_ALLOW_WRITE_RC1=false` again in the separate sandbox project; a successful test log does not independently prove the flag was switched off after the run.
+
+Production protection rollout **NO-GO**. Canonical `ACE-DSP-004` **FAIL**.
