@@ -273,3 +273,25 @@ Use the sandbox Google Sheets UI, select `Rekap_Kinerja` sheet → Data → Prot
 PHA-05 should be marked PASS only after screenshot evidence confirms the warning and preserved synthetic values; the warning alone never proves that editing is blocked. PHA-06 requires an isolated **non-owner test editor** and further scripted-write acceptance checks. Do not attach the production Apps Script, copy Script Properties, or install triggers.
 
 **Sandbox provisioning verified; protection behavior itself NOT YET TESTED. Production remains NO-GO.**
+
+## P. PHA-05 warning-only test evidence — 10 October 2026, 17:46 WIB
+
+The maintainer supplied a screenshot of the **native, isolated** `SANDBOX_PHA_RC1_SYNTHETIC_ONLY` Google Sheet, `Rekap_Kinerja` selected. The sheet displays a lock symbol and a modal titled `Perhatian!` stating that the user is attempting to edit a portion of the sheet that should not be modified accidentally. `Batal` and `Oke` buttons are visible. The `Do not show this again for 5 minutes` checkbox appears **unchecked**.
+
+Screenshot selection is **E3**, not E2. This is acceptable, because the test is intentionally scoped to the **whole `Rekap_Kinerja` sheet**, not one specific synthetic row.
+
+A separate **read-only Google Sheets API check** found:
+
+- `Rekap_Kinerja!E2` = `Laporan untuk pengujian proteksi. Tidak terkait kegiatan nyata.`
+- `Rekap_Kinerja!E3` = `Laporan kedua untuk memvalidasi index satu-ke-satu.`
+- Both values match the pre-test synthetic baseline.
+
+### Decision
+
+**PHA-05 WARNING-DISPLAY PASS**. Warning-only sheet protection on the sandbox is shown working; the two checked synthetic source cells remained unchanged at the read-only verification time. **User confirmation of clicking `Batal` was not yet supplied** (the screenshot shows the dialog still open). The modal is not proof that edits are prevented: clicking `Oke` can proceed.
+
+### Next PHA-06 prerequisites
+
+Testing **restricted editors** requires a **non-owner** sandbox test collaborator (not a real staff member and not a production editor), an explicit test-only sharing approval, and an isolated test Apps Script for authorized server write-flow checks. Owner permissions cannot be made immutable using Sheets protection.
+
+Do not enable restricted protection on production, change production sharing, run production triggers or apply production deployment. Keep the sandbox synthetic records and warning-protection baseline until PHA-06 test actors are ready.
