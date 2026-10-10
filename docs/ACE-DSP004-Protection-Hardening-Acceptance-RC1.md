@@ -139,3 +139,26 @@ This section records the actual Apps Script logs supplied by the maintainer. It 
 4. After identifying effective writers, prepare a **separate** sandbox spreadsheet and **separate** sandbox script project with synthetic records before any protective write test.
 
 The current runtime diagnostic stage is complete. **Production protection rollout remains NO-GO**.
+
+## K. Trigger UI evidence: 10 October 2026, 17:18 WIB
+
+Observed in the production Apps Script editor's **Pemicu / Triggers** panel, as supplied by the maintainer:
+
+| Handler | Owner shown | Deployment | Event | Last run (Asia/Jakarta) | UI failure rate |
+|---|---|---|---|---|---|
+| `prosesBackupOtomatisBDRV10` | `Saya` (current account) | `Head` | Time-based | 2026-10-10 02:43:26 | **25%** |
+| `prosesWorkflowReminderTerjadwalV10` | `Saya` (current account) | `Head` | Time-based | 2026-10-10 16:30:46 | **0%** |
+
+### Interpretation and limitations
+
+1. These two handlers match the 2 `CLOCK` triggers seen by the read-only RC1 runtime diagnostic. They are operated by the current editor account and execute HEAD code, not the pinned versioned Web App deployment.
+2. The UI's 25% backup failure rate is a **historical aggregate warning**, not proof that the last run failed. Prior BDR evidence records an `AUTO_DAILY` recovery point at approximately 02:43 WIB on 2026-10-10 with **VERIFIED manifest**. This is consistent with last-run success but does not establish the cause or precise timing of other failures. The `Kode.gs` RC1 editor update must not be assumed to have caused earlier BDR failures.
+3. Code inspection: the backup handler calls `bdrV10CreateRecoveryPoint_` with `AUTO_DAILY` and may retry once if the source changed during backup; the workflow reminder handler can append to `Audit_Log` and update Script Properties. Protection tests must cover both workflows in **isolated test resources**, and normal triggers must remain enabled until an evidence-backed action is approved.
+4. This panel only establishes two trigger entries **visible to this account**. It does not certify whether other accounts own additional installable triggers; `getProjectTriggers()` is scoped to the current user.
+5. **PHA-04 status: PARTIAL / OWNER-VISIBLE INVENTORY CONFIRMED**. It is not FULL PASS until any other trigger-owning accounts and operational execution principals are accounted for. **PHA-03: NOT VERIFIED** because the active Web App execute-as setting was not shown.
+
+### Next read-only investigation
+
+Open Apps Script → **Executions / Eksekusi** (not Triggers). Filter for the backup handler and unsuccessful runs; record the error timestamp, concise error code/message, and any failing function/line. Avoid publishing account emails, file IDs, credentials, Drive share links, or unrelated log payloads. Do **not** manually run `prosesBackupOtomatisBDRV10`, replay a failed job, edit either trigger, modify database or deploy.
+
+**Production protection acceptance remains NO-GO; canonical ACE-DSP-004 remains FAIL.**
