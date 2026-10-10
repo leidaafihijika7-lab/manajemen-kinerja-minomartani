@@ -75,3 +75,17 @@ After an operator confirms the correct separate Apps Script project, change **on
 If the log shows `SANDBOX_RESTORE_NEEDS_ATTENTION` or `manualRestoreRequired=true`, **stop** and manually restore `Rekap_Kinerja!R2` in sandbox to blank. Do not rerun until reviewed. If `WRITE_TEST_DISABLED`, no writes were attempted and the flag must be checked. Do not deploy, add triggers or copy this test function to production.
 
 **Production remains NO-GO; canonical ACE-DSP-004 remains FAIL.**
+
+## Verified real protected-write result — 10 October 2026, 18:09 WIB
+
+The maintainer executed `ujiPenulisanTerproteksiPHA07RC1()` **once** in the separate `SANDBOX_PHA_RC1_SCRIPT_TEST` project. Apps Script emitted:
+
+`PHA07_WRITE_TEST {"sukses":true,"status":"PASS_WRITE_AND_RESTORE","target":"SANDBOX_ONLY_REKAP_R2","writeObserved":true,"restoreVerified":true,"productionDataWritten":false,"manualRestoreRequired":false}`
+
+An additional **independent, read-only Google Sheets connector verification** after execution retrieved `Rekap_Kinerja!R2:S3` from the previously verified native sandbox ID. The results were: `R2` blank, `S2=PHA-TEST-RPT-0001`, and `S3=PHA-TEST-RPT-0002` — the exact expected baseline. The test did not require manual restoration.
+
+**Decision: PHA-07 protected-cell WRITE & RESTORE smoke = PASS (sandbox only).** This verifies write access for this test principal on this sheet's current protection configuration. It does not establish full production Web App identity, report submit/review/disposition workflow compatibility, or allow production protection rollout.
+
+**Immediate operator action**: Restore `var PHA07_ALLOW_WRITE_RC1 = false;` in the isolated sandbox `Kode.gs` and save; log alone does not confirm this flag was reset. No repeat of the writer probe is necessary.
+
+**Remaining for broader PHA-07/PHA-08 acceptance**: exercise synthetic append/review/disposition/audit flows and actual cross-ID collision behavior on sandbox-only fixtures under approved protection settings; validate before/after state, no surprise triggers, and reversal procedures. Production remains NO-GO; canonical ACE-DSP-004 remains FAIL.
