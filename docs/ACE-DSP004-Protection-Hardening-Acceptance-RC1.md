@@ -431,3 +431,13 @@ Offline QA: **41/41 model tests PASS**. Full mocked Apps Script preflight using 
 Operational guide: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`. Next operator action: create **new** standalone Apps Script project `SANDBOX_PHA07B_B1_SCRIPT_TEST`, paste only new B1 harness, leave `PHA07B_B1_ALLOW_WRITE_RC1=false`, run `validasiModelB1PHA07BRC1` (41/41) and `praUjiTransaksiB1PHA07BRC1` (read-only), share logs. Both write functions remain NOT AUTHORIZED until a separate decision.
 
 **B1 status STAGED / LIVE READ-ONLY PENDING; PHA-07B integrated production-handler acceptance OPEN; production rollout NO-GO; canonical ACE-DSP-004 FAIL.**
+
+## AB. PHA-07B B1 Phase A live read-only PASS — 11 October 2026
+
+Maintainer executed `validasiModelB1PHA07BRC1()` in standalone `SANDBOX_PHA07B_B1_SCRIPT_TEST`: **41/41 PASS**; `praUjiTransaksiB1PHA07BRC1()` returned `sukses=true`, `mode=READ_ONLY`, `exactB1SandboxVerified=true`, `baselineUntouched=true`, `queueEmpty=true`, `scratchEmpty=true`, `noVisibleTriggers=true`, `writeEnabled=false`, `productionDataWritten=false`, `actualTransactionApproved=false`.
+
+Independent connected native Sheets bounded reread: **9/9 checks PASS**, including unchanged B0 stage marker/empty queue, B1 2 report–index records, exact disposition/audit links, 0 queue jobs, 0 event journal entries, and 15 pending scenarios.
+
+**B1 Phase A CLOSED/PASS**. First live isolated synthetic writer `ujiGagalIndexAntreanB1PHA07BRC1` is the only next scoped acceptance step. Operator temporarily enables B1 write gate, performs **one** run, immediately disables the gate; no retry on stop/restore failure. Other writer, all production mutation/replay, Web App deployment and main merge remain NO-GO. `ACE-DSP-004` remains FAIL.
+
+See `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md` for exact criteria.
