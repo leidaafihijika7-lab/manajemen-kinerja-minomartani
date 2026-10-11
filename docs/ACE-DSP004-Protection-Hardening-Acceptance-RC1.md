@@ -399,3 +399,13 @@ Offline QA: **30/30 pure in-memory PASS**. Independent connected Google Sheets r
 Next operator step: install new standalone `PHASandboxTransactionQueueRC1.gs` as an **additional script file** in `SANDBOX_PHA_RC1_SCRIPT_TEST`; leave both existing PHA-07 and PHA-08 write flags false. Run only `validasiLogikaPHA07BRC1()` (30/30 target) and `diagnostikTransaksiAntreanPHA07BRC1()` (read-only source relationships). Share `PHA07B_PURE_VALIDATION` and `PHA07B_PREFLIGHT`. Real queue/write Phase B requires a **second isolated, disposable** test workbook because the current fixture is exactly six tabs.
 
 **PHA-07B status: STAGED / OPERATOR READ-ONLY TEST PENDING.** Complete submit/review/disposition/queue acceptance remains OPEN, production NO-GO and canonical ACE-DSP-004 FAIL.
+
+## Y. PHA-07B B0 isolated environment created
+
+11 October 2026: a new native Google Sheet named `SANDBOX_PHA07B_B0_SYNTHETIC_ONLY` was created and connector-read-verified at https://docs.google.com/spreadsheets/d/1tm-N_2JOWjXLo9bJkqLGgBlQYd76wzE2-vZKXY-tmS8/edit. This is separate from the earlier PHA-05–08 six-tab sandbox and the production database.
+
+Exact B0 fixture: 10 tabs including 71-column Rekap, 12-column Index, **empty Index_Laporan_Sync_Queue**, Disposisi_Surat, recipient/log/audit tabs, 15 unexecuted scenarios and empty event journal. Two purely synthetic report/index pairs, two submit audit entries and one disposition link were read back and checked.
+
+Created `PHASandboxB0EnvironmentRC1.gs`: read-only, exact B0 ID/title and tab guards, no write APIs, no production IDs, current-caller trigger check. 8/8 pure logic checks passed offline. Operator Apps Script environment preflight is **PENDING** and should run in a **new** standalone `SANDBOX_PHA07B_B0_SCRIPT_TEST` project, not in the previous six-tab test script. No actual transaction/queue replay may occur during B0.
+
+Guide: `docs/ACE-DSP004-PHA07B-B0-Isolated-Environment-RC1.md`. **B0 state: ENVIRONMENT PROVISIONED, OPERATOR ACCEPTANCE PENDING. Production remains NO-GO. ACE-DSP-004 remains FAIL.**
