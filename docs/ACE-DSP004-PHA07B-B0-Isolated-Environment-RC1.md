@@ -60,3 +60,9 @@ Maintainer ran the two prescribed read-only functions in the **standalone** Apps
 Prepare a dedicated synthetic-only transaction harness. Before any B1 write, require explicit write-scope approval, exact sandbox ID/title check, operator-controlled write flag default OFF, no unexpected triggers, bounded before-snapshot + typed recovery verification, stable original report identity for queue entries, and fail-closed handling for source/index/audit/disposition divergence. Do not copy or activate production Web App handlers, triggers, secrets, or Script Properties.
 
 **Production NO-GO** remains; canonical `ACE-DSP-004` remains FAIL. GitHub main and production data/deployments are out of scope.
+
+## Next environment — B1 disposable copy staged
+
+11 October 2026: B0 accepted read-only (8/8 + preflight). A distinct new disposable native Google Sheet `SANDBOX_PHA07B_B1_DISPOSABLE_SYNTHETIC_ONLY` was copied from this accepted B0 fixture. B0 remains unchanged; the B1 copy is the only intended destination for future isolated write injections.
+
+B1 source and operator guide: `PHASandboxB1TransactionQueueRC1.gs` and `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md` (see exact saved path in repository). 41/41 pure model checks, both simulated fault and recovery writer checks passed offline; no real B1 writes occurred. Phase A read-only operator acceptance is pending; do not run B1 writers yet. Production NO-GO, ACE-DSP-004 FAIL.
