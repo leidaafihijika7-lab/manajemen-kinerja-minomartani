@@ -1,8 +1,8 @@
 # ACE-DSP-004 — PHA-08 Index Integrity Collision Acceptance RC1
 
 Date: 11 October 2026 (Asia/Jakarta)
-Version: PHA08-INDEX-COLLISION-RC1-2026.10.11.01
-Status: STAGED. Live Apps Script acceptance not yet run. Production NO-GO.
+Version: PHA08-INDEX-COLLISION-RC1-2026.10.11.02 (sandbox-only hotfix)
+Status: LIVE READ-ONLY PASS; FIRST WRITE ATTEMPT FAILED; SANDBOX TEXT-TYPE REPAIR REQUIRED. Production NO-GO.
 
 ## Goal and provenance
 
@@ -35,7 +35,7 @@ Guards require exact native Google Sheet ID and title for the isolated synthetic
 
 Only after successful live Phase A and explicit operator approval, set PHA08_ALLOW_WRITE_RC1=true solely in the separate sandbox Apps Script project, run ujiKolisiDanPemulihanIndexPHA08RC1() ONCE, and immediately reset the flag to false.
 
-The function refuses foreign-ID overwrite of Index row2 before a writer callback; then tests same-ID update of Index_Laporan!A3:L3, changing only the synthetic nonce in J3, and restores the original full 12-cell row. Expected result: PASS_COLLISION_BLOCK_AND_RESTORE; foreignIdWrites=0; sameIdWriteObserved=true; restoreVerified=true; manualRestoreRequired=false.
+The updated RC1.02 function refuses foreign-ID overwrite of Index row2 before a writer callback; then tests a same-ID update of ONLY Index_Laporan!J3 using setValue, restores the original J3 text, and verifies that all other A2:L3 cells remain unchanged. It deliberately NEVER rewrites the entire mixed-type index row. Expected result: PASS_COLLISION_BLOCK_AND_RESTORE; foreignIdWrites=0; sameIdWriteObserved=true; restoreVerified=true; manualRestoreRequired=false.
 
 If restoreVerified=false or manualRestoreRequired=true, STOP and check Index_Laporan!A3:L3 in the SANDBOX only; do not automatically retry. No AppScript code or production code is authorized to update the historical ACE-DSP-004 case.
 
@@ -45,7 +45,7 @@ If restoreVerified=false or manualRestoreRequired=true, STOP and check Index_Lap
 - Pure decision tests: 12/12 PASS.
 - Mocked sandbox read-only preflight: PASS.
 - Mocked colliding source row3 versus Index row2: rejected before writer callback; index untouched.
-- Mocked matching report row3: accepted, temporary synthetic Index row3 update then restored, two bounded test writes; baseline after equals baseline before.
+- Updated RC1.02 mocked matching report row3: accepted, ONLY J3 temporarily updated and restored (two bounded J3 writes); full A2:L3 baseline after equals before.
 - Fail-closed mocks: editor cannot edit protected Rekap, unexpected current-caller trigger, and modified source/index fixture each stop before writes.
 - Independent connector read-only baseline check: Rekap R2 blank; source and index IDs align; Index row3 J3 nonce is PHA-TEST-NONCE-0002.
 
@@ -53,4 +53,44 @@ Limits: This acceptance harness is sandbox-only. It does not test the production
 
 ## Decision
 
-Phase A read-only sandbox test: GO. Phase B write test: PENDING explicit post-preflight approval. Production protection rollout, deployment, main merge, data changes, or canonical control override: NO-GO. ACE-DSP-004 remains FAIL.
+Phase A previously PASSED on RC1.01. Phase B first write FAILED and remains STOPPED until sandbox text-cell repair and the RC1.02 read-only preflight pass. Production protection rollout, deployment, main merge, data changes, or canonical control override: NO-GO. ACE-DSP-004 remains FAIL.
+
+## Actual live results — 11 October 2026, 11:24–11:30 WIB
+
+1. RC1.01 live `PHA08_PURE_VALIDATION`: 12/12 PASS.
+2. RC1.01 live `PHA08_PREFLIGHT`: `sukses=true`, `foreignIdBlocked=true`, `sameIdAllowed=true`, `writeEnabled=false`; read-only.
+3. RC1.01 live `PHA08_WRITE_TEST` (11:30): `sukses=false`, `status=SANDBOX_INDEX_RESTORE_NEEDS_ATTENTION`, `foreignIdBlocked=true`, `foreignIdWrites=0`, `sameIdWriteObserved=false`, `restoreVerified=false`, `manualRestoreRequired=true`, `stopCode=PHA08_STOP_SAME_ID_WRITE_NOT_OBSERVED`, `productionDataWritten=false`.
+
+### Independent post-test sandbox read-only evidence
+
+- Index_Laporan row2 remains synthetic report A, ROW_REKAP=2 and original nonce.
+- Index_Laporan row3 retains synthetic report B, ROW_REKAP=3 and original nonce J3=`PHA-TEST-NONCE-0002`.
+- D3, E3 and K3 are now stored as **numeric date serials**, although before the attempt their original synthetic baseline was text. Current unformatted values correspond to serials 46305.385416666664, 46296, and 46305.38543981482. Formatted display still resembles the original contents but no longer has exact original text values.
+- This is consistent with the original RC1.01 test rewriting the entire A3:L3 mixed-type row through `setValues`, which can convert date-like text into date values. This plausibly explains strict comparison failure both after the write and after attempted restoration. No evidence of report-ID replacement or production writes.
+- **The original baseline is not fully restored:** do not label the write test as PASS merely because ID and nonce values are correct.
+
+### Required isolated manual repair BEFORE any retest
+
+1. In the SANDBOX_PHA_RC1_SYNTHETIC_ONLY workbook, tab `Index_Laporan`, restore ONLY three synthetic cells as **Plain text** (Format → Number → Plain text); then enter these literal values:
+
+| Cell | Original text literal |
+|---|---|
+| D3 | `2026-10-10 09:15:00` |
+| E3 | `2026-10` |
+| K3 | `2026-10-10 09:15:02` |
+
+2. Forcing literal text with an initial apostrophe in the Sheets editor is acceptable; the apostrophe is not part of the stored content. Keep report IDs, ROW_REKAP and J3 unchanged.
+3. Preserve `PHA07_ALLOW_WRITE_RC1=false` and `PHA08_ALLOW_WRITE_RC1=false` in the separate script. Do not replay RC1.01.
+4. Update **ONLY** the sandbox script file `PHASandboxIndexCollisionRC1.gs` from this branch (hotfix RC1.02). The production `Kode.gs` and production `ACEDsp004IndexIntegrityRC1.gs` must NOT be replaced.
+5. Run `praUjiKolisiIndexPHA08RC1()` read-only. RC1.02 stops with `PHA08_STOP_INDEX_DATE_TEXT_BASELINE_CHANGED` if the text baseline is still altered. Confirm PASS before any new write consideration.
+
+### Hotfix RC1.02 QA, offline only
+
+- Actual three production-candidate guard helper bodies remain byte-for-byte equal to reference; none were changed.
+- 12/12 synthetic pure checks PASS; mocked read-only fixture checks PASS.
+- Mocked foreign-ID collision blocked with zero writes.
+- Mocked same-ID writer updated J3 only and restored J3 only; exactly two single-cell writes, A2:L3 baseline unchanged, test lock released.
+- Mocked D3/E3/K3 converted into Date objects are now rejected by read-only preflight with `PHA08_STOP_INDEX_DATE_TEXT_BASELINE_CHANGED`.
+- `PHA08_ALLOW_WRITE_RC1=false` is still the default. No actual sheet edits or script deployment were performed by the assistant for this hotfix.
+
+**Do not proceed to another writer test before explicitly reviewing restored fixture values and successful RC1.02 preflight. Production remains NO-GO, and ACE-DSP-004 remains FAIL.**
