@@ -548,7 +548,7 @@ function invalidasiRuntimeCutoffTunjangan_() {
 function getSS_() {
   // RC8.2 ISOLATED STAGING: compile-time allowlist, no alternate databases.
   if (typeof RC82_STAGE_ === 'undefined') throw new Error('RC82_MODULE_REQUIRED');
-  var allowed='1JcX6PLGcjf6YraMl9VO0RfjGNpwwIxSaidOvdjaZiJA';
+  var allowed='1nIH0dCUs5SduXGNsEI-flKX1nGcfAA3Gufr2Q7OpTTM';
   var p=PropertiesService.getScriptProperties();
   if(p.getProperty('RC82_STAGING_MODE')!=='true' ||
      String(p.getProperty('SPREADSHEET_ID')||'').trim()!==allowed ||
@@ -562,8 +562,8 @@ function getSS_() {
   var ss=SpreadsheetApp.openById(allowed);
   if(ss.getId()!==allowed) throw new Error('RC82_OPENED_WRONG_DATABASE');
   var marker=ss.getSheetByName('MULAI_DI_SINI');
-  if(!marker || String(marker.getRange('A5').getValue())!=='STAGE_RC82_AUTH_BUSINESS_DISPOSABLE' ||
-     String(marker.getRange('A8').getValue())!=='RC82_DISPOSABLE_BUSINESS_WRITES_EXPLICIT_OPT_IN_ONLY' ||
+  if(!marker || String(marker.getRange('A5').getValue())!=='STAGE_RC82_REVISION_DIAGNOSTIC' ||
+     String(marker.getRange('A8').getValue())!=='RC82_REVISION_DIAGNOSTIC_WRITES_OPTIN_ONLY' ||
      String(marker.getRange('B16').getValue())!==allowed)
     throw new Error('RC82_WORKBOOK_SENTINEL_INVALID');
   PORTAL_RUNTIME_CACHE_.spreadsheet=ss;
