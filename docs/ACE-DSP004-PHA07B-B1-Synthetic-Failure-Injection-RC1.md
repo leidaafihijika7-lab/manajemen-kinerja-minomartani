@@ -97,3 +97,22 @@ On any `manualRestoreRequired=true`, `STOPPED`, or `SANDBOX_B1_RESTORE_NEEDS_ATT
 B1 stage currently **READY FOR PHASE A READ-ONLY**, not a production PASS. The proposed queue risk policy is advisory, and the two writer tests use synthetic harness functions rather than the Portal production submit/review/queue implementations. Demonstrating **actual live Portal code** under forced index failures would require further isolated integration with copies of safe code and explicit deployment/session controls; do not assume this stage covers that.
 
 Remediation of `ACE-DSP-004 ACTIVE_622` needs documented administrative reconciliation and human authorization independently of B1, and `ACE-REV-003` must not be changed by these tests. **Production NO-GO**; no `main` merge or Web App deployment.
+
+## 9. Phase A operator execution — PASS (11 October 2026)
+
+**Source of proof**: Maintainer-provided Apps Script execution screenshots from the isolated `SANDBOX_PHA07B_B1_SCRIPT_TEST`, approximately 13:02–13:03 WIB. They report:
+
+- `PHA07B_B1_PURE_VALIDATION`: `sukses=true`, `lulus=41`, `gagal=0`, `readOnly=true`, `productionDataWritten=false`, `liveHandlersExercised=false`.
+- `PHA07B_B1_PREFLIGHT`: `sukses=true`, `versi=PHA07B-B1-FAULT-RC1-2026.10.11.02`, `mode=READ_ONLY`, `exactB1SandboxVerified=true`, `baselineUntouched=true`, `queueEmpty=true`, `scratchEmpty=true`, `noVisibleTriggers=true`, `writeEnabled=false`, `productionDataWritten=false`, `actualTransactionApproved=false`.
+
+**Independent connected Google Sheets read-back after execution**: 9/9 bounded checks PASS: B1 stage/write-opt-in markers, two exact report↔index source identities/owners/nonces/row pointers, queue empty, two submit audits, recipient and disposition event link, 15/15 scenario statuses still `PENDING`, empty event journal, empty targeted scratch rows, and preserved original B0 stage marker and empty queue. These observations are read-only and do not imply global trigger verification.
+
+### Decision
+
+**B1 Phase A (pure validation and read-only preflight): CLOSED / PASS.** This does **not** mean B1 writer acceptance, full system acceptance, or authorization to change production controls.
+
+**Next controlled test approved within the established synthetic-only B1 scope**: `ujiGagalIndexAntreanB1PHA07BRC1()` **exactly once**, and only in the isolated standalone B1 script project after deliberate temporary change of `PHA07B_B1_ALLOW_WRITE_RC1` from `false` to `true`. This tests synthetic report append → injected index skip → unbound `ROW` queue PENDING → fail-closed replay policy → bounded restoration. Immediately reset and save the flag `false` regardless of the test result. Do not run the other write test yet.
+
+On `manualRestoreRequired=true`, `restored=false`, an unexpected stopCode, or `sukses=false`, stop: do not retry, independently check B1 scratch rows and do not proceed to review/disposition writer test. Success criteria: `status=PASS_SYNTHETIC_WRITE_AND_RESTORE`, `indexFaultInjected=true`, `queuePersistedObserved=true`, `rowReplayHeld=true`, `restored=true`, `manualRestoreRequired=false`, `productionDataWritten=false`.
+
+Canonical ACE-DSP-004 still FAIL, and PHA-07B B1 write acceptance remains PENDING until actual operator execution plus independent baseline verification. Production and GitHub main remain NO-GO.
