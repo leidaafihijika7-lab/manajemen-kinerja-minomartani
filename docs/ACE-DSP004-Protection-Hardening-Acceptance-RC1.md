@@ -441,3 +441,13 @@ Independent connected native Sheets bounded reread: **9/9 checks PASS**, includi
 **B1 Phase A CLOSED/PASS**. First live isolated synthetic writer `ujiGagalIndexAntreanB1PHA07BRC1` is the only next scoped acceptance step. Operator temporarily enables B1 write gate, performs **one** run, immediately disables the gate; no retry on stop/restore failure. Other writer, all production mutation/replay, Web App deployment and main merge remain NO-GO. `ACE-DSP-004` remains FAIL.
 
 See `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md` for exact criteria.
+
+## AC. PHA-07B B1-01 isolated synthetic failure test PASS — 11 October 2026
+
+Operator screenshot records real isolated sandbox `PHA07B_B1_WRITE_TEST` result for `B1-INDEX-FAILURE`: `sukses=true`, `status=PASS_SYNTHETIC_WRITE_AND_RESTORE`, `sourceCommittedObserved=true`, `indexFaultInjected=true`, `queuePersistedObserved=true`, `rowReplayHeld=true`, `restored=true`, `manualRestoreRequired=false`, `productionDataWritten=false`, `actualProductionHandlersUsed=false`.
+
+Connected native Google Sheets **read-only** comparison of the B1 disposable copy to pristine B0 found **zero value differences across 9 bounded tab regions**. The synthetic queue and scratch areas are empty; two original report/index pairs and audit/disposition links remain; 15 scenario statuses unchanged.
+
+**B1-01 CLOSED/PASS** under synthetic harness scope. **B1-02 and full production handler/queue acceptance OPEN**. The screenshot still showed `PHA07B_B1_ALLOW_WRITE_RC1=true`; user must reset the flag to `false` and save, then demonstrate read-only preflight before further write tests. No automatic replay, production changes, protections, deployments or main merge permitted. Canonical `ACE-DSP-004` remains FAIL.
+
+Full evidence: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
