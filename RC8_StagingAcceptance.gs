@@ -82,21 +82,48 @@ function rc8ReadOnlyPreflightV1() {
 }
 /** Read-only inspection: source/index projection and RC7 guard, no write permission. */
 function rc8ReadOnlyBusinessPlanV1() {
-  var p=rc8ReadOnlyPreflightV1();
-  if(p.status!=='RC8_STAGING_PREFLIGHT_PASS')return {status:'RC8_PLAN_BLOCKED',issues:p.issues};
-  var ss=rc8AssertStage_(),result=[];
-  for(var row=2;row<=3;row++){
-    var src=rc7Source_(ss,row);
-    rc7SourceUnique_(ss,src);
-    var projected=buatBarisIndexLaporan2B0_(src.row,row);
-    var actual=ss.getSheetByName('Index_Laporan').getRange(row,1,1,projected.length).getValues()[0];
-    result.push({row:row,idLaporan:src.triple.idLaporan,idUser:src.triple.idUser,
-      nonce:src.triple.nonce,indexIdentical:barisIndexSama2B0_(projected,actual)});
+  var preflight = rc8ReadOnlyPreflightV1();
+  if (preflight.status !== 'RC8_STAGING_PREFLIGHT_PASS') {
+    var blocked = {
+      status: 'RC8_PLAN_BLOCKED',
+      issues: preflight.issues || ['PREFLIGHT_NOT_PASSED'],
+      writesPerformed: 0,
+      productionReady: false
+    };
+    console.log('PHA07B2_RC8_BUSINESS_PLAN:\n' + JSON.stringify(blocked, null, 2));
+    return blocked;
   }
-  var out={status:'RC8_READONLY_BUSINESS_PLAN_PASS',probes:result,
-    caveat:'Storage/projection only; full application submit/review/auth not executed.',
-    writesPerformed:0,productionReady:false};
-  console.log('PHA07B2_RC8_BUSINESS_PLAN:\n'+JSON.stringify(out,null,2));
+  var ss = rc8AssertStage_();
+  var probes = [], issues = [];
+  var indexSheet = ss.getSheetByName('Index_Laporan');
+  for (var row = 2; row <= 3; row++) {
+    var src = rc7Source_(ss, row);
+    rc7SourceUnique_(ss, src);
+    var projected = buatBarisIndexLaporan2B0_(src.row, row);
+    var actual = indexSheet.getRange(row, 1, 1, projected.length).getValues()[0];
+    var differences = bedaBarisIndexLaporan2B0_(projected, actual);
+    if (differences.length) issues.push('INDEX_MISMATCH_ROW_' + row);
+    probes.push({
+      row: row,
+      idLaporan: src.triple.idLaporan,
+      idUser: src.triple.idUser,
+      nonce: src.triple.nonce,
+      indexIdentical: differences.length === 0,
+      differences: differences
+    });
+  }
+  var out = {
+    status: issues.length
+      ? 'RC8_READONLY_BUSINESS_PLAN_MISMATCH'
+      : 'RC8_READONLY_BUSINESS_PLAN_PASS',
+    validationVersion: 'RC8-BUSINESS-PLAN-STRICT-1.1',
+    probes: probes,
+    issues: issues,
+    caveat: 'Storage/projection only; full application submit/review/auth not executed.',
+    writesPerformed: 0,
+    productionReady: false
+  };
+  console.log('PHA07B2_RC8_BUSINESS_PLAN:\n' + JSON.stringify(out, null, 2));
   return out;
 }
 /**
@@ -112,6 +139,9 @@ function rc8StagingWriteDrillV1() {
   if(props.getProperty('INDEX_LAPORAN_2B1_WRITE_ENABLED')==='true')rc8Fail_('DUAL_WRITE_ENABLED_BLOCKED');
   var baseline=rc8ReadOnlyPreflightV1();
   if(baseline.status!=='RC8_STAGING_PREFLIGHT_PASS')rc8Fail_('PREFLIGHT_REQUIRED');
+  var businessPlan=rc8ReadOnlyBusinessPlanV1();
+  if(businessPlan.status!=='RC8_READONLY_BUSINESS_PLAN_PASS')
+    rc8Fail_('BUSINESS_PLAN_MISMATCH');
   var lock=LockService.getScriptLock();
   if(!lock.tryLock(5000))rc8Fail_('LOCK_BUSY');
   var source=ss.getSheetByName('Rekap_Kinerja'),index=ss.getSheetByName('Index_Laporan'),
