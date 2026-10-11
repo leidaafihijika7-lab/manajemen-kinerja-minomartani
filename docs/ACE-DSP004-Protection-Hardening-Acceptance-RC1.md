@@ -471,3 +471,15 @@ After the run, independent native Google Sheets read-only comparison of **nine b
 **B1-02 acceptance CLOSED/PASS for the synthetic harness.** Both B1-01 and B1-02 scoped synthetic writer tests have passed. **B1 post-test safety closeout is still PENDING**: screenshot shows `PHA07B_B1_ALLOW_WRITE_RC1=true`; operator must reset it to `false`, save and return a successful read-only `praUjiTransaksiB1PHA07BRC1` preflight (`writeEnabled=false`). Do not rerun either writer.
 
 Phase-wide real Portal transaction and queue-worker integration remains untested; no production business record changes, deployment, trigger modification, merge into `main`, or administrative reconciliation are authorized. `ACE-DSP-004` remains FAIL and production remains NO-GO. Full record: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
+
+## AF. PHA-07B B1 final read-only preflight PASS — synthetic acceptance CLOSED (11 October 2026, 13:32 WIB)
+
+After the B1-02 live sandbox writer PASS and independently verified restoration, maintainer executed `praUjiTransaksiB1PHA07BRC1()` from standalone `SANDBOX_PHA07B_B1_SCRIPT_TEST`: `PHA07B_B1_PREFLIGHT` reported `sukses=true`, `mode=READ_ONLY`, `exactB1SandboxVerified=true`, `baselineUntouched=true`, `queueEmpty=true`, `scratchEmpty=true`, `noVisibleTriggers=true`, `writeEnabled=false`, `productionDataWritten=false`, `actualTransactionApproved=false`.
+
+An additional independent **read-only** connected Google Sheets comparison reconfirmed **9/9** bounded native B1-vs-B0 tab regions identical in observed unformatted values and types. B1 has 2 original source/index reports, zero queue items, zero event-journal entries, 15 unchanged scenario entries and correct B1-only markers; B0 stage marker remains correct.
+
+**Decision: PHA-07B B1 synthetic harness acceptance CLOSED / PASS** for the specific first two sandbox write scenarios B1-01 and B1-02 plus pure-model/preflight/restore checks. The 15 planned scenario worksheet entries are not marked executed; no production business handlers or native production queue processor were used. The B1 writer flag is confirmed OFF at read-only execution; no further B1 writer runs are needed.
+
+Next stage is isolated production-path integration design and read-only preflight (PHA-07B B2), **not** immediate production deployment. No mutation of the live database, GitHub `main`, deployed Web App, triggers, protection ACLs or historical records. Canonical `ACE-DSP-004` remains FAIL and production remains NO-GO.
+
+Detailed evidence: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
