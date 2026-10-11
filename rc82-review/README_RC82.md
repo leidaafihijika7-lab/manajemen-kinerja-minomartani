@@ -46,7 +46,7 @@ No production credentials, properties, triggers, deployments, sheets or real use
 
 `RC8_STAGING_MODE` and `RC81_STAGING_MODE` absent/false. Do not set `PIN_PEPPER`, `FOLDER_ID_BUKTI_KINERJA`, `FOLDER_ID_BUKTI`, `API_KEY_GEMINI`, or `RC82_RECOVERY_PENDING`. Do not copy existing Script Properties.
 
-**First run only** `rc82ReadOnlyPreflightV1`. Require `RC82_PREFLIGHT_PASS` with source 2, index 2, audit 2, queue 0, employee 0, triggers 0, no issues, zero writes. Send the log.
+The read-only preflight now also checks that `rc7AllowOwnerRevisionNonceChange_` is present and correctly rejects a wrong context, owner and row (`RC7_REVISION_NONCE_PATCH_MISSING_OR_UNSAFE` means STOP).\n\n**First run only** `rc82ReadOnlyPreflightV1`. Require `RC82_PREFLIGHT_PASS` with source 2, index 2, audit 2, queue 0, employee 0, triggers 0, no issues, zero writes. Send the log.
 
 **Only after verified preflight and explicit approval of the next runtime step**, opt in once by setting `RC82_WRITE_DRILL_ENABLED=true` and execute `rc82RunAuthenticatedMatrixV1` a single time. The harness turns off the opt-in and dual write afterward. If it fails or emits a pending recovery signal, do NOT repeat or call `rc82RecoverPendingV1` blindly; inspect the evidence and backup first. Afterward compare against the fresh independent snapshot.
 
