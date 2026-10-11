@@ -419,3 +419,15 @@ Independent connected Google Sheets verification also confirms the exact isolate
 **Decision**: B0 environment/read-only acceptance CLOSED / PASS. This does **not** grant write-test permission. B1 transaction/queue fault-injection testing remains NOT STARTED; no production code, data, queue, triggers, main branch or deployed Web App changes are authorized. `ACE-DSP-004` remains FAIL and production remains NO-GO.
 
 Record of evidence and next-phase gate: `docs/ACE-DSP004-PHA07B-B0-Isolated-Environment-RC1.md`.
+
+## AA. PHA-07B B1 disposable transaction fault harness staged — 11 October 2026
+
+B0 operator read-only acceptance CLOSED/PASS. A **new isolated native B1 disposable copy** `SANDBOX_PHA07B_B1_DISPOSABLE_SYNTHETIC_ONLY` was created from B0 at `https://docs.google.com/spreadsheets/d/1hldhvaMRo5etOCQlqCYISgvbpAdOIfAJN5IfGa3kD3Q/edit`. Both file IDs are distinct. Eight bounded baseline ranges matched B0; only B1's local synthetic stage markers `MULAI_DI_SINI!A5` and `A8` were updated, not business records. B0 remains preserved.
+
+New `PHASandboxB1TransactionQueueRC1.gs` implements isolated read-only preflight and two **default-disabled**, bounded, reversible sandbox fault tests: source-committed/index-failure `ROW` queue hold, and exact-ID retry with detectable audit, review and disposition gaps. This is **synthetic test code**, not a production `Kode.gs` clone, and it contains no production ID, Script Properties or trigger/deployment function.
+
+Offline QA: **41/41 model tests PASS**. Full mocked Apps Script preflight using actual connector-read B1 baseline PASS; gate OFF triggers zero writes; mocked fault and retry scenarios PASS with scoped restoration and next preflight PASS. Fault injection on partial setValues is restored, and simulated restore failure fails closed with `manualRestoreRequired=true`. No live writer execution on Google Sheets B1 is claimed.
+
+Operational guide: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`. Next operator action: create **new** standalone Apps Script project `SANDBOX_PHA07B_B1_SCRIPT_TEST`, paste only new B1 harness, leave `PHA07B_B1_ALLOW_WRITE_RC1=false`, run `validasiModelB1PHA07BRC1` (41/41) and `praUjiTransaksiB1PHA07BRC1` (read-only), share logs. Both write functions remain NOT AUTHORIZED until a separate decision.
+
+**B1 status STAGED / LIVE READ-ONLY PENDING; PHA-07B integrated production-handler acceptance OPEN; production rollout NO-GO; canonical ACE-DSP-004 FAIL.**
