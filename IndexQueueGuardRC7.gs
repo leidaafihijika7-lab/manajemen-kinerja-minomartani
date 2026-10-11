@@ -129,6 +129,37 @@ function rc7SourceUnique_(ss, target) {
   if (count !== 1) throw new Error('RC7_SOURCE_STALE_OR_MOVED');
   return identities;
 }
+/**
+ * Targeted exception for a legitimate owner revision.
+ *
+ * A revision changes the report's NONCE, whereas ID_LAPORAN, ID_USER and
+ * ROW_REKAP must stay immutable. The source must be a newly revised report
+ * awaiting review, with a prior rejection in the index. All non-target index
+ * rows still require strict (ID, owner, nonce) provenance equality.
+ *
+ * This helper never writes to a sheet and MUST only be used while holding
+ * the RC7 ScriptLock in rc7WriteIndexLocked_().
+ */
+function rc7AllowOwnerRevisionNonceChange_(source, priorIndexRow, context, M) {
+  if (rc7Text_(context)!=='REVISI_PEGAWAI' || !source || !source.triple ||
+      !Array.isArray(source.row) || !priorIndexRow) return false;
+  var C=SHEET_COLUMNS.REKAP_KINERJA,oldNonce=rc7Text_(priorIndexRow[M.NONCE]),
+      newNonce=rc7Text_(source.triple.nonce);
+  if (!oldNonce || !newNonce || oldNonce===newNonce) return false;
+  if (rc7Id_(priorIndexRow[M.ID_LAPORAN])!==source.triple.idLaporan ||
+      rc7Id_(priorIndexRow[M.ID_USER])!==source.triple.idUser ||
+      rc7Number_(priorIndexRow[M.ROW_REKAP])!==source.rowRekap) return false;
+  if (rc7Text_(priorIndexRow[M.STATUS_REVIEW])!==REVIEW_STATUS.DITOLAK ||
+      rc7Text_(source.row[C.STATUS_REVIEW])!==REVIEW_STATUS.MENUNGGU) return false;
+  var revision=Number(source.row[C.REVISI_KE]),
+      changedAt=source.row[C.TERAKHIR_DIREVISI_PADA],
+      changedBy=rc7Text_(source.row[C.TERAKHIR_DIREVISI_OLEH]);
+  if (!Number.isSafeInteger(revision) || revision<1 ||
+      !(changedAt instanceof Date) || isNaN(changedAt.getTime())) return false;
+  if (changedBy.indexOf(source.triple.idUser+' - ')!==0) return false;
+  return true;
+}
+
 function rc7WriteIndexLocked_(ss, source, context) {
   var sourceIdentities=rc7SourceUnique_(ss,source);
   var sh=rc7IndexSheet_(ss), M=getIndexLaporanColumnMap2B0_();
@@ -144,7 +175,10 @@ function rc7WriteIndexLocked_(ss, source, context) {
     if (row>sourceIdentities.length+1) throw new Error('RC7_INDEX_ORPHAN');
     var actual=sourceIdentities[row-2];
     var fromIndex={idLaporan:id,idUser:rc7Id_(r[M.ID_USER]),nonce:rc7Text_(r[M.NONCE])};
-    if (!rc7Equal_(actual,fromIndex)) throw new Error('RC7_INDEX_GLOBAL_PROVENANCE_MISMATCH');
+    if (!rc7Equal_(actual,fromIndex) &&
+        !(row===source.rowRekap &&
+          rc7AllowOwnerRevisionNonceChange_(source,r,context,M)))
+      throw new Error('RC7_INDEX_GLOBAL_PROVENANCE_MISMATCH');
     if (id===source.triple.idLaporan) existing=row;
   }
   if (existing && existing!==source.rowRekap) throw new Error('RC7_INDEX_POSITION_CHANGED');
