@@ -3,7 +3,7 @@
 **Version**: `PHA07B-B1-FAULT-RC1-2026.10.11.02`  
 **Date**: 11 October 2026 (Asia/Jakarta)  
 **Branch**: `feature/ace-dsp004-protection-acceptance-rc1`  
-**Current gate**: **B1 IMPLEMENTED / OFFLINE TESTS PASS / LIVE READ-ONLY PREFLIGHT PENDING / WRITES DISABLED**.  
+**Current gate**: **B1-01 AND B1-02 SYNTHETIC SANDBOX WRITERS PASS / POST-B1-02 WRITE-FLAG RESET AND FINAL READ-ONLY PREFLIGHT PENDING / PRODUCTION NO-GO**.  
 **Production**: **NO-GO**, `ACE-DSP-004` remains **FAIL**.
 
 ## 1. Dedicated, disposable test data
@@ -163,3 +163,25 @@ Acceptance: `caseId=B1-RETRY-REVIEW_DISPOSITION`, `sukses=true`, `status=PASS_SY
 If any status indicates failure, partial data, `manualRestoreRequired=true`, or unexpected `stopCode`, STOP and do not retry/continue; re-read B1 scratch and compare to B0. Live write B1-02 still **PENDING** until the operator reports its log and independent post-run baseline verification passes.
 
 **Scope reminder:** `actualTransactionApproved=false` is a truthfully reported non-approval for production/live Portal behavior. Approval for this one bounded isolated synthetic harness test is a separate human-controlled choice. Production changes/deployments and GitHub main remain NO-GO; canonical `ACE-DSP-004` remains FAIL.
+
+## 12. B1-02 live synthetic review/disposition/queue recovery — PASS (11 October 2026, 13:21 WIB)
+
+### Maintainer's live execution evidence
+
+Maintainer provided an Apps Script screenshot showing `ujiPemulihanReviewDisposisiB1PHA07BRC1()` executed in the isolated standalone project `SANDBOX_PHA07B_B1_SCRIPT_TEST`. The log `PHA07B_B1_WRITE_TEST` reported `versi=PHA07B-B1-FAULT-RC1-2026.10.11.02`, `caseId=B1-RETRY-REVIEW_DISPOSITION`, `sukses=true`, `status=PASS_SYNTHETIC_WRITE_AND_RESTORE`, `target=B1_DISPOSABLE_SANDBOX_ONLY`.
+
+The following acceptance booleans were **all true**: `sourceCommittedObserved`, `queuePersistedObserved`, `byIdRetrySafe`, `reviewDivergenceDetected`, `auditGapDetected`, `dispositionGapDetected`, `recoveryLinksVerified`, `restored`, `originalFixtureUntouched`, and `scratchCleared`. `manualRestoreRequired=false`, `productionDataWritten=false` and `actualProductionHandlersUsed=false`. `indexFaultInjected=false` and `rowReplayHeld=false` are **expected** for this retry/review/disposition case, rather than the distinct B1-01 source/index fault case.
+
+### Independent native Google Sheets post-run validation
+
+Using connected Google Sheets **read-only**, exact B1/B0 titles and spreadsheet IDs were reconfirmed. The following nine bounded B1 regions were compared against pristine B0 for *unformatted values and types*: `Rekap_Kinerja!A1:BS4`, `Index_Laporan!A1:L4`, `Index_Laporan_Sync_Queue!A1:L2`, `Disposisi_Surat!A1:Y3`, `Disposisi_Penerima!A1:L3`, `Audit_Log!A1:D5`, `Disposisi_Log!A1:N3`, `EVENT_JOURNAL_B0!A1:K2`, and `SKENARIO_B0!A1:F16`.
+
+**Result: 9/9 match; zero value/type differences observed in the inspected ranges**. B1 queue is empty, original two synthetic source/index rows remain, two original submit audit entries and one recipient/disposition relationship remain, event journal is empty, and all 15 scenarios are unchanged. B1-specific markers `MULAI_DI_SINI!A5=STAGE_B1_DISPOSABLE_TEST_COPY` and `A8=B1_WRITES_REQUIRE_OPERATOR_OPT_IN` remain correct. Comparison is scoped to these ranges; it is not a whole-workbook proof of every possible formatting or metadata field.
+
+### Decision and closeout condition
+
+**B1-02 CLOSED / PASS for the isolated synthetic harness and its bounded write/restore test.** B1-01 had already passed; both scheduled B1 synthetic writer cases now have live operator logs plus independent baseline restoration evidence.
+
+**POST-TEST SAFETY ACTION STILL UNVERIFIED:** the operator's screenshot taken during the test still shows `PHA07B_B1_ALLOW_WRITE_RC1=true`. The maintainer must promptly set `PHA07B_B1_ALLOW_WRITE_RC1=false`, save, and run only `praUjiTransaksiB1PHA07BRC1()` read-only. Expect `sukses=true`, `writeEnabled=false`, `baselineUntouched=true`, `queueEmpty=true`, `scratchEmpty=true`. Do not rerun B1-01 or B1-02 or run other writers. Until the reset/read-only preflight is confirmed, the **B1 safety closeout gate** remains open.
+
+The 15 scenario rows remain `PENDING` by design and should not be marked executed based on these two test cases. Real Portal submit/review/disposition functions, real queue worker and replay operations were **not exercised**; B1 results are neither automatic remediation for `ACTIVE_622` nor approval to promote changes to production. GitHub `main`, Web App deployments and production business data remain out of scope; `ACE-DSP-004` remains FAIL and production remains NO-GO.
