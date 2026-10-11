@@ -483,3 +483,17 @@ An additional independent **read-only** connected Google Sheets comparison recon
 Next stage is isolated production-path integration design and read-only preflight (PHA-07B B2), **not** immediate production deployment. No mutation of the live database, GitHub `main`, deployed Web App, triggers, protection ACLs or historical records. Canonical `ACE-DSP-004` remains FAIL and production remains NO-GO.
 
 Detailed evidence: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
+
+## AG. PHA-07B B2 isolated production-path source trace staged
+
+11 October 2026: user authorized B2 development. A **new** native B2 synthetic workbook `SANDBOX_PHA07B_B2_ISOLATED_PRODUCTION_PATH` at `https://docs.google.com/spreadsheets/d/1xW2kMz1lFv6wtaWNNgNoyVCuLZnsqsGpAQ886blVtcU/edit` was copied from pristine B0. Only `MULAI_DI_SINI!A5` and `A8` were changed to explicit B2 stage/write-NO-GO markers. B2/B0 nine bounded tab-region value comparisons: **9/9 identical** with 0 queue entries. Original B0 and B1 workbooks preserved.
+
+Committed feature-branch-only `PHAB2IsolatedProductionPathRC1.gs`, version `PHA07B-B2-SOURCE-TRACE-RC1-2026.10.11.01`. Unlike B1's rewritten synthetic transaction simulator, this code embeds **11 verbatim functions** from pinned candidate `Kode.gs` SHA `387c179c684c3a1820da662f961133b4e7a67ccb` and `ACEDsp004IndexIntegrityRC1.gs` SHA `22991bb74fe812b6df1e7e8fe44d989f71b62684`, each behind local **in-memory** dependency adapters. 11/11 verbatim parity PASS, 29/29 pure source-path behavioral checks PASS, read-only B2 preflight mock PASS, 5 fail-closed negative preflight scenarios PASS. No real Apps Script/Google Sheets write path executed.
+
+**Critical differential:** `Kode.gs` on GitHub `main` SHA `f0222ef85774aabf7d107547e0fe2fdbc52434d5` differs from candidate by exactly a 280-character inserted ACE index-guard call at approximately line 20300; separate guard `.gs` file is not on `main`. This candidate source trace does not verify what is installed in the bound production Apps Script or selected Web App deployment. Do not conflate version 681/deployed script with `main` or feature branch.
+
+Code-level findings from real copied queue worker under adapters: `ROW` replay transports no original report ID, so with a successful current-row sync the original worker can mark DONE without historical ID proof; queue enqueue puts dedup cache entry before durable append, creating possible temporarily suppressed retries on append failure; `FAILED` attempts < 5 can retry and FULL_REBUILD stays manual. These are reproduced with **synthetic memory traces**, not a proven production incident. Effects orchestrator can leave audit without disposition log if recipient update fails.
+
+**B2 Phase A is STAGED / OPERATOR READ-ONLY PENDING:** New standalone Apps Script project `SANDBOX_PHA07B_B2_SCRIPT_TEST`, paste only `PHAB2IsolatedProductionPathRC1.gs`, keep `PHA07B_B2_WRITE_ENABLED=false`, run `validasiJalurProduksiB2RC1()` targeting 29/29, then `diagnostikLingkunganB2PHA07BRC1()` targeting successful read-only B2 preflight. No triggers, deployment, properties or real data.
+
+Detailed acceptance plan: `docs/ACE-DSP004-PHA07B-B2-Isolated-Production-Path-RC1.md`. Full real production-handler integration, session/cutoff validation, persistent queue failure injection, Web App version concordance and all production protections still PENDING. **NO-GO production; canonical ACE-DSP-004 FAIL; ACE-REV-003 remains separate.**
