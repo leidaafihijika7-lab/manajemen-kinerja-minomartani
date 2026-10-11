@@ -94,3 +94,21 @@ Phase A previously PASSED on RC1.01. Phase B first write FAILED and remains STOP
 - `PHA08_ALLOW_WRITE_RC1=false` is still the default. No actual sheet edits or script deployment were performed by the assistant for this hotfix.
 
 **Do not proceed to another writer test before explicitly reviewing restored fixture values and successful RC1.02 preflight. Production remains NO-GO, and ACE-DSP-004 remains FAIL.**
+
+## Follow-up preflight: 11 October 2026, 11:38 WIB
+
+The maintainer ran the hotfix RC1.02 preflight read-only in the separate sandbox project. Output: `PHA08_PREFLIGHT` with `sukses=false`, `mode=READ_ONLY`, `stopCode=PHA08_STOP_INDEX_DATE_TEXT_BASELINE_CHANGED`, `writeEnabled=false`, `productionDataWritten=false`.
+
+Read-only connector inspection then confirmed exact UNFORMATTED_VALUE strings on sandbox `Index_Laporan` row 3:
+
+| Cell | Actual stored string | Required original string |
+|---|---|---|
+| D3 | `2026-10-10 9:15:00` | `2026-10-10 09:15:00` |
+| E3 | `2026-10` | `2026-10` (already matches) |
+| K3 | `2026-10-10 9:15:02` | `2026-10-10 09:15:02` |
+
+The three values are now **stored as strings**, not numeric date serials; only the leading zero before the hour is missing in D3 and K3. Index report IDs, `ROW_REKAP` pointers and nonce `J3=PHA-TEST-NONCE-0002` remain unchanged.
+
+**Minimal manual fixture repair**: in the isolated sandbox `Index_Laporan`, set D3 and K3 to Plain text and enter literal strings prefixed with the Google Sheets text-entry apostrophe: `'2026-10-10 09:15:00` and `'2026-10-10 09:15:02`. Leave E3 and all other cells unchanged. No code changes are warranted; both PHA-07 and PHA-08 writer flags remain `false`.
+
+After that, run **only** `praUjiKolisiIndexPHA08RC1()` (read-only) and provide `PHA08_PREFLIGHT` output. Do not rerun the write test until separately reviewed. PHA-08 write acceptance remains HOLD and production remains NO-GO.
