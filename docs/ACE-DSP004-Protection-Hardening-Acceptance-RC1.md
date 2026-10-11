@@ -385,3 +385,17 @@ Full evidence record: `docs/ACE-DSP004-PHA08-Index-Collision-Acceptance-RC1.md`.
 The maintainer confirmed the standalone Apps Script project `SANDBOX_PHA_RC1_SCRIPT_TEST` was saved with `PHA07_ALLOW_WRITE_RC1=false` and `PHA08_ALLOW_WRITE_RC1=false`. This is a **user/maintainer attestation**, not a connector-verified read of Apps Script editor source.
 
 **Close PHA-08 guard-level sandbox acceptance as PASS.** PHA-07 full business-transaction/queue acceptance and PHA-09 disaster recovery/rollback acceptance are still open. Do not label the whole Protection Hardening Acceptance RC1 production-ready. All production protections, deployment, trigger state, data and GitHub main remain unchanged by this note. Canonical ACE-DSP-004 remains FAIL.
+
+## X. PHA-07B transaction and queue read-only acceptance staged
+
+11 October 2026: Source-reviewed the submit→dual-write→audit/disposition, review→resync and `Index_Laporan_Sync_Queue` paths in branch Kode.gs and SheetSchema.gs. Added `PHASandboxTransactionQueueRC1.gs` and guide `docs/ACE-DSP004-PHA07B-Transaction-Queue-Integrity-RC1.md` on the existing feature branch, **read-only plus pure in-memory modeling only**. No `Kode.gs` modifications, sheet writes, triggers or deployment.
+
+Notable code-level risk: a queued `ROW` sync record is bound to a mutable source row pointer but contains no original report ID; after an administrative row deletion/reuse, replay cannot by itself prove repair for the old report. Queue statuses `FAILED` below max attempts can still be replayed, and `FULL_REBUILD` is marked for manual rebuild. The collision guard mitigates foreign-ID index overwrites but is not proof of historical queue-item identity.
+
+Additional non-atomic edges: the source report append can succeed before index dual-write; subsequent audit/disposition writes catch exceptions or run as separate cell updates. This warrants test-only injected failures and post-state evidence before production acceptance.
+
+Offline QA: **30/30 pure in-memory PASS**. Independent connected Google Sheets read-only review of the six-tab synthetic sandbox found **2/2 report↔index links, 2/2 submit audits, 1/1 recipient reverse link, 1/1 disposition-create audit** consistent. Mock sandbox preflight passes and fails closed for review mismatch, unanticipated queue sheet, unauthorized editor and unexpected test trigger. Zero business-data writes.
+
+Next operator step: install new standalone `PHASandboxTransactionQueueRC1.gs` as an **additional script file** in `SANDBOX_PHA_RC1_SCRIPT_TEST`; leave both existing PHA-07 and PHA-08 write flags false. Run only `validasiLogikaPHA07BRC1()` (30/30 target) and `diagnostikTransaksiAntreanPHA07BRC1()` (read-only source relationships). Share `PHA07B_PURE_VALIDATION` and `PHA07B_PREFLIGHT`. Real queue/write Phase B requires a **second isolated, disposable** test workbook because the current fixture is exactly six tabs.
+
+**PHA-07B status: STAGED / OPERATOR READ-ONLY TEST PENDING.** Complete submit/review/disposition/queue acceptance remains OPEN, production NO-GO and canonical ACE-DSP-004 FAIL.
