@@ -409,3 +409,13 @@ Exact B0 fixture: 10 tabs including 71-column Rekap, 12-column Index, **empty In
 Created `PHASandboxB0EnvironmentRC1.gs`: read-only, exact B0 ID/title and tab guards, no write APIs, no production IDs, current-caller trigger check. 8/8 pure logic checks passed offline. Operator Apps Script environment preflight is **PENDING** and should run in a **new** standalone `SANDBOX_PHA07B_B0_SCRIPT_TEST` project, not in the previous six-tab test script. No actual transaction/queue replay may occur during B0.
 
 Guide: `docs/ACE-DSP004-PHA07B-B0-Isolated-Environment-RC1.md`. **B0 state: ENVIRONMENT PROVISIONED, OPERATOR ACCEPTANCE PENDING. Production remains NO-GO. ACE-DSP-004 remains FAIL.**
+
+## Z. PHA-07B B0 environment read-only acceptance PASS — 11 October 2026
+
+Operator evidence from standalone `SANDBOX_PHA07B_B0_SCRIPT_TEST`: `PHA07B_B0_PURE_VALIDATION` **8/8 PASS**; `PHA07B_B0_PREFLIGHT` successful, `mode=READ_ONLY`, sandbox identity and cross-references verified, empty queue verified, no triggers visible to current user, `writesEnabled=false`, `productionDataWritten=false`, `acceptanceApproved=false`.
+
+Independent connected Google Sheets verification also confirms the exact isolated B0 native workbook still has 10 tabs, 2 synthetic sources and matching index rows, 2 submit audits, 1 recipient/disposition link, 0 queue entries, 0 event-journal entries, and all 15 B1-related scenarios remain PENDING.
+
+**Decision**: B0 environment/read-only acceptance CLOSED / PASS. This does **not** grant write-test permission. B1 transaction/queue fault-injection testing remains NOT STARTED; no production code, data, queue, triggers, main branch or deployed Web App changes are authorized. `ACE-DSP-004` remains FAIL and production remains NO-GO.
+
+Record of evidence and next-phase gate: `docs/ACE-DSP004-PHA07B-B0-Isolated-Environment-RC1.md`.
