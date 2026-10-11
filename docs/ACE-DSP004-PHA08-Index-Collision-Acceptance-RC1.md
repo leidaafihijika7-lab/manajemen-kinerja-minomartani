@@ -112,3 +112,20 @@ The three values are now **stored as strings**, not numeric date serials; only t
 **Minimal manual fixture repair**: in the isolated sandbox `Index_Laporan`, set D3 and K3 to Plain text and enter literal strings prefixed with the Google Sheets text-entry apostrophe: `'2026-10-10 09:15:00` and `'2026-10-10 09:15:02`. Leave E3 and all other cells unchanged. No code changes are warranted; both PHA-07 and PHA-08 writer flags remain `false`.
 
 After that, run **only** `praUjiKolisiIndexPHA08RC1()` (read-only) and provide `PHA08_PREFLIGHT` output. Do not rerun the write test until separately reviewed. PHA-08 write acceptance remains HOLD and production remains NO-GO.
+
+## PHA-08 RC1.02 live read-only PASS and restored source baseline — 11 October 2026, 11:41 WIB
+
+Maintainer reran `praUjiKolisiIndexPHA08RC1()` on the isolated Apps Script project. Log reports `sukses=true`, `versi=PHA08-INDEX-COLLISION-RC1-2026.10.11.02`, `mode=READ_ONLY`, `fixtureVerified=true`, `foreignIdBlocked=true`, `sameIdAllowed=true`, `noWriteObserved=true`, `writeEnabled=false`, `productionDataWritten=false`.
+
+Independent read-only connector verification of the *known synthetic sandbox* `Index_Laporan!A2:L3` and `Rekap_Kinerja!R2:S3` established:
+
+- Source and index report IDs match for `PHA-TEST-RPT-0001` and `PHA-TEST-RPT-0002`; index pointers are 2 and 3.
+- `Index_Laporan!J3` equals `PHA-TEST-NONCE-0002`.
+- `Index_Laporan!D3` equals exact plain text `2026-10-10 09:15:00`, `E3` equals exact plain text `2026-10`, and `K3` equals exact plain text `2026-10-10 09:15:02`. All three reported **string**, not numeric/date.
+- The source report IDs remain unchanged. The altered fixture from the RC1.01 mixed-type row-writing test is restored.
+
+Review of GitHub code blob `f9a929d8bdd3e79ad81096f201fba3db53c70675` confirms RC1.02 accepts writes only when explicitly enabled; only `Index_Laporan!J3` may be changed and restored; no whole-row `setValues()` remains in this harness. This is **not** evidence that the next live write test has already passed.
+
+**Decision**: RC1.02 READ-ONLY PREFLIGHT PASS. A **single sandbox-only test/restore attempt** with `ujiKolisiDanPemulihanIndexPHA08RC1()` may proceed after verifying `PHA07_ALLOW_WRITE_RC1=false`. Change only `PHA08_ALLOW_WRITE_RC1=true` on the isolated sandbox Apps Script project; run ONCE; immediately reset to `false` and save. Expected status `PASS_COLLISION_BLOCK_AND_RESTORE`, `foreignIdWrites=0`, `sameIdWriteObserved=true`, `restoreVerified=true`, `manualRestoreRequired=false`. If any assertion or restore fails, STOP and do not automatically retry; review `Index_Laporan!J3` and full index baseline.
+
+No production modification authorized. PHA-08 WRITE acceptance is still **PENDING**; canonical ACE-DSP-004 remains **FAIL** and production rollout **NO-GO**.
