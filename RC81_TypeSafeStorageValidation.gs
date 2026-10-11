@@ -242,15 +242,22 @@ function rc81RunOneScenario_(ss,props,fault) {
 function rc81RunTypeSafeMatrixV1() {
   var ctx=rc81AssertEnv_(),p=ctx.props,lock=null,results=[],issues=[];
   if (p.getProperty(RC81_STAGE_.OPT_IN_KEY)!=='true') rc81Error_('EXPLICIT_WRITE_OPT_IN_REQUIRED');
-  if (p.getProperty(RC81_STAGE_.ACTIVE_KEY)||rc81Backups_(ctx.ss).length)
+  if (p.getProperty(RC81_STAGE_.ACTIVE_KEY)||rc81Backups_(ctx.ss).length) {
+    p.setProperty(RC81_STAGE_.OPT_IN_KEY,'false');
     rc81Error_('RECOVERY_PENDING_RUN_MANUAL_RECOVERY_FIRST');
+  }
   lock=LockService.getScriptLock();
-  if (!lock.tryLock(12000)) rc81Error_('SCRIPT_LOCK_BUSY');
+  if (!lock.tryLock(12000)) {
+    p.setProperty(RC81_STAGE_.OPT_IN_KEY,'false');
+    rc81Error_('SCRIPT_LOCK_BUSY');
+  }
   try {
     ctx=rc81AssertEnv_();
     if (p.getProperty(RC81_STAGE_.OPT_IN_KEY)!=='true') rc81Error_('WRITE_OPT_IN_CHANGED');
     if (p.getProperty(RC81_STAGE_.ACTIVE_KEY)||rc81Backups_(ctx.ss).length)
       rc81Error_('RECOVERY_PENDING_INSIDE_LOCK');
+    // Explicitly reject scheduled/installed triggers even when operator skipped preflight.
+    if (ScriptApp.getProjectTriggers().length) rc81Error_('TRIGGERS_PRESENT');
     var base=rc81SourceIndexChecks_(ctx.ss);
     if (base.issues.length) rc81Error_('BASELINE_INVALID:'+base.issues.join(','));
     var faults=['NONE','AFTER_SUBMIT','AFTER_REVISION','AFTER_REVIEW'];
@@ -299,8 +306,10 @@ function rc81RecoverPendingV1() {
   var lock=LockService.getScriptLock();
   if(!lock.tryLock(12000))rc81Error_('RECOVERY_LOCK_BUSY');
   var restoration;
-  try { restoration=rc81Rollback_(ss,p,record);p.setProperty(RC81_STAGE_.OPT_IN_KEY,'false'); }
-  finally {lock.releaseLock();}
+  try { restoration=rc81Rollback_(ss,p,record); }
+  finally {
+    try { p.setProperty(RC81_STAGE_.OPT_IN_KEY,'false'); } finally { lock.releaseLock(); }
+  }
   var out={status:restoration.restored?'RC81_MANUAL_RECOVERY_PASS':'RC81_MANUAL_RECOVERY_NOT_ACCEPTED',
     restored:restoration.restored,differences:restoration.differences,
     backupRetained:restoration.backupRetained,productionReady:false};
