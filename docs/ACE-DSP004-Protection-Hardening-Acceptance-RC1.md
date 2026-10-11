@@ -451,3 +451,13 @@ Connected native Google Sheets **read-only** comparison of the B1 disposable cop
 **B1-01 CLOSED/PASS** under synthetic harness scope. **B1-02 and full production handler/queue acceptance OPEN**. The screenshot still showed `PHA07B_B1_ALLOW_WRITE_RC1=true`; user must reset the flag to `false` and save, then demonstrate read-only preflight before further write tests. No automatic replay, production changes, protections, deployments or main merge permitted. Canonical `ACE-DSP-004` remains FAIL.
 
 Full evidence: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
+
+## AD. B1-01 writer disabled again, post-test preflight PASS — 11 October 2026
+
+Maintainer showed saved B1 script state `PHA07B_B1_ALLOW_WRITE_RC1=false` and `PHA07B_B1_PREFLIGHT`: `sukses=true`, `exactB1SandboxVerified=true`, `baselineUntouched=true`, `queueEmpty=true`, `scratchEmpty=true`, `noVisibleTriggers=true`, `writeEnabled=false`, `productionDataWritten=false`, `actualTransactionApproved=false`.
+
+Independent connected Sheets read-only comparison repeated after the preflight: nine bounded native B1 source/index/queue/disposition/audit/journal/scenario regions exactly matched pristine B0. B1 queue and scratch still empty.
+
+Decision: B1-01 CLOSED/PASS with operator write-off confirmed; B1-02 isolated test `ujiPemulihanReviewDisposisiB1PHA07BRC1()` is eligible for **one operator-controlled synthetic-only run** after temporary opt-in and immediate reset. No real Portal handlers are invoked; B1-02 acceptance remains PENDING until its own execution and restore verification.
+
+Production and GitHub main NO-GO; `ACE-DSP-004` remains FAIL. See `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
