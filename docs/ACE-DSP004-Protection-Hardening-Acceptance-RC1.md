@@ -341,3 +341,15 @@ Independent read-only check confirmed sandbox `Rekap_Kinerja!R2` blank (restored
 **Operator safety:** Set `PHA07_ALLOW_WRITE_RC1=false` again in the separate sandbox project; a successful test log does not independently prove the flag was switched off after the run.
 
 Production protection rollout **NO-GO**. Canonical `ACE-DSP-004` **FAIL**.
+
+## T. PHA-08 Index Collision Acceptance staging
+
+11 October 2026: created PHASandboxIndexCollisionRC1.gs and the procedure docs/ACE-DSP004-PHA08-Index-Collision-Acceptance-RC1.md in the existing isolated protection acceptance feature branch. Added NO production files, deployments, triggers, protections, Script Properties, data modifications or main merge.
+
+Guard provenance: isolated closure contains the exact source helper bodies from ACEDsp004IndexIntegrityRC1.gs; exact text equality verified. Production SHEET_COLUMNS remains untouched. Read-only fixtures consist only of synthetic report IDs in Rekap_Kinerja source rows 2–3 and Index_Laporan rows 2–3. B into A must be rejected before a writer callback; B into B must be accepted.
+
+Offline QA: 12/12 pure PASS, mocked read-only preflight PASS; in mocked opt-in write test, foreign ID collision blocked (0 writes), matching index row3 written and restored (2 synthetic calls), before/after fixture matched, lock released. Unexpected trigger, unauthorized executor and modified fixture failed closed. Independent native Google Sheets read-only check confirms current synthetic baseline unchanged.
+
+**PHA-08 status: STAGED / LIVE READ-ONLY PREFLIGHT PENDING.** Phase A should run validasiLogikaPHA08RC1 and praUjiKolisiIndexPHA08RC1 with PHA08_ALLOW_WRITE_RC1=false in the dedicated SANDBOX_PHA_RC1_SCRIPT_TEST project; PHA07_ALLOW_WRITE_RC1 must also remain false. The opt-in write function remains disabled until separate review.
+
+Full production 2B1 dual-write plus queue flow is not exercised by this isolated test, so even a successful PHA-08 sandbox guard test does NOT certify PHA-07 entire workflow, administrative reconciliation or readiness to deploy. Production remains NO-GO and ACE-DSP-004 remains FAIL.
