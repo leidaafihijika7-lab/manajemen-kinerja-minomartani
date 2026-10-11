@@ -1,0 +1,25 @@
+{
+  "project": "PHA-07B B2 RC8.2",
+  "type": "ISOLATED_AUTHENTICATED_BUSINESS_TEST_CANDIDATE",
+  "sourceBranch": "feat/pha07b2-rc82-authenticated-business-staging",
+  "targetSpreadsheetId": "1JcX6PLGcjf6YraMl9VO0RfjGNpwwIxSaidOvdjaZiJA",
+  "snapshotSpreadsheetId": "1FOOwBGiEl127prr8gUcbYO1qPW0vfhzwlCMqkkJlvZk",
+  "tests": {
+    "total": 29,
+    "passed": 29,
+    "failed": 0,
+    "failedCases": []
+  },
+  "productionReady": false,
+  "noDeployment": true,
+  "containsFullKodeGs": false,
+  "fileDigests": {
+    "RC82_AuthenticatedBusinessIntegration.gs": "002d2a66647b05e38df2fd520999bab672e730dea26cb4d8042caf978a0f2840",
+    "README_RC82.md": "35cae4bf73f0f83b26ec54824b710e658a7b94c72e84ec9d82a19c4e0b9558a5",
+    "RC82_SCENARIO_MATRIX.md": "98ac84c050c0bd6733f53d76a83c163d73b3eff7a0358b44276025a4e9ee1e27",
+    "RC82_Integration_Report.md": "fc6a7479f90b2cd8c72e1a8324a818a8b8006fef6b084cac0a41a5561c45935f",
+    "test_rc82_local.js": "cb91dde62438f80d96d32d11fcbc3c1d597ce71997c12e92f05623b4d4bf08b0",
+    "RC82_Local_Test_Results.json": "4f1beddf5fc7628ebe584016398e33efc13a56a50646e111e2ff159b7ef1f289",
+    "RC82_Local_Test_Log.txt": "056a84cee125306c0622486ef4c766e5e0e01d0753fa8335ba7872e0886851a5"
+  }
+}
