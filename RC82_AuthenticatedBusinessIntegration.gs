@@ -285,10 +285,36 @@ function rc82ExecuteActualHandlers_(ss,credentials,runtime) {
       String(source.getRange(newRow,C.STATUS_REVIEW+1).getValue())===REVIEW_STATUS.DITOLAK,
       'other employee rejected by original revision endpoint');
   var fixed=simpanRevisiLaporanDitolakPegawai(rev,tokenOwner);
-  add('AUTHENTICATED_OWNER_REVISION',String(fixed).indexOf('Revisi laporan tersimpan')>=0 &&
-      String(source.getRange(newRow,C.STATUS_REVIEW+1).getValue())===REVIEW_STATUS.MENUNGGU &&
-      String(source.getRange(newRow,C.NONCE+1).getValue())===revisionNonce &&
-      rc82CheckIndex_(ss,newRow), 'owner revision updates index and status');
+  // Capture independent predicates BEFORE throwing. All fields synthetic; never log PINs, session tokens, or raw nonces.
+  var revisionStatus=String(source.getRange(newRow,C.STATUS_REVIEW+1).getValue());
+  var revisionNonceMatches=String(source.getRange(newRow,C.NONCE+1).getValue())===revisionNonce;
+  var revisionResponse=String(fixed||'');
+  var revisionResponseOk=revisionResponse.indexOf('Revisi laporan tersimpan')>=0;
+  var revisionIndexSame=false, revisionIndexDifferences=[], revisionIndexError='';
+  try {
+    var revisionSrc=rc7Source_(ss,newRow);
+    var revisionProjected=buatBarisIndexLaporan2B0_(revisionSrc.row,newRow);
+    var revisionActual=index.getRange(newRow,1,1,revisionProjected.length).getValues()[0];
+    revisionIndexDifferences=bedaBarisIndexLaporan2B0_(revisionProjected,revisionActual);
+    revisionIndexSame=revisionIndexDifferences.length===0;
+  } catch(indexDiagnosticError) {
+    revisionIndexError=String(indexDiagnosticError&&indexDiagnosticError.message||indexDiagnosticError).slice(0,300);
+  }
+  var revisionEvidence={
+    response:revisionResponse.slice(0,360),
+    responseSuccess:revisionResponseOk,
+    sourceStatus:revisionStatus,
+    statusMatches:revisionStatus===REVIEW_STATUS.MENUNGGU,
+    nonceMatches:revisionNonceMatches,
+    indexIdentical:revisionIndexSame,
+    indexDifferences:revisionIndexDifferences.slice(0,12),
+    indexError:revisionIndexError,
+    queueRows:Math.max(0,ss.getSheetByName('Index_Laporan_Sync_Queue').getLastRow()-1)
+  };
+  runtime.ownerRevisionEvidence=revisionEvidence;
+  add('AUTHENTICATED_OWNER_REVISION',revisionResponseOk &&
+      revisionEvidence.statusMatches && revisionNonceMatches && revisionIndexSame,
+      'diagnostic='+JSON.stringify(revisionEvidence).slice(0,1800));
   var revisiAgain=simpanRevisiLaporanDitolakPegawai(rev,tokenOwner);
   add('REVISION_NONCE_IDEMPOTENT',String(revisiAgain).indexOf('pernah diproses')>=0,
       'same revision nonce rejected');
@@ -333,7 +359,7 @@ function rc82ClearRuntime_(runtime){
 }
 function rc82RunAuthenticatedMatrixV1() {
   var ctx=rc82AssertEnv_(),ss=ctx.ss,p=ctx.p,issues=[],actual=null,manifest=null,
-      runtime={tokens:[],nonces:[],tests:[],spoofEvidence:null},rollback=null;
+      runtime={tokens:[],nonces:[],tests:[],spoofEvidence:null,ownerRevisionEvidence:null},rollback=null;
   if(p.getProperty(RC82_STAGE_.OPT_KEY)!=='true')rc82Fail_('EXPLICIT_OPT_IN_REQUIRED');
   if(p.getProperty(RC82_STAGE_.PENDING_KEY)||rc82Backups_(ss).length){
     p.setProperty(RC82_STAGE_.OPT_KEY,'false');rc82Fail_('RECOVERY_PENDING');
@@ -382,6 +408,7 @@ function rc82RunAuthenticatedMatrixV1() {
       'simpanRevisiLaporanDitolakPegawai','prosesReviewAdmin'],
     testsPassed:passed,testsExecuted:checks.length,checks:checks,
     spoofEvidence:runtime.spoofEvidence,
+    ownerRevisionEvidence:runtime.ownerRevisionEvidence,
     rollbackRestored:!!(rollback&&rollback.restored),rollbackDifferences:rollback?rollback.differences:[],
     postPreflight:post&&post.status,issues:issues,
     replayEnabled:false,productionPatchInstalled:false,productionReady:false,
