@@ -353,3 +353,17 @@ Offline QA: 12/12 pure PASS, mocked read-only preflight PASS; in mocked opt-in w
 **PHA-08 status: STAGED / LIVE READ-ONLY PREFLIGHT PENDING.** Phase A should run validasiLogikaPHA08RC1 and praUjiKolisiIndexPHA08RC1 with PHA08_ALLOW_WRITE_RC1=false in the dedicated SANDBOX_PHA_RC1_SCRIPT_TEST project; PHA07_ALLOW_WRITE_RC1 must also remain false. The opt-in write function remains disabled until separate review.
 
 Full production 2B1 dual-write plus queue flow is not exercised by this isolated test, so even a successful PHA-08 sandbox guard test does NOT certify PHA-07 entire workflow, administrative reconciliation or readiness to deploy. Production remains NO-GO and ACE-DSP-004 remains FAIL.
+
+## U. PHA-08 first sandbox write failed; repaired harness staged (11 October 2026)
+
+Maintainer submitted an Apps Script screenshot from the separate SANDBOX_PHA_RC1_SCRIPT_TEST project at 11:30 WIB. `PHA08_WRITE_TEST` reported `sukses=false`, `status=SANDBOX_INDEX_RESTORE_NEEDS_ATTENTION`, `foreignIdBlocked=true`, `foreignIdWrites=0`, `sameIdWriteObserved=false`, `restoreVerified=false`, `manualRestoreRequired=true`, `stopCode=PHA08_STOP_SAME_ID_WRITE_NOT_OBSERVED`, `productionDataWritten=false`.
+
+Read-only connected Google Sheets inspection confirmed both synthetic report IDs, index pointers and J3 nonce remain correct. However, three synthetic date/periode fields `Index_Laporan!D3`, `E3` and `K3` have shifted into numeric date-serial types; initial synthetic baseline displayed these as plain-text strings. The original test rewrote all of `A3:L3` with `setValues`, a plausible cause of coercion. **Do not treat the restoration as complete**, and do not rerun original writer.
+
+Hotfix `PHASandboxIndexCollisionRC1.gs` version `PHA08-INDEX-COLLISION-RC1-2026.10.11.02` now performs test/restore on **J3 alone**; before any write it enforces exact text baselines for D3, E3 and K3. Production-candidate guard functions are unchanged; updated hotfix passed 12/12 pure and sandbox mocks including type-change rejection.
+
+Operator must first set PHA07_ALLOW_WRITE_RC1=false and PHA08_ALLOW_WRITE_RC1=false, manually restore text literals in D3=`2026-10-10 09:15:00`, E3=`2026-10`, K3=`2026-10-10 09:15:02` in the synthetic sandbox, then replace only the isolated sandbox module with updated RC1.02 and rerun the **read-only** preflight. Do not enable another write test pending acceptance.
+
+**PHA-08 guard-level status:** collision blocking observed, but live protected write-and-restore acceptance **FAIL / HOLD**. Production rollout remains NO-GO. `ACE-DSP-004` remains FAIL.
+
+Full incident details and repair gate: docs/ACE-DSP004-PHA08-Index-Collision-Acceptance-RC1.md.
