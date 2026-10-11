@@ -143,3 +143,23 @@ Operator executed `ujiGagalIndexAntreanB1PHA07BRC1()` **once** in standalone `SA
 **B1-02 (`ujiPemulihanReviewDisposisiB1PHA07BRC1`) remains PENDING / NOT EXECUTED.** It tests different conditions and must not be silently marked PASS. Once write-off and new preflight are confirmed, reviewers may separately authorize exactly one isolated second run. On `manualRestoreRequired=true`, `restored=false`, `sukses=false`, any unexpected stopCode, or observed baseline drift, halt all writes and investigate—do not retry automatically.
 
 Production release still **NO-GO**, canonical `ACE-DSP-004` still **FAIL**; do not auto-correct `ACTIVE_622` or reprocess historical `ROW` queue items.
+
+## 11. B1-01 post-test read-only preflight PASS and B1-02 gate — 11 October 2026, 13:17 WIB
+
+The maintainer supplied the screenshot of `praUjiTransaksiB1PHA07BRC1()` from `SANDBOX_PHA07B_B1_SCRIPT_TEST`, showing **`PHA07B_B1_ALLOW_WRITE_RC1=false`** in Apps Script and a successful `PHA07B_B1_PREFLIGHT` log:
+
+```json
+{"sukses":true,"versi":"PHA07B-B1-FAULT-RC1-2026.10.11.02","mode":"READ_ONLY","exactB1SandboxVerified":true,"baselineUntouched":true,"queueEmpty":true,"scratchEmpty":true,"noVisibleTriggers":true,"writeEnabled":false,"productionDataWritten":false,"actualTransactionApproved":false}
+```
+
+**Independent read-only connector verification (post 13:17)**: native B1 copy and pristine B0 workbook were reidentified by exact titles/IDs. The nine bounded B1 value regions `Rekap_Kinerja!A1:BS4`, `Index_Laporan!A1:L4`, `Index_Laporan_Sync_Queue!A1:L2`, `Disposisi_Surat!A1:Y3`, `Disposisi_Penerima!A1:L3`, `Audit_Log!A1:D5`, `Disposisi_Log!A1:N3`, `EVENT_JOURNAL_B0!A1:K2`, and `SKENARIO_B0!A1:F16` all **match B0 exactly**; no differences in unformatted values. Queue and event journal remain empty; 15 synthetic scenarios remain untouched. B1-specific A5/A8 stage markers remain correct.
+
+**Result:** B1-01 operator write-gate reset independently supported by the successful test's own `writeEnabled=false` signal; original source/index/audit/disposition fixture fully restored in the compared bounded ranges. B1-01 remains CLOSED / PASS.
+
+**Next controlled action now scoped and authorized for operator opt-in only:** perform `ujiPemulihanReviewDisposisiB1PHA07BRC1()` **ONCE**, using the existing isolated script and the exact B1 disposable workbook. Temporarily set `PHA07B_B1_ALLOW_WRITE_RC1=true`, save, run only this one entrypoint, then **immediately return it to `false` and save**, regardless of result. This is deliberately separate from PHA-07B B1-01 and does not alter the production queue worker.
+
+Acceptance: `caseId=B1-RETRY-REVIEW_DISPOSITION`, `sukses=true`, `status=PASS_SYNTHETIC_WRITE_AND_RESTORE`, `sourceCommittedObserved=true`, `byIdRetrySafe=true`, `reviewDivergenceDetected=true`, `auditGapDetected=true`, `dispositionGapDetected=true`, `recoveryLinksVerified=true`, `queuePersistedObserved=true`, `restored=true`, `manualRestoreRequired=false`, `productionDataWritten=false`, `actualProductionHandlersUsed=false`.
+
+If any status indicates failure, partial data, `manualRestoreRequired=true`, or unexpected `stopCode`, STOP and do not retry/continue; re-read B1 scratch and compare to B0. Live write B1-02 still **PENDING** until the operator reports its log and independent post-run baseline verification passes.
+
+**Scope reminder:** `actualTransactionApproved=false` is a truthfully reported non-approval for production/live Portal behavior. Approval for this one bounded isolated synthetic harness test is a separate human-controlled choice. Production changes/deployments and GitHub main remain NO-GO; canonical `ACE-DSP-004` remains FAIL.
