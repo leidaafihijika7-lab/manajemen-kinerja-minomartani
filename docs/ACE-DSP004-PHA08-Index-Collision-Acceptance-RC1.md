@@ -163,3 +163,14 @@ All above match the known pre-run fixture. The earlier RC1.01 row-wide `setValue
 - **NOT ACCEPTED:** full live Portal submission/review/disposition transaction, queue insertion/error-handler/replay (`Index_Laporan_Sync_Queue`) and integrated triggers. No user report data or production sheets were modified by the assistant.
 - **REQUIRED IMMEDIATE OPERATOR ACTION:** set `PHA08_ALLOW_WRITE_RC1=false` in the isolated sandbox Apps Script. Keep `PHA07_ALLOW_WRITE_RC1=false`. No further writer test is needed.
 - **PRODUCTION DECISION:** NO-GO for deployment/protection changes or direct remediation. Canonical `ACE-DSP-004` remains FAIL pending approved administrative reconciliation of `ACTIVE_622`.
+
+## Post-test safety controls: operator confirmation
+
+The maintainer has now **explicitly confirmed in chat** that the separate `SANDBOX_PHA_RC1_SCRIPT_TEST` project's settings have both been reset and saved:
+
+- `PHA07_ALLOW_WRITE_RC1 = false`
+- `PHA08_ALLOW_WRITE_RC1 = false`
+
+**Evidence category: OPERATOR-ATTESTED / NOT INDEPENDENTLY INSPECTED.** We do not have direct access to current Apps Script source in the editor. This confirmation satisfies the requested operator step; it is **not** an independent code-state verification.
+
+**PHA-08 guard-level sandbox acceptance: CLOSED / PASS** (live PASS log plus independently restored synthetic data baseline). **Full submit/review/disposition/index-sync-queue integration remains PENDING**, as does PHA-09 backup/rollback. No further PHA-08 writer tests required. GitHub main, production protections, production sheets, triggers and deployed Web App remain unchanged by this documentation update. `ACE-DSP-004` remains FAIL and production rollout remains NO-GO.
