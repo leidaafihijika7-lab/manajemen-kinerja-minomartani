@@ -1,70 +1,57 @@
-# PHA-07B B2 RC8.2 — Owner Revision Diagnostic (isolated second run)
+# PHA-07B B2 RC8.2 — Revision Index Fix Candidate
 
-**Status: DIAGNOSTIC CANDIDATE / PENDING NEW APPS SCRIPT RUNTIME. Production: NO-GO.**
-**ORIGINAL RC8.2 MATRIX FAILED 15/16. THIS DIAGNOSTIC IS A NEW DISPOSABLE WORKBOOK, NOT A RE-RUN OF THE ORIGINAL.** Original rollback was verified (425 checked cell positions, zero differences). The next matrix has an added `ownerRevisionEvidence` field to identify which of the owner revision predicates failed. The spoof security probe is still not accepted until separately observed. Runtime diagnostic has not yet run.
+**Staging only — runtime preflight and matrix NOT YET RUN. Production: NO-GO.**
 
+## Evidence and correction
 
-This stage calls **actual server-side application functions**: `cekLogin`, `validasiSession`, `cekHakAksesAdmin`, `simpanDataKinerja`, `simpanRevisiLaporanDitolakPegawai`, and `prosesReviewAdmin` from `Kode.gs`. It is not an HTTP/PWA or file-upload end-to-end test; do not deploy the web app.
+The second Apps Script diagnostic run at 19:15:50 WIB, 11 October 2026, completed 15 of 16 business checks and failed the 16th: `AUTHENTICATED_OWNER_REVISION`. The **actual authenticated revision succeeded**: success response, `Menunggu Review` source status and revised NONCE all matched. However the canonical index still had `Ditolak`, zero points, and the previous NONCE; one repair queue row was created.
 
-## Isolated assets
+Code review isolated this to `rc7WriteIndexLocked_` in `IndexQueueGuardRC7.gs`: strict global source/index (reportId, ownerId, nonce) provenance rejects every changed NONCE before permitting an index refresh. The real employee revision endpoint legitimately rotates the report NONCE.
 
-- **Disposable**: https://docs.google.com/spreadsheets/d/1nIH0dCUs5SduXGNsEI-flKX1nGcfAA3Gufr2Q7OpTTM/edit
-- **Independent pre-test snapshot**: https://docs.google.com/spreadsheets/d/1UAVSb7ViT6IjkJb5KxcWekdqgQGD0EKmeh5X25ZihAw/edit
-- **GitHub branch**: https://github.com/leidaafihijika7-lab/manajemen-kinerja-minomartani/tree/feat/pha07b2-rc82-revision-diagnostics
+The patch adds `rc7AllowOwnerRevisionNonceChange_` and calls it **only** when the mismatch belongs to the exact report row currently being synchronized under context `REVISI_PEGAWAI`. It checks: fixed report ID/owner ID/row, nonempty changed NONCE, prior index status `Ditolak`, current source status `Menunggu Review`, revision counter >=1, valid revision timestamp, and revision actor matching the owner ID. All unrelated index rows still require strict (report ID, owner ID, nonce) equality. The source and other business functions are not weakened or bypassed.
 
-12 tabs are present: 10 existing synthetic B0 tabs plus **Data_Pegawai** (headers only, no accounts) and **Disposisi_Petugas** (headers only). There is no real citizen, staff, production, or account data. At the time this report was prepared, all 12 tabs matched the independent snapshot in bounded CellData comparisons: 425 nonempty/metadata positions and zero differences.
+Local code-path source-copy mock tests: **19/19 PASS**, including negative cases for owner/ID/row/context mutation, stale nonce in unrelated index rows, invalid revision metadata, and successful idempotent index refresh. This is **not** Apps Script runtime acceptance.
 
-## New Apps Script project (required)
+The diagnostic workbook (ID `1nIH0dCUs5SduXGNsEI-flKX1nGcfAA3Gufr2Q7OpTTM`) was externally verified after its failed run: **0 differences from its snapshot in 425 inspected cell positions / 12 tabs**. It is retained intact and MUST NOT be reused for a matrix.
 
-Create **`Portal Kinerja - PHA07B2 RC8.2 Revision Diagnostic`**, separate from RC8/RC8.1 and production. Copy **from the RC8.2 branch only**:
+## New isolated fix-candidate environment
 
-1. `Kode.gs` (full file with `getSS_()` hard-pinned to the RC8.2 disposable ID and `doGet` disabled)
-2. `SheetSchema.gs`
-3. `IndexQueueGuardRC7.gs`
-4. `RC82_AuthenticatedBusinessIntegration.gs`
-5. `appsscript.json` (V8, timezone `Asia/Jakarta`, spreadsheets/script.scriptapp permissions).
+- Workbook: https://docs.google.com/spreadsheets/d/1_2GImSC30vke1KYyJ8Azqzc0GjL0sMP67-BeNwW7wzQ/edit
+- Fresh independent snapshot: https://docs.google.com/spreadsheets/d/1AyynKuayzzWcm4g5C17zEQB6s_XIjMvgh-TNHdCor2s/edit
+- Source branch: https://github.com/leidaafihijika7-lab/manajemen-kinerja-minomartani/tree/feat/pha07b2-rc82-revision-index-fix
+- Runtime harness version: `PHA07B2-RC82-REVISION-INDEX-FIX-2026.10.11.3`
+- 12 tabs verified and target/snapshot are identical on **425 inspected positions** (values, display, formatting, validation, hyperlink/note).
+- Source code `getSS_()` is hard-pinned to this new ID. The workbook marker at `MULAI_DI_SINI!A5` is `STAGE_RC82_REVISION_INDEX_FIX` and the write-opt-in marker at `A8` is `RC82_REVISION_INDEX_FIX_WRITES_OPTIN_ONLY`.
+- The old original RC8.2 and RC8.2 diagnostic workbooks, and all production resources, are not touched.
 
-The `RC82_AuthenticatedBusinessIntegration.gs` in this diagnostic branch must contain version `PHA07B2-RC82-REVISION-DIAG-2026.10.11.2` and the new workbook hard-pin. Do not copy the similarly named file from the original RC8.2 branch.
+## Installation in a fresh standalone Apps Script project
 
-**DO NOT COPY** `RC81_TypeSafeStorageValidation.gs`, `RC8_StagingAcceptance.gs`, `rc7-review/Kode_RC7_Bridge_Patch.js`, scripts from production, secrets, credentials, deployments, triggers, or any Script Properties from existing projects.
+Create `Portal Kinerja - PHA07B2 RC8.2 Revision Index Fix`. Copy **from the fix branch only**:
 
-### New project Script Properties
+1. `Kode.gs` — full source, nondeployable in staging.
+2. `SheetSchema.gs`.
+3. **`IndexQueueGuardRC7.gs` — MUST use the patched version containing `rc7AllowOwnerRevisionNonceChange_`.**
+4. `RC82_AuthenticatedBusinessIntegration.gs` — version `PHA07B2-RC82-REVISION-INDEX-FIX-2026.10.11.3`.
+5. `appsscript.json` from the same branch.
 
-| Property | Value |
+No production credentials, properties, triggers, deployments, sheets or real users. In Project Settings / Script Properties:
+
+| Key | Value |
 |---|---|
 | `RC82_STAGING_MODE` | `true` |
-| `SPREADSHEET_ID` | `1nIH0dCUs5SduXGNsEI-flKX1nGcfAA3Gufr2Q7OpTTM` |
+| `SPREADSHEET_ID` | `1_2GImSC30vke1KYyJ8Azqzc0GjL0sMP67-BeNwW7wzQ` |
+| `RC82_WRITE_DRILL_ENABLED` | `false` |
 | `INDEX_LAPORAN_2B1_WRITE_ENABLED` | `false` |
 | `INDEX_LAPORAN_RC7_REPLAY_ENABLED` | `false` |
-| `RC82_WRITE_DRILL_ENABLED` | `false` |
 
-Leave `RC8_STAGING_MODE` / `RC81_STAGING_MODE` absent or `false`. **Do not set `PIN_PEPPER`, `FOLDER_ID_BUKTI_KINERJA`, `FOLDER_ID_BUKTI`, `API_KEY_GEMINI`, or `RC82_RECOVERY_PENDING`.** The isolated harness generates a strong random test pepper and temporary synthetic PINs internally during an explicitly authorized matrix run, then clears the test data and properties. No PIN or session token is logged or returned.
+`RC8_STAGING_MODE` and `RC81_STAGING_MODE` absent/false. Do not set `PIN_PEPPER`, `FOLDER_ID_BUKTI_KINERJA`, `FOLDER_ID_BUKTI`, `API_KEY_GEMINI`, or `RC82_RECOVERY_PENDING`. Do not copy existing Script Properties.
 
-### Step 1 — read-only gate
+**First run only** `rc82ReadOnlyPreflightV1`. Require `RC82_PREFLIGHT_PASS` with source 2, index 2, audit 2, queue 0, employee 0, triggers 0, no issues, zero writes. Send the log.
 
-Run **`rc82ReadOnlyPreflightV1`**, **not** the matrix. Expected `PHA07B2_RC82_PREFLIGHT` status `RC82_PREFLIGHT_PASS`, 2 source rows, 2 index rows, 2 audit rows, 0 queue rows, 0 employee data rows, 0 triggers, no issues, zero writes. If it fails, do not enable writes; send the execution log.
+**Only after verified preflight and explicit approval of the next runtime step**, opt in once by setting `RC82_WRITE_DRILL_ENABLED=true` and execute `rc82RunAuthenticatedMatrixV1` a single time. The harness turns off the opt-in and dual write afterward. If it fails or emits a pending recovery signal, do NOT repeat or call `rc82RecoverPendingV1` blindly; inspect the evidence and backup first. Afterward compare against the fresh independent snapshot.
 
-### Step 2 — separate explicit write authorization, only after PASS
+## Mandatory remaining security gate
 
-Set **only `RC82_WRITE_DRILL_ENABLED=true`**, then run `rc82RunAuthenticatedMatrixV1` **once**. It temporarily enables dual-write inside the isolated Apps Script project and automatically restores it to `false` in cleanup; **queue replay always stays off**. It creates actual salted synthetic accounts and genuine sessions with `cekLogin`, performs a submit/rejection/owner-revision/admin-approval flow, checks provenance, checks nonce idempotence, probes unauthorized actions, and then tests a client-payload role/name spoof attack. If owner revision fails, `ownerRevisionEvidence` shows the sanitized handler response, status and nonce checks, and index differences before the test aborts.
+The real code still requires empirical `CLIENT_ROLE_AND_NAME_SPOOF_REJECTED`: a signed regular employee token must not be able to submit a forged `nama`/`jabatan=Lurah` client payload. The prior failed matrix never reached this gate (`spoofEvidence:null`). **Do not claim the full matrix accepted, even if the revision-index fix works, unless this security check also passes.** A security finding remains staging-only and means NO-GO.
 
-**Crucial security gate:** source inspection found that `simpanDataKinerja` currently consumes `paket.nama` and `paket.jabatan` supplied by the client, and that initial admin-like approval logic reads `paket.jabatan`. The matrix requires an **explicit identity-mismatch rejection**. If spoofing is accepted, the matrix MUST report `RC82_SECURITY_NOT_ACCEPTED`; do not treat other passed tests as overall acceptance or deploy to production.
-
-Potential outputs:
-- `RC82_AUTH_BUSINESS_PASS_PENDING_EXTERNAL_SNAPSHOT`: all runtime checks passed; still requires independent snapshot comparison.
-- `RC82_SECURITY_NOT_ACCEPTED`: client role/name spoofing was accepted. Treat as a security defect, investigate and patch in a separate reviewed branch.
-- `RC82_AUTH_BUSINESS_NOT_ACCEPTED`: an authentication, validation, transaction, index, audit, setup, or rollback check failed.
-
-After the run, verify `RC82_WRITE_DRILL_ENABLED=false` and `INDEX_LAPORAN_2B1_WRITE_ENABLED=false`, then send the complete `PHA07B2_RC82_AUTH_MATRIX` log. **Do not repeat the matrix in the same workbook.**
-
-### Step 3 — independently verify rollback
-
-Compare the target against the immutable snapshot using the Google Sheets CellData API in all 12 named tabs. Required parity: `userEnteredValue`, `effectiveValue`, `formattedValue`, `userEnteredFormat`, `dataValidation`, `note`, `hyperlink`. Require zero changes in relevant bounded regions, no residual `__RC82_BK_` tabs, no pending recovery manifest, source/index/audit row counts back to baseline.
-
-### If an execution fails or is interrupted
-
-Do **not** retry the matrix. Ensure write and dual-write flags are false. If a pending manifest plus native backup tab exists, inspect logs and use **`rc82RecoverPendingV1`** only in the isolated project; verify against the independent snapshot afterward. If the manifest or backup is damaged, stop and use the independent snapshot for guided manual recovery. Backup restoration is not a Google Sheets transaction; forced termination may occur at any point.
-
-## Scope limitations
-
-The harness calls genuine server-side functions but does not deploy them through a browser, provide real Drive attachments, test AI APIs, or validate all authorization and tax/benefit scenarios. Fake evidence URLs use the reserved `.invalid` domain. Role/identity security must be explicitly accepted; do not infer PASS from successful form submissions. No merge to `main` or production deploy is authorized.
+No deployment, merge to main, production patch, trigger creation, or queue replay is authorized.
