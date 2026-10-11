@@ -3,7 +3,7 @@
 **Version**: `PHA07B-B1-FAULT-RC1-2026.10.11.02`  
 **Date**: 11 October 2026 (Asia/Jakarta)  
 **Branch**: `feature/ace-dsp004-protection-acceptance-rc1`  
-**Current gate**: **B1-01 AND B1-02 SYNTHETIC SANDBOX WRITERS PASS / POST-B1-02 WRITE-FLAG RESET AND FINAL READ-ONLY PREFLIGHT PENDING / PRODUCTION NO-GO**.  
+**Current gate**: **B1 SYNTHETIC ACCEPTANCE CLOSED / PASS (B1-01, B1-02, FINAL WRITE-GATE RESET AND READ-ONLY PREFLIGHT), PRODUCTION NO-GO**.  
 **Production**: **NO-GO**, `ACE-DSP-004` remains **FAIL**.
 
 ## 1. Dedicated, disposable test data
@@ -185,3 +185,41 @@ Using connected Google Sheets **read-only**, exact B1/B0 titles and spreadsheet 
 **POST-TEST SAFETY ACTION STILL UNVERIFIED:** the operator's screenshot taken during the test still shows `PHA07B_B1_ALLOW_WRITE_RC1=true`. The maintainer must promptly set `PHA07B_B1_ALLOW_WRITE_RC1=false`, save, and run only `praUjiTransaksiB1PHA07BRC1()` read-only. Expect `sukses=true`, `writeEnabled=false`, `baselineUntouched=true`, `queueEmpty=true`, `scratchEmpty=true`. Do not rerun B1-01 or B1-02 or run other writers. Until the reset/read-only preflight is confirmed, the **B1 safety closeout gate** remains open.
 
 The 15 scenario rows remain `PENDING` by design and should not be marked executed based on these two test cases. Real Portal submit/review/disposition functions, real queue worker and replay operations were **not exercised**; B1 results are neither automatic remediation for `ACTIVE_622` nor approval to promote changes to production. GitHub `main`, Web App deployments and production business data remain out of scope; `ACE-DSP-004` remains FAIL and production remains NO-GO.
+
+## 13. Post-B1-02 read-only preflight — B1 SYNTHETIC ACCEPTANCE CLOSED / PASS (11 October 2026, 13:32 WIB)
+
+The maintainer returned the Apps Script execution screenshot for `praUjiTransaksiB1PHA07BRC1()` in standalone `SANDBOX_PHA07B_B1_SCRIPT_TEST`. The `PHA07B_B1_PREFLIGHT` log reported:
+
+```json
+{"sukses":true,"versi":"PHA07B-B1-FAULT-RC1-2026.10.11.02","mode":"READ_ONLY","exactB1SandboxVerified":true,"baselineUntouched":true,"queueEmpty":true,"scratchEmpty":true,"noVisibleTriggers":true,"writeEnabled":false,"productionDataWritten":false,"actualTransactionApproved":false}
+```
+
+The successfully executed `writeEnabled=false` signal confirms that the Apps Script write gate was disabled for this run. Trigger inventory only covers the current execution identity. `actualTransactionApproved=false` still means real Portal handlers and production rollout are not authorized.
+
+### Independent bounded verification after the 13:32 preflight
+
+Connected Google Sheets reidentified the native source B0 (`SANDBOX_PHA07B_B0_SYNTHETIC_ONLY`) and disposable B1 (`SANDBOX_PHA07B_B1_DISPOSABLE_SYNTHETIC_ONLY`) by exact spreadsheet IDs and their ten tab names. A **read-only cell-by-cell value and value-type comparison** checked the following B1 ranges against B0:
+
+| Tab | Compared range | Differences |
+|---|---|---|
+| Rekap_Kinerja | A1:BS4 | 0 |
+| Index_Laporan | A1:L4 | 0 |
+| Index_Laporan_Sync_Queue | A1:L2 | 0 |
+| Disposisi_Surat | A1:Y3 | 0 |
+| Disposisi_Penerima | A1:L3 | 0 |
+| Audit_Log | A1:D5 | 0 |
+| Disposisi_Log | A1:N3 | 0 |
+| EVENT_JOURNAL_B0 | A1:K2 | 0 |
+| SKENARIO_B0 | A1:F16 | 0 |
+
+**9/9 bounded regions matched**. B1 retains exactly two original synthetic source/index rows, 0 queue entries, 0 journal entries, and 15 unchanged scenario rows. B1 marker `MULAI_DI_SINI!A5=STAGE_B1_DISPOSABLE_TEST_COPY` and `A8=B1_WRITES_REQUIRE_OPERATOR_OPT_IN` remain correct. B0 marker `A5=STAGE_B0_ENVIRONMENT_ONLY` remains correct. No additional write or replay tests were executed after the B1-02 run.
+
+### Formal scoped acceptance decision
+
+**PHA-07B B1 SYNTHETIC TRANSACTION & QUEUE FAILURE INJECTION — CLOSED / PASS.** Evidence covers 41/41 pure-model unit checks, live read-only preflight, live isolated synthetic **B1-01 index failure + ROW queue hold** and **B1-02 exact-ID retry/review/audit/disposition gap/recovery**, and separate post-run typed-value baseline verification and write-flag reset.
+
+**Important boundary:** this does **not** constitute acceptance of all 15 planned scenario rows (they remain PENDING), nor acceptance of actual deployed Portal handlers, real queue-worker retries, historical remediation, backup/rollback for the real database, or production sheet protections. The first two standalone harness write cases are accepted only. Do not re-run the writer functions or merge development code into `main`.
+
+**Next stage recommendation**: PHA-07B B2 — isolated production-path integration design/preflight (source-reviewed mapping from real Portal handlers to a new disposable integration sandbox, with no production IDs, secrets, triggers, deployments or real records). Start read-only; separately gate any actual writing or fault injection.
+
+**Production NO-GO. Canonical ACE-DSP-004 remains FAIL (ACTIVE_622 still requires approved administrative reconciliation). ACE-REV-003 remains separate.**
