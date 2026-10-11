@@ -8,7 +8,7 @@
 // First run validasiLogikaPHA08RC1 and praUjiKolisiIndexPHA08RC1 only.
 // ============================================================================
 
-var PHA08_VERSION_RC1 = 'PHA08-INDEX-COLLISION-RC1-2026.10.11.01';
+var PHA08_VERSION_RC1 = 'PHA08-INDEX-COLLISION-RC1-2026.10.11.02';
 var PHA08_ALLOW_WRITE_RC1 = false; // DO NOT enable before read-only preflight reviewed.
 var PHA08_ORIGINAL_A = 'PHA-TEST-RPT-0001';
 var PHA08_ORIGINAL_B = 'PHA-TEST-RPT-0002';
@@ -144,6 +144,15 @@ function pha08RequireFixtureRC1_() {
     Number(snapshot[1][1])===3,'FIXTURE_ID_OR_POINTER_CHANGED');
   pha08AssertRC1_(String(snapshot[1][9]).trim()==='PHA-TEST-NONCE-0002',
     'INDEX_NONCE_NOT_BASELINE');
+  // Guard original synthetic TEXT dates against setValues auto-coercion.
+  // After failed RC1.01 test, manually restore D3/E3/K3 to plain text first.
+  var textDateBaseline={3:'2026-10-10 09:15:00',4:'2026-10',10:'2026-10-10 09:15:02'};
+  Object.keys(textDateBaseline).forEach(function(k){
+    var col=Number(k);
+    pha08AssertRC1_(typeof snapshot[1][col]==='string'&&
+      snapshot[1][col]===textDateBaseline[k],
+      'INDEX_DATE_TEXT_BASELINE_CHANGED');
+  });
   pha08AssertRC1_(String(source.getRange('S2').getValue()).trim()===
     PHA08_ORIGINAL_A&&
     String(source.getRange('S3').getValue()).trim()===PHA08_ORIGINAL_B,
@@ -218,11 +227,11 @@ function ujiKolisiDanPemulihanIndexPHA08RC1() {
     return stop;
   }
   var result={sukses:false,versi:PHA08_VERSION_RC1,
-    status:'STARTED',target:'SANDBOX_ONLY_INDEX_ROW_3',
+    status:'STARTED',target:'SANDBOX_ONLY_INDEX_J3',
     foreignIdBlocked:false,foreignIdWrites:0,
     sameIdWriteObserved:false,restoreVerified:false,
     manualRestoreRequired:false,productionDataWritten:false};
-  var lock=null,held=false,ctx=null,writeAttempted=false,restoreNeeded=false;
+  var lock=null,held=false,ctx=null,restoreNeeded=false;
   try {
     pha08AssertRC1_(typeof LockService!=='undefined',
       'LOCKSERVICE_MISSING');
@@ -240,13 +249,20 @@ function ujiKolisiDanPemulihanIndexPHA08RC1() {
     var auth=PHA08_ACTUAL_RC1_GUARD_.assertSafe(ctx.source,ctx.index,
       3,3,PHA08_ORIGINAL_B,probe);
     pha08AssertRC1_(auth.allowed===true,'SAME_ID_WRITE_GUARD_REJECTED');
-    // No writes before this point. Restore is attempted even if flush fails.
+    // Critical: update only J3. Rewriting all 12 index cells coerced
+    // synthetic text dates in D3, E3, K3 and broke strict restoration checks.
+    // Zero writes before this point. Restore J3 even if flush/assertion fails.
     restoreNeeded=true;
-    writeAttempted=true;
-    ctx.index.getRange(3,1,1,12).setValues([probe]);
+    ctx.index.getRange('J3').setValue(PHA08_PROBE_NONCE);
     SpreadsheetApp.flush();
-    result.sameIdWriteObserved=pha08RowsEqualRC1_([probe],
-      ctx.index.getRange(3,1,1,12).getValues());
+    var observed=ctx.index.getRange(3,1,1,12).getValues()[0];
+    var otherCellsUnchanged=observed.every(function(value,j){
+      return j===9||pha08NormRC1_(value)===pha08NormRC1_(ctx.before[1][j]);
+    });
+    result.sameIdWriteObserved=otherCellsUnchanged&&
+      String(observed[9])===PHA08_PROBE_NONCE&&
+      pha08RowsEqualRC1_([ctx.before[0]],
+        ctx.index.getRange(2,1,1,12).getValues());
     pha08AssertRC1_(result.sameIdWriteObserved,
       'SAME_ID_WRITE_NOT_OBSERVED');
   }catch(e){
@@ -255,7 +271,7 @@ function ujiKolisiDanPemulihanIndexPHA08RC1() {
   }finally{
     if(restoreNeeded&&ctx){
       try{
-        ctx.index.getRange(3,1,1,12).setValues([ctx.before[1]]);
+        ctx.index.getRange('J3').setValue(String(ctx.before[1][9]));
         SpreadsheetApp.flush();
         result.restoreVerified=pha08RowsEqualRC1_(ctx.before,
           ctx.index.getRange(2,1,2,12).getValues());
