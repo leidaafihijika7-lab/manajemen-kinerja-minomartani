@@ -379,3 +379,9 @@ The Apps Script screenshot still showed `PHA08_ALLOW_WRITE_RC1=true`; operator m
 **Scope boundary:** this only verifies the extracted RC1 guard and J3-only write/restore under the isolated sandbox executor. Full production Web App submit/review/disposition, index sync-queue, triggers, and BDR acceptance remain outstanding. Do not merge to main, activate protection or deploy. Canonical `ACE-DSP-004` remains FAIL.
 
 Full evidence record: `docs/ACE-DSP004-PHA08-Index-Collision-Acceptance-RC1.md`.
+
+## W. PHA-08 write gates reset — operator attestation
+
+The maintainer confirmed the standalone Apps Script project `SANDBOX_PHA_RC1_SCRIPT_TEST` was saved with `PHA07_ALLOW_WRITE_RC1=false` and `PHA08_ALLOW_WRITE_RC1=false`. This is a **user/maintainer attestation**, not a connector-verified read of Apps Script editor source.
+
+**Close PHA-08 guard-level sandbox acceptance as PASS.** PHA-07 full business-transaction/queue acceptance and PHA-09 disaster recovery/rollback acceptance are still open. Do not label the whole Protection Hardening Acceptance RC1 production-ready. All production protections, deployment, trigger state, data and GitHub main remain unchanged by this note. Canonical ACE-DSP-004 remains FAIL.
