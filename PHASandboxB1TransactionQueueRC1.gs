@@ -1,6 +1,6 @@
 // ============================================================================
 // PHA-07B B1 | SYNTHETIC TRANSACTION & QUEUE FAILURE INJECTION | RC1
-// DATE: 2026-10-11   VERSION: PHA07B-B1-FAULT-RC1-2026.10.11.01
+// DATE: 2026-10-11   VERSION: PHA07B-B1-FAULT-RC1-2026.10.11.02
 // ONLY install in a NEW standalone project SANDBOX_PHA07B_B1_SCRIPT_TEST.
 // This is a TEST HARNESS, NOT a copy of the live production transaction code.
 // B1 is a disposable native copy of the verified B0 fixture.
@@ -9,7 +9,7 @@
 // 2) praUjiTransaksiB1PHA07BRC1()           READ-ONLY
 // NEVER run the write functions until their preflight has been reviewed.
 // ============================================================================
-var PHA07B_B1_VERSION_RC1='PHA07B-B1-FAULT-RC1-2026.10.11.01';
+var PHA07B_B1_VERSION_RC1='PHA07B-B1-FAULT-RC1-2026.10.11.02';
 var PHA07B_B1_SPREADSHEET_ID='1hldhvaMRo5etOCQlqCYISgvbpAdOIfAJN5IfGa3kD3Q';
 var PHA07B_B1_TITLE='SANDBOX_PHA07B_B1_DISPOSABLE_SYNTHETIC_ONLY';
 var PHA07B_B1_ALLOW_WRITE_RC1=false; // KEEP FALSE UNTIL HUMAN APPROVAL
@@ -24,10 +24,16 @@ function pha07bB1Stop_(condition,code){
 function pha07bB1Txt_(v){return v===null||v===undefined?'':String(v).trim();}
 function pha07bB1Eq_(a,b){return pha07bB1Txt_(a).toLowerCase()===pha07bB1Txt_(b).toLowerCase();}
 function pha07bB1Fingerprint_(a){
-  // Compare exact typed values; no business data is logged.
-  return JSON.stringify(a,function(k,v){
-    return v instanceof Date?{'dateMs':v.getTime()}:v;
-  });
+  // Encode type BEFORE Date.toJSON() can convert it into an ISO string.
+  // Only the in-memory comparison is used; business values are never logged.
+  function typed(v){
+    if(Object.prototype.toString.call(v)==='[object Date]')
+      return ['date',v.getTime()];
+    if(Array.isArray(v))return v.map(typed);
+    if(v===null)return ['null'];
+    return [typeof v,v];
+  }
+  return JSON.stringify(typed(a));
 }
 function pha07bB1AllBlank_(cells,formulas){
   for(var i=0;i<cells.length;i++){
@@ -64,6 +70,10 @@ function pha07bB1QueueDecision_(item,observed){
        pha07bB1Txt_(item.nonce)!==pha07bB1Txt_(observed.nonce))
       return 'HOLD_OWNER_NONCE_CHANGED';
     if(observed.ownerNonceUnique!==true)return 'HOLD_NONCE_NOT_UNIQUE';
+    if(!pha07bB1Txt_(observed.reportId))return 'HOLD_MISSING_SOURCE_REPORT_ID';
+    if(pha07bB1Txt_(observed.indexId)&&
+       !pha07bB1Eq_(observed.indexId,observed.reportId))
+      return 'HOLD_FOREIGN_INDEX_ID';
     return 'ALLOW_UNIQUE_OWNER_NONCE';
   }
   return 'HOLD_UNKNOWN_OPERATION';
@@ -122,6 +132,10 @@ function validasiModelB1PHA07BRC1(){
   ck('BY_NONCE_DUPLICATE',p({operation:'BY_NONCE',status:'PENDING',attempts:0,userId:source.userId,nonce:source.nonce},
     {userId:source.userId,nonce:source.nonce,ownerNonceUnique:false})==='HOLD_NONCE_NOT_UNIQUE');
   ck('BY_NONCE_MISSING',p({operation:'BY_NONCE',status:'PENDING',attempts:0,userId:'',nonce:''},source)==='HOLD_MISSING_OWNER_NONCE');
+  ck('BY_NONCE_MISSING_REPORT',p({operation:'BY_NONCE',status:'PENDING',attempts:0,userId:source.userId,nonce:source.nonce},
+    {userId:source.userId,nonce:source.nonce,ownerNonceUnique:true,reportId:''})==='HOLD_MISSING_SOURCE_REPORT_ID');
+  ck('BY_NONCE_FOREIGN_INDEX',p({operation:'BY_NONCE',status:'PENDING',attempts:0,userId:source.userId,nonce:source.nonce},
+    {userId:source.userId,nonce:source.nonce,ownerNonceUnique:true,reportId:source.reportId,indexId:'OTHER'})==='HOLD_FOREIGN_INDEX_ID');
   ck('MISSING_SOURCE_FAIL',p({operation:'BY_ID',status:'PENDING',attempts:0,reportId:source.reportId},{reportId:''})==='HOLD_SOURCE_ID_CHANGED');
   ck('MODEL_SUCCESS_STILL_NONATOMIC',m('').source&&m('').index&&m('').audit&&m('').recipient&&m('').dispositionLog&&!m('').atomic);
   ck('MODEL_SOURCE_FAILURE',!m('SOURCE').source);
@@ -135,6 +149,8 @@ function validasiModelB1PHA07BRC1(){
   ck('REJECTED_POINTS_ZERO',pha07bB1ReviewModel_('Ditolak','Ditolak',0,0));
   ck('TYPED_EQUALS',pha07bB1Fingerprint_([[0,'']])===pha07bB1Fingerprint_([[0,'']]));
   ck('TYPE_CHANGE_DETECTED',pha07bB1Fingerprint_([['2']])!==pha07bB1Fingerprint_([[2]]));
+  ck('DATE_TO_STRING_CHANGE_DETECTED',pha07bB1Fingerprint_([[new Date('2026-10-11T00:00:00Z')]])!==
+    pha07bB1Fingerprint_([['2026-10-11T00:00:00.000Z']]));
   ck('EMPTY_SCRATCH_REJECTS_OTHER',!pha07bB1AllBlank_([['B1-RPT-OTHER']],[['']]));
   ck('EMPTY_SCRATCH_REJECTS_FORMULA',!pha07bB1AllBlank_([['']],[['=NOW()']]));
   ck('EMPTY_SCRATCH_ACCEPTS_BLANK',pha07bB1AllBlank_([['',null]],[['','']]));
@@ -439,12 +455,17 @@ function pha07bB1RunCase_(caseId){
         idx[9]===PHA07B_B1_TEST_NONCE&&
         rec[0]===PHA07B_B1_TEST_DISPOSITION&&
         rec[1]===PHA07B_B1_TEST_OWNER_ID&&
+        rec[6]==='SUDAH_DILAPORKAN'&&
         rec[7]===PHA07B_B1_TEST_REPORT_ID&&
         log[1]===PHA07B_B1_TEST_DISPOSITION&&
+        log[2]==='BUAT_LAPORAN_DARI_DISPOSISI'&&
+        log[3]===PHA07B_B1_TEST_OWNER_ID&&
         log[10]===PHA07B_B1_TEST_REPORT_ID&&
         log[6]==='Laporan terkait: '+PHA07B_B1_TEST_REPORT_ID&&
+        aud[0][1]===PHA07B_B1_TEST_OWNER_ID&&
         aud[0][2]==='SUBMIT_LAPORAN'&&
         aud[0][3]===PHA07B_B1_TEST_REPORT_ID&&
+        aud[1][2]==='REVIEW_LAPORAN'&&
         aud[1][3]===PHA07B_B1_TEST_REPORT_ID;
       pha07bB1Stop_(consistent,'RECOVERY_REFERENCES_INCONSISTENT');
       out.recoveryLinksVerified=true;
@@ -454,7 +475,9 @@ function pha07bB1RunCase_(caseId){
         .setValue('DONE');
       SpreadsheetApp.flush();
       out.queuePersistedObserved=ss.getSheetByName('Index_Laporan_Sync_Queue')
-        .getRange('J2').getValue()==='DONE';
+        .getRange('J2').getValue()==='DONE'&&
+        Number(ss.getSheetByName('Index_Laporan_Sync_Queue')
+          .getRange('I2').getValue())===1;
       pha07bB1Stop_(out.queuePersistedObserved,'QUEUE_DONE_NOT_OBSERVED');
       out.status='RETRY_AND_INTEGRITY_OBSERVED_RESTORE_PENDING';
     }
