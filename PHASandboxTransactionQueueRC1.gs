@@ -79,7 +79,8 @@ function pha07bSimulatedTxRC1_(opts){
       }
       state.manualReconciliationRequired=state.sourceCommitted&&
         (!state.indexConsistent||!state.auditPresent||
-         (opts.withDisposition!==false&&!state.recipientLinked));
+         (opts.withDisposition!==false&&
+          (!state.recipientLinked||!state.dispositionLogPresent)));
       return state;
     }
     if(stage==='SOURCE_APPEND')state.sourceCommitted=true;
@@ -114,7 +115,7 @@ function pha07bEvidenceRC1_(d){
   require(Array.isArray(audits)&&audits.length===2,'AUDIT_COUNT');
   require(Array.isArray(logs)&&logs.length===1,'DISPOSITION_LOG_COUNT');
   if(errs.length)return {ok:false,errorCodes:errs};
-  var expected=['PHA-TEST-RPT-0001','PHA-TEST-RPT-0002'],seen={};
+  var expected=['PHA-TEST-RPT-0001','PHA-TEST-RPT-0002'],seen={},seenNonces={};
   for(var i=0;i<2;i++){
     var R=reports[i]||[],I=indexes[i]||[],
         id=pha07bIdRC1_(expected[i]),audit=audits[i]||[];
@@ -131,6 +132,12 @@ function pha07bEvidenceRC1_(d){
     require(pha07bSameRC1_(audit[3],id),'SUBMIT_AUDIT_TARGET_'+i);
     require(!Object.prototype.hasOwnProperty.call(seen,id),'DUPLICATE_REPORT_ID');
     seen[id]=true;
+    var nk=pha07bIdRC1_(R[19])+'|'+pha07bTextRC1_(R[21]);
+    require(!!pha07bIdRC1_(R[19])&&!!pha07bTextRC1_(R[21]),
+      'MISSING_OWNER_OR_NONCE_'+i);
+    require(!Object.prototype.hasOwnProperty.call(seenNonces,nk),
+      'DUPLICATE_OWNER_NONCE');
+    seenNonces[nk]=true;
   }
   var r0=reports[0]||[],p=recipient[0]||[],log=logs[0]||[];
   require(pha07bSameRC1_(p[0],r0[26]),'RECIPIENT_DISPOSITION');
@@ -193,6 +200,12 @@ function validasiLogikaPHA07BRC1(){
   ck('DISPOSITION_LOG_DETAIL_MISMATCH_DETECTED',!pha07bEvidenceRC1_(bad).ok);
   bad=copy(base);bad.reports[1][18]=bad.reports[0][18];
   ck('DUPLICATE_SOURCE_ID_DETECTED',!pha07bEvidenceRC1_(bad).ok);
+  bad=copy(base);bad.reports[1][19]=bad.reports[0][19];
+  bad.reports[1][21]=bad.reports[0][21];
+  bad.indexes[1][2]=bad.indexes[0][2];
+  bad.indexes[1][9]=bad.indexes[0][9];
+  bad.audits[1][1]=bad.audits[0][1];
+  ck('DUPLICATE_OWNER_NONCE_DETECTED',!pha07bEvidenceRC1_(bad).ok);
   var q=pha07bModelQueueRC1_;
   ck('QUEUE_PENDING_ROW_UNBOUND',
     q({operation:'ROW',status:'PENDING',attempts:0}).proposed===
@@ -245,6 +258,10 @@ function validasiLogikaPHA07BRC1(){
   ck('MODEL_RECIPIENT_FAILURE_NOT_ROLLBACK',
     tx.sourceCommitted&&tx.indexConsistent&&!tx.recipientLinked&&
     tx.manualReconciliationRequired);
+  tx=pha07bSimulatedTxRC1_({failureAt:'DISPOSITION_LOG'});
+  ck('MODEL_DISPOSITION_LOG_FAILURE_NOT_ROLLBACK',
+    tx.sourceCommitted&&tx.indexConsistent&&tx.recipientLinked&&
+    !tx.dispositionLogPresent&&tx.manualReconciliationRequired);
   ck('MODEL_REVIEW_ID_REQUIRED',
     !pha07bSimulatedReviewRC1_({sourceExists:true,sourceId:'A',
       targetId:'B',indexWriteSucceeded:true}).sourceUpdated);
