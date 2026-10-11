@@ -461,3 +461,13 @@ Independent connected Sheets read-only comparison repeated after the preflight: 
 Decision: B1-01 CLOSED/PASS with operator write-off confirmed; B1-02 isolated test `ujiPemulihanReviewDisposisiB1PHA07BRC1()` is eligible for **one operator-controlled synthetic-only run** after temporary opt-in and immediate reset. No real Portal handlers are invoked; B1-02 acceptance remains PENDING until its own execution and restore verification.
 
 Production and GitHub main NO-GO; `ACE-DSP-004` remains FAIL. See `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
+
+## AE. PHA-07B B1-02 synthetic review/disposition recovery PASS — 11 October 2026
+
+Operator screenshot: standalone isolated `SANDBOX_PHA07B_B1_SCRIPT_TEST` successfully executed `ujiPemulihanReviewDisposisiB1PHA07BRC1()` with `caseId=B1-RETRY-REVIEW_DISPOSITION`, `sukses=true`, `status=PASS_SYNTHETIC_WRITE_AND_RESTORE`, `byIdRetrySafe=true`, `reviewDivergenceDetected=true`, `auditGapDetected=true`, `dispositionGapDetected=true`, `recoveryLinksVerified=true`, `queuePersistedObserved=true`, `restored=true`, `scratchCleared=true`, `manualRestoreRequired=false`, `productionDataWritten=false`, `actualProductionHandlersUsed=false`.
+
+After the run, independent native Google Sheets read-only comparison of **nine bounded B1 test regions** to the pristine B0 baseline confirmed **zero value/type differences**. Queue is empty; two original synthetic reports/indexes and audit/disposition links remain; 15 scenarios remain untouched and journal is empty.
+
+**B1-02 acceptance CLOSED/PASS for the synthetic harness.** Both B1-01 and B1-02 scoped synthetic writer tests have passed. **B1 post-test safety closeout is still PENDING**: screenshot shows `PHA07B_B1_ALLOW_WRITE_RC1=true`; operator must reset it to `false`, save and return a successful read-only `praUjiTransaksiB1PHA07BRC1` preflight (`writeEnabled=false`). Do not rerun either writer.
+
+Phase-wide real Portal transaction and queue-worker integration remains untested; no production business record changes, deployment, trigger modification, merge into `main`, or administrative reconciliation are authorized. `ACE-DSP-004` remains FAIL and production remains NO-GO. Full record: `docs/ACE-DSP004-PHA07B-B1-Synthetic-Failure-Injection-RC1.md`.
