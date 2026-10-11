@@ -546,25 +546,26 @@ function invalidasiRuntimeCutoffTunjangan_() {
 }
 
 function getSS_() {
-  // RC8 STAGING-ONLY hard gate: never resolve a production or arbitrary database.
-  if (typeof RC8_STAGE_ === 'undefined') throw new Error('RC8_STAGING_MODULE_REQUIRED');
-  var allowed='1EdmIg1te51db4_hQO6f9-VEt8EuLiB-ZmRAhxuvDg68';
+  // RC8.1 STAGING ONLY. Deny arbitrary IDs even if Script Properties were copied.
+  if (typeof RC81_STAGE_ === 'undefined') throw new Error('RC81_MODULE_REQUIRED');
+  var allow='1Ub4d0brD-JcAokxysGFQM1rBc0cbewvGgGWPwagQqOM';
   var props=PropertiesService.getScriptProperties();
-  if (props.getProperty('RC8_STAGING_MODE')!=='true' ||
-      String(props.getProperty('SPREADSHEET_ID')||'').trim()!==allowed)
-    throw new Error('RC8_STAGING_PROPERTIES_NOT_ALLOWED');
+  if (props.getProperty('RC81_STAGING_MODE')!=='true' ||
+      String(props.getProperty('SPREADSHEET_ID')||'').trim()!==allow ||
+      props.getProperty('RC8_STAGING_MODE')==='true')
+    throw new Error('RC81_STAGING_PROPERTIES_DENIED');
   if (PORTAL_RUNTIME_CACHE_.spreadsheet) {
-    if (PORTAL_RUNTIME_CACHE_.spreadsheet.getId()!==allowed)
-      throw new Error('RC8_STAGING_CACHE_DATABASE_MISMATCH');
+    if (PORTAL_RUNTIME_CACHE_.spreadsheet.getId()!==allow)
+      throw new Error('RC81_CACHED_DATABASE_MISMATCH');
     return PORTAL_RUNTIME_CACHE_.spreadsheet;
   }
-  var ss=SpreadsheetApp.openById(allowed);
-  if (ss.getId()!==allowed) throw new Error('RC8_STAGING_DATABASE_ID_MISMATCH');
+  var ss=SpreadsheetApp.openById(allow);
+  if (ss.getId()!==allow) throw new Error('RC81_DATABASE_ID_MISMATCH');
   var sh=ss.getSheetByName('MULAI_DI_SINI');
-  if (!sh || String(sh.getRange('A5').getValue())!=='STAGE_RC8_STAGING_BUSINESS_PATH' ||
-      String(sh.getRange('A8').getValue())!=='RC8_DISPOSABLE_STAGING_WRITES_AUTHORIZED' ||
-      String(sh.getRange('B16').getValue())!==allowed)
-    throw new Error('RC8_STAGING_DATABASE_SENTINEL_MISMATCH');
+  if (!sh || String(sh.getRange('A5').getValue())!=='STAGE_RC81_TYPESAFE_DISPOSABLE' ||
+      String(sh.getRange('A8').getValue())!=='RC81_DISPOSABLE_WRITES_REQUIRE_EXPLICIT_OPT_IN' ||
+      String(sh.getRange('B16').getValue())!==allow)
+    throw new Error('RC81_DATABASE_SENTINEL_MISMATCH');
   PORTAL_RUNTIME_CACHE_.spreadsheet=ss;
   return ss;
 }
