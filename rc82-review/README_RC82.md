@@ -1,26 +1,30 @@
-# PHA-07B B2 RC8.2 — Authenticated Business Endpoint Integration
+# PHA-07B B2 RC8.2 — Owner Revision Diagnostic (isolated second run)
 
-**Status: CANDIDATE / PENDING ACTUAL APPS SCRIPT RUNTIME. Production: NO-GO.**
+**Status: DIAGNOSTIC CANDIDATE / PENDING NEW APPS SCRIPT RUNTIME. Production: NO-GO.**
+**ORIGINAL RC8.2 MATRIX FAILED 15/16. THIS DIAGNOSTIC IS A NEW DISPOSABLE WORKBOOK, NOT A RE-RUN OF THE ORIGINAL.** Original rollback was verified (425 checked cell positions, zero differences). The next matrix has an added `ownerRevisionEvidence` field to identify which of the owner revision predicates failed. The spoof security probe is still not accepted until separately observed. Runtime diagnostic has not yet run.
+
 
 This stage calls **actual server-side application functions**: `cekLogin`, `validasiSession`, `cekHakAksesAdmin`, `simpanDataKinerja`, `simpanRevisiLaporanDitolakPegawai`, and `prosesReviewAdmin` from `Kode.gs`. It is not an HTTP/PWA or file-upload end-to-end test; do not deploy the web app.
 
 ## Isolated assets
 
-- **Disposable**: https://docs.google.com/spreadsheets/d/1JcX6PLGcjf6YraMl9VO0RfjGNpwwIxSaidOvdjaZiJA/edit
-- **Independent pre-test snapshot**: https://docs.google.com/spreadsheets/d/1FOOwBGiEl127prr8gUcbYO1qPW0vfhzwlCMqkkJlvZk/edit
-- **GitHub branch**: https://github.com/leidaafihijika7-lab/manajemen-kinerja-minomartani/tree/feat/pha07b2-rc82-authenticated-business-staging
+- **Disposable**: https://docs.google.com/spreadsheets/d/1nIH0dCUs5SduXGNsEI-flKX1nGcfAA3Gufr2Q7OpTTM/edit
+- **Independent pre-test snapshot**: https://docs.google.com/spreadsheets/d/1UAVSb7ViT6IjkJb5KxcWekdqgQGD0EKmeh5X25ZihAw/edit
+- **GitHub branch**: https://github.com/leidaafihijika7-lab/manajemen-kinerja-minomartani/tree/feat/pha07b2-rc82-revision-diagnostics
 
 12 tabs are present: 10 existing synthetic B0 tabs plus **Data_Pegawai** (headers only, no accounts) and **Disposisi_Petugas** (headers only). There is no real citizen, staff, production, or account data. At the time this report was prepared, all 12 tabs matched the independent snapshot in bounded CellData comparisons: 425 nonempty/metadata positions and zero differences.
 
 ## New Apps Script project (required)
 
-Create **`Portal Kinerja - PHA07B2 RC8.2 Auth Staging`**, separate from RC8/RC8.1 and production. Copy **from the RC8.2 branch only**:
+Create **`Portal Kinerja - PHA07B2 RC8.2 Revision Diagnostic`**, separate from RC8/RC8.1 and production. Copy **from the RC8.2 branch only**:
 
 1. `Kode.gs` (full file with `getSS_()` hard-pinned to the RC8.2 disposable ID and `doGet` disabled)
 2. `SheetSchema.gs`
 3. `IndexQueueGuardRC7.gs`
 4. `RC82_AuthenticatedBusinessIntegration.gs`
 5. `appsscript.json` (V8, timezone `Asia/Jakarta`, spreadsheets/script.scriptapp permissions).
+
+The `RC82_AuthenticatedBusinessIntegration.gs` in this diagnostic branch must contain version `PHA07B2-RC82-REVISION-DIAG-2026.10.11.2` and the new workbook hard-pin. Do not copy the similarly named file from the original RC8.2 branch.
 
 **DO NOT COPY** `RC81_TypeSafeStorageValidation.gs`, `RC8_StagingAcceptance.gs`, `rc7-review/Kode_RC7_Bridge_Patch.js`, scripts from production, secrets, credentials, deployments, triggers, or any Script Properties from existing projects.
 
@@ -29,7 +33,7 @@ Create **`Portal Kinerja - PHA07B2 RC8.2 Auth Staging`**, separate from RC8/RC8.
 | Property | Value |
 |---|---|
 | `RC82_STAGING_MODE` | `true` |
-| `SPREADSHEET_ID` | `1JcX6PLGcjf6YraMl9VO0RfjGNpwwIxSaidOvdjaZiJA` |
+| `SPREADSHEET_ID` | `1nIH0dCUs5SduXGNsEI-flKX1nGcfAA3Gufr2Q7OpTTM` |
 | `INDEX_LAPORAN_2B1_WRITE_ENABLED` | `false` |
 | `INDEX_LAPORAN_RC7_REPLAY_ENABLED` | `false` |
 | `RC82_WRITE_DRILL_ENABLED` | `false` |
@@ -42,7 +46,7 @@ Run **`rc82ReadOnlyPreflightV1`**, **not** the matrix. Expected `PHA07B2_RC82_PR
 
 ### Step 2 — separate explicit write authorization, only after PASS
 
-Set **only `RC82_WRITE_DRILL_ENABLED=true`**, then run `rc82RunAuthenticatedMatrixV1` **once**. It temporarily enables dual-write inside the isolated Apps Script project and automatically restores it to `false` in cleanup; **queue replay always stays off**. It creates actual salted synthetic accounts and genuine sessions with `cekLogin`, performs a submit/rejection/owner-revision/admin-approval flow, checks provenance, checks nonce idempotence, probes unauthorized actions, and then tests a client-payload role/name spoof attack.
+Set **only `RC82_WRITE_DRILL_ENABLED=true`**, then run `rc82RunAuthenticatedMatrixV1` **once**. It temporarily enables dual-write inside the isolated Apps Script project and automatically restores it to `false` in cleanup; **queue replay always stays off**. It creates actual salted synthetic accounts and genuine sessions with `cekLogin`, performs a submit/rejection/owner-revision/admin-approval flow, checks provenance, checks nonce idempotence, probes unauthorized actions, and then tests a client-payload role/name spoof attack. If owner revision fails, `ownerRevisionEvidence` shows the sanitized handler response, status and nonce checks, and index differences before the test aborts.
 
 **Crucial security gate:** source inspection found that `simpanDataKinerja` currently consumes `paket.nama` and `paket.jabatan` supplied by the client, and that initial admin-like approval logic reads `paket.jabatan`. The matrix requires an **explicit identity-mismatch rejection**. If spoofing is accepted, the matrix MUST report `RC82_SECURITY_NOT_ACCEPTED`; do not treat other passed tests as overall acceptance or deploy to production.
 
