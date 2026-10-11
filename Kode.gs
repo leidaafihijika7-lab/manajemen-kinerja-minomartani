@@ -546,26 +546,26 @@ function invalidasiRuntimeCutoffTunjangan_() {
 }
 
 function getSS_() {
-  // RC8.1 STAGING ONLY. Deny arbitrary IDs even if Script Properties were copied.
-  if (typeof RC81_STAGE_ === 'undefined') throw new Error('RC81_MODULE_REQUIRED');
-  var allow='1Ub4d0brD-JcAokxysGFQM1rBc0cbewvGgGWPwagQqOM';
-  var props=PropertiesService.getScriptProperties();
-  if (props.getProperty('RC81_STAGING_MODE')!=='true' ||
-      String(props.getProperty('SPREADSHEET_ID')||'').trim()!==allow ||
-      props.getProperty('RC8_STAGING_MODE')==='true')
-    throw new Error('RC81_STAGING_PROPERTIES_DENIED');
+  // RC8.2 ISOLATED STAGING: compile-time allowlist, no alternate databases.
+  if (typeof RC82_STAGE_ === 'undefined') throw new Error('RC82_MODULE_REQUIRED');
+  var allowed='1JcX6PLGcjf6YraMl9VO0RfjGNpwwIxSaidOvdjaZiJA';
+  var p=PropertiesService.getScriptProperties();
+  if(p.getProperty('RC82_STAGING_MODE')!=='true' ||
+     String(p.getProperty('SPREADSHEET_ID')||'').trim()!==allowed ||
+     p.getProperty('RC81_STAGING_MODE')==='true' || p.getProperty('RC8_STAGING_MODE')==='true')
+    throw new Error('RC82_STAGING_MODE_OR_DATABASE_INVALID');
   if (PORTAL_RUNTIME_CACHE_.spreadsheet) {
-    if (PORTAL_RUNTIME_CACHE_.spreadsheet.getId()!==allow)
-      throw new Error('RC81_CACHED_DATABASE_MISMATCH');
+    if(PORTAL_RUNTIME_CACHE_.spreadsheet.getId()!==allowed)
+      throw new Error('RC82_CACHED_DATABASE_MISMATCH');
     return PORTAL_RUNTIME_CACHE_.spreadsheet;
   }
-  var ss=SpreadsheetApp.openById(allow);
-  if (ss.getId()!==allow) throw new Error('RC81_DATABASE_ID_MISMATCH');
-  var sh=ss.getSheetByName('MULAI_DI_SINI');
-  if (!sh || String(sh.getRange('A5').getValue())!=='STAGE_RC81_TYPESAFE_DISPOSABLE' ||
-      String(sh.getRange('A8').getValue())!=='RC81_DISPOSABLE_WRITES_REQUIRE_EXPLICIT_OPT_IN' ||
-      String(sh.getRange('B16').getValue())!==allow)
-    throw new Error('RC81_DATABASE_SENTINEL_MISMATCH');
+  var ss=SpreadsheetApp.openById(allowed);
+  if(ss.getId()!==allowed) throw new Error('RC82_OPENED_WRONG_DATABASE');
+  var marker=ss.getSheetByName('MULAI_DI_SINI');
+  if(!marker || String(marker.getRange('A5').getValue())!=='STAGE_RC82_AUTH_BUSINESS_DISPOSABLE' ||
+     String(marker.getRange('A8').getValue())!=='RC82_DISPOSABLE_BUSINESS_WRITES_EXPLICIT_OPT_IN_ONLY' ||
+     String(marker.getRange('B16').getValue())!==allowed)
+    throw new Error('RC82_WORKBOOK_SENTINEL_INVALID');
   PORTAL_RUNTIME_CACHE_.spreadsheet=ss;
   return ss;
 }
