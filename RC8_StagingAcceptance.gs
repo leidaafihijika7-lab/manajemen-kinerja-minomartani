@@ -4,7 +4,7 @@
  * Must run in a NEW isolated Apps Script project populated from the RC8 staging branch.
  */
 var RC8_STAGE_ = {
-  VERSION: 'PHA07B2-RC8-STAGING-2026.10.11.1',
+  VERSION: 'PHA07B2-RC8-STAGING-2026.10.11.2',
   SPREADSHEET_ID: '1EdmIg1te51db4_hQO6f9-VEt8EuLiB-ZmRAhxuvDg68',
   MARKER: 'STAGE_RC8_STAGING_BUSINESS_PATH',
   AUTH_MARKER: 'RC8_DISPOSABLE_STAGING_WRITES_AUTHORIZED',
@@ -127,98 +127,42 @@ function rc8ReadOnlyBusinessPlanV1() {
   return out;
 }
 /**
- * Controlled opt-in value-level drill; NOT a production business endpoint.
- * Executes the real RC7 core over synthetic source and index data under one ScriptLock.
- * Writes are restored in finally. Does NOT promise transaction-atomic rollback on
- * timeout/forced termination. A new workbook copy should be used for any rerun.
+ * Historical write drill V1 was retired after it left cell types/formatting
+ * changed despite a structural preflight PASS. Do not re-enable V1.
  */
 function rc8StagingWriteDrillV1() {
-  var ss=rc8AssertStage_(), props=rc8Props_();
-  if(props.getProperty('RC8_WRITE_DRILL_ENABLED')!=='true') rc8Fail_('WRITE_DRILL_OPT_IN_REQUIRED');
-  if(props.getProperty('INDEX_LAPORAN_RC7_REPLAY_ENABLED')==='true')rc8Fail_('REPLAY_ENABLED_BLOCKED');
-  if(props.getProperty('INDEX_LAPORAN_2B1_WRITE_ENABLED')==='true')rc8Fail_('DUAL_WRITE_ENABLED_BLOCKED');
-  var baseline=rc8ReadOnlyPreflightV1();
-  if(baseline.status!=='RC8_STAGING_PREFLIGHT_PASS')rc8Fail_('PREFLIGHT_REQUIRED');
-  var businessPlan=rc8ReadOnlyBusinessPlanV1();
-  if(businessPlan.status!=='RC8_READONLY_BUSINESS_PLAN_PASS')
-    rc8Fail_('BUSINESS_PLAN_MISMATCH');
-  var lock=LockService.getScriptLock();
-  if(!lock.tryLock(5000))rc8Fail_('LOCK_BUSY');
-  var source=ss.getSheetByName('Rekap_Kinerja'),index=ss.getSheetByName('Index_Laporan'),
-      audit=ss.getSheetByName('Audit_Log');
-  var sw=source.getLastColumn(),iw=INDEX_LAPORAN_2B0_CONFIG.HEADERS.length;
-  var before;
-  try { before={s2:source.getRange(2,1,1,sw).getValues(),s4:source.getRange(4,1,1,sw).getValues(),
-    i2:index.getRange(2,1,1,iw).getValues(),i4:index.getRange(4,1,1,iw).getValues(),
-    fmt2:index.getRange(2,1,1,iw).getNumberFormats(),fmt4:index.getRange(4,1,1,iw).getNumberFormats(),
-    auditLast:audit.getLastRow(), metadata:props.getProperty(INDEX_LAPORAN_2B0_CONFIG.METADATA_PROPERTY),
-    lastSync:props.getProperty(INDEX_LAPORAN_2B1_CONFIG.LAST_SYNC_PROPERTY)};
-  } catch(eSnapshot) { lock.releaseLock(); throw eSnapshot; }
-  var written=[],failure=null,rolledBack=false;
-  try {
-    // Synthetic new-submit proxy: append a brand-new trailing identity.
-    var newReport=before.s2[0].slice();
-    var C=SHEET_COLUMNS.REKAP_KINERJA;
-    newReport[C.ID_LAPORAN]='RC8-RPT-0003';
-    newReport[C.ID_USER]='RC8-USR-0003';
-    newReport[C.NONCE]='RC8-NONCE-0003';
-    newReport[C.ID_DISPOSISI]='';
-    newReport[C.DESKRIPSI]='RC8 synthetic submit proxy';
-    newReport[C.POIN_FINAL]=0;
-    newReport[C.STATUS_REVIEW]='Menunggu Review';
-    source.getRange(4,1,1,sw).setValues([newReport]);
-    var submitted=rc7WriteIndexLocked_(ss,rc7Source_(ss,4),'RC8_SUBMIT_STORAGE_PROXY');
-    if(!submitted.indexWritten)throw Error('RC8_SUBMIT_NOT_INDEXED');
-    audit.appendRow([new Date(),'RC8-USR-0003','RC8_SUBMIT_PROXY','RC8-RPT-0003']);
-    written.push('SUBMIT_PROXY');
-    // Synthetic employee revision proxy for the first existing report.
-    source.getRange(2,C.DESKRIPSI+1).setValue('RC8 revision proxy');
-    source.getRange(2,C.REVISI_KE+1).setValue(1);
-    rc7WriteIndexLocked_(ss,rc7Source_(ss,2),'RC8_REVISION_STORAGE_PROXY');
-    audit.appendRow([new Date(),'B0-USR-0001','RC8_REVISION_PROXY','B0-RPT-0001']);
-    written.push('REVISION_PROXY');
-    // Synthetic admin review proxy. Does not call the real auth/session endpoint.
-    source.getRange(2,C.STATUS_REVIEW+1,1,2).setValues([['Disetujui',3]]);
-    source.getRange(2,C.CATATAN_ADMIN+1).setValue('RC8 synthetic review proxy');
-    rc7WriteIndexLocked_(ss,rc7Source_(ss,2),'RC8_REVIEW_STORAGE_PROXY');
-    audit.appendRow([new Date(),'RC8-ADMIN','RC8_REVIEW_PROXY','B0-RPT-0001']);
-    written.push('REVIEW_PROXY');
-    if(index.getRange(2,7).getValue()!=='Disetujui'||Number(index.getRange(2,8).getValue())!==3)
-      throw Error('RC8_REVIEW_INDEX_MISMATCH');
-  }catch(e){failure=String(e&&e.message||e);}finally{
-    try {
-      source.getRange(2,1,1,sw).setValues(before.s2);
-      source.getRange(4,1,1,sw).setValues(before.s4);
-      index.getRange(2,1,1,iw).setValues(before.i2);
-      index.getRange(4,1,1,iw).setValues(before.i4);
-      index.getRange(2,1,1,iw).setNumberFormats(before.fmt2);
-      index.getRange(4,1,1,iw).setNumberFormats(before.fmt4);
-      if(audit.getLastRow()>before.auditLast)
-        audit.getRange(before.auditLast+1,1,audit.getLastRow()-before.auditLast,4).clearContent();
-      if(before.metadata===null)props.deleteProperty(INDEX_LAPORAN_2B0_CONFIG.METADATA_PROPERTY);
-      else props.setProperty(INDEX_LAPORAN_2B0_CONFIG.METADATA_PROPERTY,before.metadata);
-      if(before.lastSync===null)props.deleteProperty(INDEX_LAPORAN_2B1_CONFIG.LAST_SYNC_PROPERTY);
-      else props.setProperty(INDEX_LAPORAN_2B1_CONFIG.LAST_SYNC_PROPERTY,before.lastSync);
-      SpreadsheetApp.flush();
-      var source2restored=source.getRange(2,1,1,sw).getValues();
-      var source4restored=source.getRange(4,1,1,sw).getValues();
-      var index2restored=index.getRange(2,1,1,iw).getValues();
-      var index4restored=index.getRange(4,1,1,iw).getValues();
-      function eq(a,b) { return JSON.stringify(a)===JSON.stringify(b); }
-      rolledBack=eq(source2restored,before.s2)&&eq(source4restored,before.s4)&&
-        eq(index2restored,before.i2)&&eq(index4restored,before.i4)&&
-        audit.getLastRow()===before.auditLast;
-      if(!rolledBack)failure=(failure?failure+';':'')+'RC8_ROLLBACK_READBACK_MISMATCH';
-    }catch(eRestore){failure=(failure?failure+';':'')+'ROLLBACK_FAILED:'+String(eRestore&&eRestore.message||eRestore);}
-    lock.releaseLock();
-  }
-  var post=rc8ReadOnlyPreflightV1();
-  var out={status:!failure&&rolledBack&&post.status==='RC8_STAGING_PREFLIGHT_PASS'
-    ?'RC8_STORAGE_PROXY_DRILL_PASS':'RC8_STORAGE_PROXY_DRILL_NOT_ACCEPTED',
-    scenarios:3,passed:written.length,proxyActions:written,rollbackRestored:rolledBack,
-    verifiedAfterRollback:post.status==='RC8_STAGING_PREFLIGHT_PASS',error:failure||'',
-    productionReady:false,productionPatchInstalled:false,
-    caveat:'Storage-only submit/revision/review proxies; not complete business endpoints.'};
-  console.log('PHA07B2_RC8_STORAGE_DRILL:\n'+JSON.stringify(out,null,2));
+  rc8Fail_('STORAGE_DRILL_V1_RETIRED_UNSAFE_TYPED_ROLLBACK');
+}
+
+/** Read-only verification after RC8 fixture recovery; no cell/property writes. */
+function rc8ReadOnlyRollbackAuditV12() {
+  var pre=rc8ReadOnlyPreflightV1();
+  var plan=rc8ReadOnlyBusinessPlanV1();
+  var ss=rc8AssertStage_();
+  var source=ss.getSheetByName('Rekap_Kinerja');
+  var index=ss.getSheetByName('Index_Laporan');
+  var audit=ss.getSheetByName('Audit_Log');
+  var queue=ss.getSheetByName('Index_Laporan_Sync_Queue');
+  var checks=[
+    {check:'PREFLIGHT',ok:pre.status==='RC8_STAGING_PREFLIGHT_PASS'},
+    {check:'BUSINESS_PLAN',ok:plan.status==='RC8_READONLY_BUSINESS_PLAN_PASS'},
+    {check:'SOURCE_DATE_A2_AS_TEXT',ok:typeof source.getRange('A2').getValue()==='string'},
+    {check:'SOURCE_DATE_N2_AS_TEXT',ok:typeof source.getRange('N2').getValue()==='string'},
+    {check:'INDEX_DATE_D2_AS_TEXT',ok:typeof index.getRange('D2').getValue()==='string'},
+    {check:'INDEX_PERIOD_E2_AS_TEXT',ok:typeof index.getRange('E2').getValue()==='string'},
+    {check:'INDEX_MODIFIED_K2_AS_TEXT',ok:typeof index.getRange('K2').getValue()==='string'},
+    {check:'SOURCE_ROW_4_EMPTY',ok:source.getRange(4,1,1,source.getLastColumn()).getValues()[0].every(function(x){return x===''||x===null;})},
+    {check:'INDEX_ROW_4_EMPTY',ok:index.getRange(4,1,1,12).getValues()[0].every(function(x){return x===''||x===null;})},
+    {check:'QUEUE_EMPTY',ok:queue.getLastRow()===1},
+    {check:'AUDIT_ROWS_BASELINE',ok:audit.getLastRow()===3},
+    {check:'DRILL_FLAG_DISABLED',ok:rc8Props_().getProperty('RC8_WRITE_DRILL_ENABLED')!=='true'}
+  ];
+  var issues=checks.filter(function(x){return !x.ok;}).map(function(x){return x.check;});
+  var out={
+    status:issues.length?'RC8_ROLLBACK_AUDIT_NOT_ACCEPTED':'RC8_ROLLBACK_AUDIT_PASS',
+    checks:checks,issues:issues,writesPerformed:0,productionReady:false,
+    caveat:'Structural and typed-value checks. Snapshot comparison is an independent external step, not performed by this function.'
+  };
+  console.log('PHA07B2_RC8_ROLLBACK_AUDIT:\n'+JSON.stringify(out,null,2));
   return out;
 }
