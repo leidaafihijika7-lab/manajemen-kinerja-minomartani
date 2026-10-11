@@ -129,3 +129,37 @@ Review of GitHub code blob `f9a929d8bdd3e79ad81096f201fba3db53c70675` confirms R
 **Decision**: RC1.02 READ-ONLY PREFLIGHT PASS. A **single sandbox-only test/restore attempt** with `ujiKolisiDanPemulihanIndexPHA08RC1()` may proceed after verifying `PHA07_ALLOW_WRITE_RC1=false`. Change only `PHA08_ALLOW_WRITE_RC1=true` on the isolated sandbox Apps Script project; run ONCE; immediately reset to `false` and save. Expected status `PASS_COLLISION_BLOCK_AND_RESTORE`, `foreignIdWrites=0`, `sameIdWriteObserved=true`, `restoreVerified=true`, `manualRestoreRequired=false`. If any assertion or restore fails, STOP and do not automatically retry; review `Index_Laporan!J3` and full index baseline.
 
 No production modification authorized. PHA-08 WRITE acceptance is still **PENDING**; canonical ACE-DSP-004 remains **FAIL** and production rollout **NO-GO**.
+
+## PHA-08 RC1.02 sandbox WRITE acceptance: PASS — 11 October 2026, 11:44 WIB
+
+### Executed acceptance evidence
+
+The maintainer ran `ujiKolisiDanPemulihanIndexPHA08RC1()` in the **separate** sandbox Apps Script project. The Apps Script log at 11:44:37 WIB reported:
+
+```json
+{"sukses":true,"versi":"PHA08-INDEX-COLLISION-RC1-2026.10.11.02","status":"PASS_COLLISION_BLOCK_AND_RESTORE","target":"SANDBOX_ONLY_INDEX_J3","foreignIdBlocked":true,"foreignIdWrites":0,"sameIdWriteObserved":true,"restoreVerified":true,"manualRestoreRequired":false,"productionDataWritten":false}
+```
+
+The screenshot still displayed `PHA08_ALLOW_WRITE_RC1 = true` immediately after the run. The operator must reset this flag to **false** and save in the isolated project. **A returned PASS does not verify that the flag was reset.**
+
+### Independent post-run spreadsheet check (read-only)
+
+Connected Google Sheets metadata confirmed the exact original native synthetic workbook `SANDBOX_PHA_RC1_SYNTHETIC_ONLY` and the expected `Index_Laporan` and `Rekap_Kinerja` tabs. Read-only values of `Index_Laporan!A2:L3` and `Rekap_Kinerja!R2:S3` demonstrated:
+
+| Reference | Verified observed state |
+|---|---|
+| Source and index report A | `PHA-TEST-RPT-0001`, row pointer 2, nonce `PHA-TEST-NONCE-0001` |
+| Source and index report B | `PHA-TEST-RPT-0002`, row pointer 3, nonce `PHA-TEST-NONCE-0002` |
+| `Index_Laporan!D3` | Exact text `2026-10-10 09:15:00` |
+| `Index_Laporan!E3` | Exact text `2026-10` |
+| `Index_Laporan!K3` | Exact text `2026-10-10 09:15:02` |
+| `Rekap_Kinerja!R2` | Blank, as in PHA-07 baseline |
+
+All above match the known pre-run fixture. The earlier RC1.01 row-wide `setValues` date-type drift is not present after the RC1.02 isolated J3-only run.
+
+### Decision and boundaries
+
+- **PASS:** guard-level PHA-08 real sandbox collision rejection, matching-ID single-cell update, and restored synthetic baseline, supported by both Apps Script logs and independent connector verification.
+- **NOT ACCEPTED:** full live Portal submission/review/disposition transaction, queue insertion/error-handler/replay (`Index_Laporan_Sync_Queue`) and integrated triggers. No user report data or production sheets were modified by the assistant.
+- **REQUIRED IMMEDIATE OPERATOR ACTION:** set `PHA08_ALLOW_WRITE_RC1=false` in the isolated sandbox Apps Script. Keep `PHA07_ALLOW_WRITE_RC1=false`. No further writer test is needed.
+- **PRODUCTION DECISION:** NO-GO for deployment/protection changes or direct remediation. Canonical `ACE-DSP-004` remains FAIL pending approved administrative reconciliation of `ACTIVE_622`.
