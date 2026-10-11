@@ -367,3 +367,15 @@ Operator must first set PHA07_ALLOW_WRITE_RC1=false and PHA08_ALLOW_WRITE_RC1=fa
 **PHA-08 guard-level status:** collision blocking observed, but live protected write-and-restore acceptance **FAIL / HOLD**. Production rollout remains NO-GO. `ACE-DSP-004` remains FAIL.
 
 Full incident details and repair gate: docs/ACE-DSP004-PHA08-Index-Collision-Acceptance-RC1.md.
+
+## V. PHA-08 RC1.02 sandbox collision and restore PASS — 11 October 2026
+
+Actual screenshot `PHA08_WRITE_TEST` from `SANDBOX_PHA_RC1_SCRIPT_TEST`: `sukses=true`, `status=PASS_COLLISION_BLOCK_AND_RESTORE`, `target=SANDBOX_ONLY_INDEX_J3`, `foreignIdBlocked=true`, `foreignIdWrites=0`, `sameIdWriteObserved=true`, `restoreVerified=true`, `manualRestoreRequired=false`, `productionDataWritten=false`.
+
+Independent **read-only** native sandbox Google Sheets verification confirmed both synthetic report IDs and index row pointers unchanged, `J3` restored to its original nonce, and original D3/E3/K3 string values preserved exactly. The PHA-08 **guard-level** sandbox acceptance is **PASS**; the former RC1.01 restore incident is resolved for the specified inspected baseline.
+
+The Apps Script screenshot still showed `PHA08_ALLOW_WRITE_RC1=true`; operator must reset it to false and save. Reset is **not yet independently verified**.
+
+**Scope boundary:** this only verifies the extracted RC1 guard and J3-only write/restore under the isolated sandbox executor. Full production Web App submit/review/disposition, index sync-queue, triggers, and BDR acceptance remain outstanding. Do not merge to main, activate protection or deploy. Canonical `ACE-DSP-004` remains FAIL.
+
+Full evidence record: `docs/ACE-DSP004-PHA08-Index-Collision-Acceptance-RC1.md`.
