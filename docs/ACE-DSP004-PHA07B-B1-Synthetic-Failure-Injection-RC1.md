@@ -116,3 +116,30 @@ Remediation of `ACE-DSP-004 ACTIVE_622` needs documented administrative reconcil
 On `manualRestoreRequired=true`, `restored=false`, an unexpected stopCode, or `sukses=false`, stop: do not retry, independently check B1 scratch rows and do not proceed to review/disposition writer test. Success criteria: `status=PASS_SYNTHETIC_WRITE_AND_RESTORE`, `indexFaultInjected=true`, `queuePersistedObserved=true`, `rowReplayHeld=true`, `restored=true`, `manualRestoreRequired=false`, `productionDataWritten=false`.
 
 Canonical ACE-DSP-004 still FAIL, and PHA-07B B1 write acceptance remains PENDING until actual operator execution plus independent baseline verification. Production and GitHub main remain NO-GO.
+
+## 10. B1-01 live synthetic index-failure acceptance — CLOSED / PASS (11 October 2026, 13:11 WIB)
+
+Operator executed `ujiGagalIndexAntreanB1PHA07BRC1()` **once** in standalone `SANDBOX_PHA07B_B1_SCRIPT_TEST` and supplied an Apps Script execution screenshot. `PHA07B_B1_WRITE_TEST` reported:
+
+```json
+{"sukses":true,"versi":"PHA07B-B1-FAULT-RC1-2026.10.11.02","caseId":"B1-INDEX-FAILURE","status":"PASS_SYNTHETIC_WRITE_AND_RESTORE","target":"B1_DISPOSABLE_SANDBOX_ONLY","sourceCommittedObserved":true,"indexFaultInjected":true,"queuePersistedObserved":true,"rowReplayHeld":true,"byIdRetrySafe":false,"reviewDivergenceDetected":false,"auditGapDetected":false,"dispositionGapDetected":false,"recoveryLinksVerified":false,"restored":true,"manualRestoreRequired":false,"productionDataWritten":false,"actualProductionHandlersUsed":false,"originalFixtureUntouched":true,"scratchCleared":true}
+```
+
+`byIdRetrySafe=false` and the review/audit/disposition flags `false` are **expected** in this first index-failure case; those are tested separately by the second writer.
+
+### Independent post-run verification (connected Google Sheets, read-only)
+
+- Exact native Google Sheets files reidentified: B1 `SANDBOX_PHA07B_B1_DISPOSABLE_SYNTHETIC_ONLY` and untouched B0 `SANDBOX_PHA07B_B0_SYNTHETIC_ONLY` (different IDs; both ten tabs).
+- Bounded value-by-value comparison of **9 tab regions** against B0: `Rekap_Kinerja!A1:BS4`, `Index_Laporan!A1:L4`, `Index_Laporan_Sync_Queue!A1:L2`, `Disposisi_Surat!A1:Y3`, `Disposisi_Penerima!A1:L3`, `Audit_Log!A1:D5`, `Disposisi_Log!A1:N3`, `EVENT_JOURNAL_B0!A1:K2`, and `SKENARIO_B0!A1:F16`.
+- **All 9/9 comparison regions matched exactly, with zero observed differences** in unformatted cell values. B1 queue contains header only (0 work items); only the two original reports/index rows and their audit/disposition evidence remain; 15 scenarios are unchanged and no event journal entries remain.
+- B1 stage labels `MULAI_DI_SINI!A5=STAGE_B1_DISPOSABLE_TEST_COPY` and `A8=B1_WRITES_REQUIRE_OPERATOR_OPT_IN` remain intact; B0 original stage label remains intact.
+
+### Acceptance and outstanding gate
+
+**B1-01 synthetic index-failure + unbound-row queue hold + scratch restore = CLOSED / PASS**, substantiated by the real Apps Script operator log and independent bounded live-sheet baseline comparison. The first case used **the isolated synthetic harness, not the production Portal handlers or production queue processor**. No historical reports were corrected; production and GitHub main remain untouched by this acceptance.
+
+**Critical pending action:** The submitted screenshot shows `PHA07B_B1_ALLOW_WRITE_RC1=true` in the B1 Apps Script editor during the test. The operator was instructed to restore it to `false` immediately, but as of this note there is **no independent evidence or user confirmation** that the flag has been saved as `false`. This must be completed and (preferably) confirmed by a subsequent read-only preflight before enabling any second test.
+
+**B1-02 (`ujiPemulihanReviewDisposisiB1PHA07BRC1`) remains PENDING / NOT EXECUTED.** It tests different conditions and must not be silently marked PASS. Once write-off and new preflight are confirmed, reviewers may separately authorize exactly one isolated second run. On `manualRestoreRequired=true`, `restored=false`, `sukses=false`, any unexpected stopCode, or observed baseline drift, halt all writes and investigate—do not retry automatically.
+
+Production release still **NO-GO**, canonical `ACE-DSP-004` still **FAIL**; do not auto-correct `ACTIVE_622` or reprocess historical `ROW` queue items.
