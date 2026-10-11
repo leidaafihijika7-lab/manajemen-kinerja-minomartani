@@ -4,7 +4,7 @@
 **Version:** PHA07B-B0-ENV-RC1-2026.10.11.01  
 **Environment:** SANDBOX_PHA07B_B0_SYNTHETIC_ONLY  
 **Native Google Sheet:** https://docs.google.com/spreadsheets/d/1tm-N_2JOWjXLo9bJkqLGgBlQYd76wzE2-vZKXY-tmS8/edit  
-**Status:** ENVIRONMENT CREATED AND CONNECTOR VERIFIED / OPERATOR SCRIPT PREFLIGHT PENDING / PRODUCTION NO-GO.
+**Status:** B0 ENVIRONMENT ACCEPTANCE CLOSED / PASS (operator Apps Script logs + independent read-only sheet check); B1 WRITES NOT AUTHORIZED / PRODUCTION NO-GO.
 
 ## Deliverables
 
