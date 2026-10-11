@@ -43,3 +43,20 @@ The local source workbook `/mnt/data/SANDBOX_PHA07B_B0_SYNTHETIC_ONLY.xlsx` pass
 **B0 acceptance establishes the environment only**, not real transaction/queue behavior. B1 will separately instrument synthetic submit, idempotency, review, disposition, error injection, queue retry and typed rollback. In particular, source ROW replay without a bound original ID must not be classified as safely reconciled.
 
 Neither `ACE-DSP-004` nor `ACE-REV-003` may be automatically changed to PASS. No production edits, deployments or `main` merges are authorized.
+
+## Acceptance result — LIVE B0 READ-ONLY PASS (11 October 2026, 12:45–12:46 WIB)
+
+Maintainer ran the two prescribed read-only functions in the **standalone** Apps Script project `SANDBOX_PHA07B_B0_SCRIPT_TEST` and provided screenshots of their execution logs:
+
+- `PHA07B_B0_PURE_VALIDATION`: `sukses=true`, `lulus=8`, `gagal=0`, `readOnly=true`, `productionDataWritten=false`.
+- `PHA07B_B0_PREFLIGHT`: `sukses=true`, `versi=PHA07B-B0-ENV-RC1-2026.10.11.01`, `mode=READ_ONLY`, `isolatedSyntheticVerified=true`, `queueInitiallyEmpty=true`, `crossReferencesVerified=true`, `noVisibleTriggers=true`, `writesEnabled=false`, `productionDataWritten=false`, `acceptanceApproved=false`.
+
+**Independent connector evidence after the maintainer run**: native Google Sheets metadata still lists the expected 10 tab names. Bounded read-only ranges verify exact sandbox sentinel, two synthetic report/index ID and pointer pairs, two audit submit links, one recipient/disposition link, queue header only (0 items), empty event journal, and 15 scenarios in `PENDING` state. All seven focused cross-checks passed.
+
+**Control decision**: B0 environment/read-only acceptance = **CLOSED / PASS**. `acceptanceApproved=false` remains a separate authorization guard for actual mutation tests; it is **not** permission to initiate B1 writes. No B1 transaction, queue replay, fault injection, rebuild, rollback, or deployment has been run.
+
+### Next scope: PHA-07B B1 (NOT STARTED)
+
+Prepare a dedicated synthetic-only transaction harness. Before any B1 write, require explicit write-scope approval, exact sandbox ID/title check, operator-controlled write flag default OFF, no unexpected triggers, bounded before-snapshot + typed recovery verification, stable original report identity for queue entries, and fail-closed handling for source/index/audit/disposition divergence. Do not copy or activate production Web App handlers, triggers, secrets, or Script Properties.
+
+**Production NO-GO** remains; canonical `ACE-DSP-004` remains FAIL. GitHub main and production data/deployments are out of scope.
