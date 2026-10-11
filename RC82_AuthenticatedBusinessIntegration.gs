@@ -82,9 +82,38 @@ function rc82Baseline_(ss) {
   return {issues:issues,sourceRows:source.getLastRow()-1,indexRows:index.getLastRow()-1,
     auditRows:audit.getLastRow()-1,queueRows:queue.getLastRow()-1,employeeRows:employees.getLastRow()-1};
 }
+/**
+ * Pure, in-memory sanity check: the patched RC7 helper is present and only
+ * allows the exact owner-revision rotation. Never edits workbook/properties.
+ */
+function rc82RevisionNoncePatchProbeV1_() {
+  if (typeof rc7AllowOwnerRevisionNonceChange_!=='function') return false;
+  try {
+    var C=SHEET_COLUMNS.REKAP_KINERJA,M=getIndexLaporanColumnMap2B0_();
+    var row=Array(C.STAF_INSTRUKSI_LOKASI+1).fill('');
+    row[C.STATUS_REVIEW]=REVIEW_STATUS.MENUNGGU;
+    row[C.REVISI_KE]=1;
+    row[C.TERAKHIR_DIREVISI_PADA]=new Date();
+    row[C.TERAKHIR_DIREVISI_OLEH]='RC82-PROBE-OWNER - Probe';
+    var source={rowRekap:4,row:row,
+      triple:{idLaporan:'RC82-PROBE-REPORT',idUser:'RC82-PROBE-OWNER',nonce:'RC82-PROBE-NEW'}};
+    var prior=Array(INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).fill('');
+    prior[M.ID_LAPORAN]='RC82-PROBE-REPORT';prior[M.ROW_REKAP]=4;
+    prior[M.ID_USER]='RC82-PROBE-OWNER';prior[M.NONCE]='RC82-PROBE-OLD';
+    prior[M.STATUS_REVIEW]=REVIEW_STATUS.DITOLAK;
+    if (!rc7AllowOwnerRevisionNonceChange_(source,prior,'REVISI_PEGAWAI',M)) return false;
+    if (rc7AllowOwnerRevisionNonceChange_(source,prior,'REVIEW_ADMIN_FINAL',M)) return false;
+    var wrongOwner=prior.slice();wrongOwner[M.ID_USER]='RC82-FOREIGN-OWNER';
+    if (rc7AllowOwnerRevisionNonceChange_(source,wrongOwner,'REVISI_PEGAWAI',M)) return false;
+    var wrongRow=prior.slice();wrongRow[M.ROW_REKAP]=3;
+    if (rc7AllowOwnerRevisionNonceChange_(source,wrongRow,'REVISI_PEGAWAI',M)) return false;
+    return true;
+  } catch (e) {return false;}
+}
 function rc82ReadOnlyPreflightV1() {
   var ctx=rc82AssertEnv_(),p=ctx.p,r=rc82Baseline_(ctx.ss),issues=r.issues.slice();
   if(p.getProperty(RC82_STAGE_.PENDING_KEY))issues.push('RECOVERY_PENDING');
+  if(!rc82RevisionNoncePatchProbeV1_())issues.push('RC7_REVISION_NONCE_PATCH_MISSING_OR_UNSAFE');
   if(rc82Backups_(ctx.ss).length)issues.push('BACKUP_PRESENT');
   if(p.getProperty(RC82_STAGE_.OPT_KEY)==='true')issues.push('OPT_IN_ACTIVE');
   if(p.getProperty('INDEX_LAPORAN_2B1_WRITE_ENABLED')==='true')issues.push('DUAL_WRITE_ACTIVE_OUTSIDE_MATRIX');
