@@ -6188,6 +6188,15 @@ function simpanDataKinerja(paket, token) {
     var errorAwal = validasiRequestAwalSubmitKinerja_(ctx, paket, token);
     if (errorAwal) return errorAwal;
 
+    // RC8.2: client-supplied name/role are NEVER the authority for approval or points.
+    // Reject a forged identity BEFORE nonce reservation, upload, scoring, or persistence.
+    var errorIdentitas = validasiIdentitasSubmitKinerjaSesi_(ctx, paket);
+    if (errorIdentitas) return errorIdentitas;
+    paket = Object.assign({}, paket, {
+      nama: String(ctx.pegawaiUser.nama).trim(),
+      jabatan: String(ctx.pegawaiUser.jabatan).trim()
+    });
+
     var errorNonce = pasangSubmitNonceInFlight_(ctx);
     if (errorNonce) return errorNonce;
 
@@ -6211,7 +6220,7 @@ function simpanDataKinerja(paket, token) {
     draft.urlDasar = uploadDokumenDasarSubmitKinerja_(paket, ctx, draft, uploader);
     draft.narasiUntukAI = batasiNarasiAISubmitKinerja_(draft.narasiUntukAI);
 
-    var evaluasi = hitungEvaluasiAwalSubmitKinerja_(paket, draft.kategoriSheet);
+    var evaluasi = hitungEvaluasiAwalSubmitKinerja_(paket, draft.kategoriSheet, ctx.pegawaiUser);
     var baris = buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi);
 
     var hasilSimpan = simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, baris);
@@ -6277,6 +6286,39 @@ function isPaketLaporanWajibPasal33_(paket) {
   }
 }
 // ===== END PATCH_PASAL33_CUTOFF_BYPASS_BACKEND =====
+
+/**
+ * RC8.2 security boundary: values shown in client forms are untrusted.
+ * Canonical normalization is used only for comparison; the authoritative
+ * identity from the signed session is subsequently used for all calculations
+ * and persistence.
+ */
+function normalisasiIdentitasSubmitKinerjaSesi_(value) {
+  if (typeof value !== "string") return "";
+  return value.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("id-ID");
+}
+
+function validasiIdentitasSubmitKinerjaSesi_(ctx, paket) {
+  var user = ctx && ctx.pegawaiUser;
+  if (!ctx || !ctx.idUser || !user || !idsEqual_(user.id, ctx.idUser) ||
+      !statusPegawaiAktif_(user.status)) {
+    return "❌ GAGAL: Identitas akun sesi tidak valid. Silakan login kembali.";
+  }
+  if (!paket || typeof paket !== "object" ||
+      typeof paket.nama !== "string" || typeof paket.jabatan !== "string" ||
+      typeof user.nama !== "string" || typeof user.jabatan !== "string" ||
+      !normalisasiIdentitasSubmitKinerjaSesi_(user.nama) ||
+      !normalisasiIdentitasSubmitKinerjaSesi_(user.jabatan)) {
+    return "❌ GAGAL: Identitas nama/jabatan tidak valid. Muat ulang halaman.";
+  }
+  if (normalisasiIdentitasSubmitKinerjaSesi_(paket.nama) !==
+        normalisasiIdentitasSubmitKinerjaSesi_(user.nama) ||
+      normalisasiIdentitasSubmitKinerjaSesi_(paket.jabatan) !==
+        normalisasiIdentitasSubmitKinerjaSesi_(user.jabatan)) {
+    return "❌ GAGAL: Identitas nama/jabatan tidak sesuai dengan akun yang sedang login. Muat ulang halaman.";
+  }
+  return "";
+}
 
 function validasiRequestAwalSubmitKinerja_(ctx, paket, token) {
   ctx.idUser = validasiSession(token);
@@ -6694,9 +6736,12 @@ function batasiNarasiAISubmitKinerja_(narasiUntukAI) {
   return narasiUntukAI;
 }
 
-function hitungEvaluasiAwalSubmitKinerja_(paket, kategoriSheet) {
+function hitungEvaluasiAwalSubmitKinerja_(paket, kategoriSheet, pegawaiUser) {
+  if (!pegawaiUser || typeof pegawaiUser.jabatan !== "string" || !pegawaiUser.jabatan.trim()) {
+    throw new Error("SUBMIT_SESSION_JABATAN_MISSING");
+  }
   var parsed = { poin: 0, alasan: "Evaluasi Manual", deskripsi_baku: paket.deskripsi || "" };
-  var jLow = paket.jabatan.toLowerCase();
+  var jLow = pegawaiUser.jabatan.trim().toLowerCase();
   var hasilKalkulasi = kalkulasiPoinKinerja_(paket, kategoriSheet, jLow);
   parsed.poin = hasilKalkulasi.poin;
   parsed.alasan = hasilKalkulasi.alasan;
@@ -6883,7 +6928,7 @@ function buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi) {
   var disposisiRef = draft.disposisiRef;
 
   var barisBaru = [
-    waktuSekarang, sanitizeForSheet_(paket.nama), sanitizeForSheet_(paket.jabatan), sanitizeForSheet_(draft.kategoriSheet),
+    waktuSekarang, sanitizeForSheet_(ctx.pegawaiUser.nama), sanitizeForSheet_(ctx.pegawaiUser.jabatan), sanitizeForSheet_(draft.kategoriSheet),
     sanitizeForSheet_(parsed.deskripsi_baku), urlVisualFinal, parsed.poin, sanitizeForSheet_(parsed.alasan),
     evaluasi.statusAwal, parsed.poin, sanitizeForSheet_(draft.dasarKegiatan), draft.urlDasar, sanitizeForSheet_(draft.namaKegiatan),
     sanitizeForSheet_(draft.tanggalKegiatan), sanitizeForSheet_(draft.lokasiKegiatan), sanitizeForSheet_(draft.penyelenggaraKeg),
