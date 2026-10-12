@@ -7,10 +7,10 @@
  * Credentials/tokens are random and never logged. Evidence stays on disposable Sheet.
  */
 var RC82_STAGE_ = Object.freeze({
-  VERSION: 'PHA07B2-RC82-REVISION-INDEX-FIX-2026.10.11.3',
-  ID: '1_2GImSC30vke1KYyJ8Azqzc0GjL0sMP67-BeNwW7wzQ',
-  MARKER: 'STAGE_RC82_REVISION_INDEX_FIX',
-  AUTH_MARKER: 'RC82_REVISION_INDEX_FIX_WRITES_OPTIN_ONLY',
+  VERSION: 'PHA07B2-RC82-IDENTITY-GUARD-2026.10.12.1',
+  ID: '1mpk7JAZo1fqUV7bYfJIYoYKHIoJTD_tGumtFQnQyagU',
+  MARKER: 'STAGE_RC82_SUBMIT_IDENTITY_HARDENING',
+  AUTH_MARKER: 'RC82_IDENTITY_HARDENING_WRITES_OPTIN_ONLY',
   OPT_KEY: 'RC82_WRITE_DRILL_ENABLED',
   PENDING_KEY: 'RC82_RECOVERY_PENDING',
   PREFIX: '__RC82_BK_',
@@ -110,10 +110,40 @@ function rc82RevisionNoncePatchProbeV1_() {
     return true;
   } catch (e) {return false;}
 }
+/**
+ * Read-only RC8.2 security probe. Executes only the pure identity validator:
+ * no session issuance, uploads, cache, spreadsheet writes or property changes.
+ */
+function rc82SubmitIdentityGuardProbeV1_() {
+  if (typeof validasiIdentitasSubmitKinerjaSesi_ !== 'function' ||
+      typeof normalisasiIdentitasSubmitKinerjaSesi_ !== 'function') return false;
+  try {
+    var u={id:RC82_STAGE_.OWNER,nama:'Pegawai Sintetis Owner',
+      jabatan:'Kasi Pemerintahan',status:'Aktif'};
+    var ctx={idUser:u.id,pegawaiUser:u};
+    var authentic={nama:u.nama,jabatan:u.jabatan};
+    var roleSpoof={nama:u.nama,jabatan:'Lurah'};
+    var nameSpoof={nama:'Lurah Palsu Sintetis',jabatan:u.jabatan};
+    var foreignContext={idUser:RC82_STAGE_.OTHER,pegawaiUser:u};
+    var ok=validasiIdentitasSubmitKinerjaSesi_(ctx,authentic)==='';
+    var roleDenied=/(identitas|jabatan|nama)/i.test(
+      validasiIdentitasSubmitKinerjaSesi_(ctx,roleSpoof));
+    var nameDenied=/(identitas|jabatan|nama)/i.test(
+      validasiIdentitasSubmitKinerjaSesi_(ctx,nameSpoof));
+    var foreignDenied=!!validasiIdentitasSubmitKinerjaSesi_(foreignContext,authentic);
+    var disabled=Object.assign({},u,{status:'Nonaktif'});
+    var inactiveDenied=!!validasiIdentitasSubmitKinerjaSesi_(
+      {idUser:u.id,pegawaiUser:disabled},authentic);
+    var differentCase=validasiIdentitasSubmitKinerjaSesi_(ctx,
+      {nama:' pegawai   sintetis owner ',jabatan:' kasi pemerintahan '})==='';
+    return ok&&roleDenied&&nameDenied&&foreignDenied&&inactiveDenied&&differentCase;
+  } catch (e) {return false;}
+}
 function rc82ReadOnlyPreflightV1() {
   var ctx=rc82AssertEnv_(),p=ctx.p,r=rc82Baseline_(ctx.ss),issues=r.issues.slice();
   if(p.getProperty(RC82_STAGE_.PENDING_KEY))issues.push('RECOVERY_PENDING');
   if(!rc82RevisionNoncePatchProbeV1_())issues.push('RC7_REVISION_NONCE_PATCH_MISSING_OR_UNSAFE');
+  if(!rc82SubmitIdentityGuardProbeV1_())issues.push('RC82_SUBMIT_IDENTITY_GUARD_MISSING_OR_UNSAFE');
   if(rc82Backups_(ctx.ss).length)issues.push('BACKUP_PRESENT');
   if(p.getProperty(RC82_STAGE_.OPT_KEY)==='true')issues.push('OPT_IN_ACTIVE');
   if(p.getProperty('INDEX_LAPORAN_2B1_WRITE_ENABLED')==='true')issues.push('DUAL_WRITE_ACTIVE_OUTSIDE_MATRIX');
@@ -371,9 +401,26 @@ function rc82ExecuteActualHandlers_(ss,credentials,runtime) {
     reportedClaimedNama:spoofAccepted?String(source.getRange(countAfter,C.NAMA+1).getValue()):'',
     reportedStatus:spoofAccepted?String(source.getRange(countAfter,C.STATUS_REVIEW+1).getValue()):''};
   add('CLIENT_ROLE_AND_NAME_SPOOF_REJECTED',!spoofAccepted &&
-      /(identitas|jabatan|nama|akses)/i.test(rejectionReason),
+      /(identitas|jabatan|nama|akses)/i.test(rejectionReason) &&
+      index.getLastRow()===source.getLastRow() &&
+      ss.getSheetByName('Index_Laporan_Sync_Queue').getLastRow()===1,
       spoofAccepted?'SECURITY_FINDING: employee token submitted client-supplied Lurah identity':
       ('explicit identity rejection required; response='+rejectionReason.slice(0,180)));
+
+  function requireRejectedClientIdentity_(phase,modifiedName,modifiedRole) {
+    var attempt=rc82Package_(Utilities.getUuid().replace(/-/g,''),false);
+    attempt.nama=modifiedName; attempt.jabatan=modifiedRole;
+    var beforeRows=source.getLastRow(),beforeIndex=index.getLastRow();
+    var result=simpanDataKinerja(attempt,tokenOwner);
+    var success=source.getLastRow()===beforeRows &&
+      index.getLastRow()===beforeIndex &&
+      ss.getSheetByName('Index_Laporan_Sync_Queue').getLastRow()===1 &&
+      /(identitas|jabatan|nama)/i.test(String(result||''));
+    add(phase,success,success?'rejected without source/index/queue writes':
+        'SECURITY_FINDING: forged client identity not explicitly rejected');
+  }
+  requireRejectedClientIdentity_('CLIENT_ROLE_ONLY_SPOOF_REJECTED','Pegawai Sintetis Owner','Lurah');
+  requireRejectedClientIdentity_('CLIENT_NAME_ONLY_SPOOF_REJECTED','Lurah Palsu Sintetis','Kasi Pemerintahan');
   return {tests:results,recordId:idLaporan,indexRows:index.getLastRow(),auditActions:actions,
     spoofProbeAccepted:spoofAccepted,sourceRows:source.getLastRow()};
 }
@@ -431,7 +478,7 @@ function rc82RunAuthenticatedMatrixV1() {
   var checks=runtime.tests||[];
   var passed=checks.filter(function(x){return x.passed;}).length;
   var status=issues.length?'RC82_AUTH_BUSINESS_NOT_ACCEPTED':'RC82_AUTH_BUSINESS_PASS_PENDING_EXTERNAL_SNAPSHOT';
-  if(issues.some(function(x){return x.indexOf('CLIENT_ROLE_AND_NAME_SPOOF_REJECTED')>=0}))status='RC82_SECURITY_NOT_ACCEPTED';
+  if(issues.some(function(x){return /CLIENT_(ROLE_AND_NAME|ROLE_ONLY|NAME_ONLY)_SPOOF_REJECTED/.test(x)}))status='RC82_SECURITY_NOT_ACCEPTED';
   var out={stage:'PHA-07B B2 RC8.2',version:RC82_STAGE_.VERSION,
     status:status,realHandlers:['cekLogin','validasiSession','simpanDataKinerja',
       'simpanRevisiLaporanDitolakPegawai','prosesReviewAdmin'],
