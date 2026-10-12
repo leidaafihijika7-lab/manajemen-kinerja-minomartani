@@ -5978,9 +5978,6 @@ function uploadBuktiKinerjaBlob(formObj) {
     var timestamp = Utilities.formatDate(now, 'GMT+7', 'yyyyMMdd_HHmmss');
     var tahunStr = Utilities.formatDate(now, 'GMT+7', 'yyyy');
     var rootFolder = e2e10GetAllowedFolderById_(folderRootId);
-    var folderTahun = dapatkanAtauBuatFolder_(rootFolder, tahunStr);
-    var folderFotoUtama = dapatkanAtauBuatFolder_(folderTahun, 'FOTO');
-    var folderPDFUtama = dapatkanAtauBuatFolder_(folderTahun, 'PDF');
 
     var results = [];
     var prepared = [];
@@ -6021,6 +6018,12 @@ function uploadBuktiKinerjaBlob(formObj) {
         index: i
       });
     }
+
+    // Only create subfolders after validating ALL bytes/MIME/size constraints.
+    // Rejected blobs must not leave empty staging directory structures.
+    var folderTahun = dapatkanAtauBuatFolder_(rootFolder, tahunStr);
+    var folderFotoUtama = dapatkanAtauBuatFolder_(folderTahun, 'FOTO');
+    var folderPDFUtama = dapatkanAtauBuatFolder_(folderTahun, 'PDF');
 
     for (var p = 0; p < prepared.length; p++) {
       var item = prepared[p];
