@@ -206,25 +206,27 @@ function e2e10AssertUploadedReference_(reference, token, idUser, purpose) {
 function e2e10CheckPayloadEvidence_(payload, token, idUser, purpose) {
   if (payload == null) return true;
   var checked = 0;
-  function check(node, depth, key) {
+  var evidenceField = /(?:fileids?|fileurls?|buktiurls?|lampiranurls?|urls?|urlbukti|filedasarurl)$/i;
+  function walk(node, depth, key) {
     if (depth > 14 || ++checked > 500) throw new Error('E2E_EVIDENCE_PAYLOAD_TOO_DEEP');
-    if (node === null || node === undefined) return;
-    if (typeof node === 'string' && /(?:^|_)(?:fileid|fileurl|buktiurl|lampiranurl|url|urlbukti|filedasarurl)$/i.test(key || '')) {
-      if (node.trim()) e2e10AssertUploadedReference_(node, token, idUser, purpose);
+    if (node == null) return;
+    if (typeof node === 'string') {
+      var value = node.trim();
+      if (value && (evidenceField.test(key || '') || /^https:\/\/drive\.google\.com\//i.test(value))) {
+        e2e10AssertUploadedReference_(value, token, idUser, purpose);
+      }
       return;
     }
-    if (typeof node !== 'object') return;
-    if (Object.prototype.toString.call(node) === '[object Date]') return;
-    if (Array.isArray(node)) { node.forEach(function(item){check(item, depth+1, key);}); return; }
+    if (typeof node !== 'object' || Object.prototype.toString.call(node) === '[object Date]') return;
+    if (Array.isArray(node)) {
+      node.forEach(function(item) { walk(item, depth + 1, key); });
+      return;
+    }
     Object.keys(node).forEach(function(k) {
       if (/^(fileData|imageData|blobData|base64)$/i.test(k)) return;
-      if (/(?:fileid|fileurl|buktiurl|lampiranurl|url|urlbukti|filedasarurl)$/i.test(k)) {
-        if (typeof node[k] === 'string' && node[k].trim()) {
-          e2e10AssertUploadedReference_(node[k], token, idUser, purpose);
-        }
-      } else check(node[k], depth+1, k);
+      walk(node[k], depth + 1, k);
     });
   }
-  check(payload, 0, '');
+  walk(payload, 0, '');
   return true;
 }
