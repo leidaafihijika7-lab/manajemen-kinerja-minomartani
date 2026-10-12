@@ -1,0 +1,71 @@
+{
+  "schema": "PHA07B2_RC82_FROZEN_EVIDENCE_V1",
+  "recordedOn": "2026-10-12",
+  "timezone": "Asia/Jakarta",
+  "state": "FROZEN_ACCEPTED_SCOPED",
+  "decision": "RC8.2 authenticated server functions and 12-sheet external snapshot integrity accepted; HTTP/Web App/RPC/Drive upload not tested. Production NO-GO.",
+  "source": {
+    "repository": "leidaafihijika7-lab/manajemen-kinerja-minomartani",
+    "branchAtFreeze": "feat/pha07b2-rc82-submit-identity-hardening",
+    "immutableCommit": "a81ecc00512f025967ceb5febadc6ddb395c8505",
+    "appVersionAtFreeze": "2026.10.05.01",
+    "candidate": "PHA07B2-RC82-IDENTITY-GUARD-2026.10.12.1",
+    "runnerFile": "RC82_AuthenticatedBusinessIntegration.gs"
+  },
+  "sandbox": {
+    "spreadsheetId": "1mpk7JAZo1fqUV7bYfJIYoYKHIoJTD_tGumtFQnQyagU",
+    "expectedSheetCount": 12
+  },
+  "runnerEvidence": {
+    "dateLocal": "2026-10-12",
+    "startLocal": "18:37:24",
+    "completedLocal": "18:38:14",
+    "status": "RC82_AUTH_BUSINESS_PASS_PENDING_EXTERNAL_SNAPSHOT",
+    "testsPassed": 23,
+    "testsExecuted": 23,
+    "rollbackRestored": true,
+    "rollbackDifferences": [],
+    "postPreflight": "RC82_PREFLIGHT_PASS",
+    "issues": [],
+    "reportedTriggers": 0,
+    "scope": "actual server handler direct calls; no deployed HTTP/RPC/browser E2E"
+  },
+  "externalEvidence": {
+    "verifier": "PHA07B2-EXSV10-2026.10.12.2-API-DIAGNOSTICS",
+    "sessionId": "aaabd0be-637a-43c4-88c3-72aec6d44481",
+    "verificationStatus": "EXSV10_SNAPSHOT_INTEGRITY_PASS",
+    "S0": {
+      "fileId": "1rjoX95PfZUmcHyQk5mDuqgJUzT7xpRmz",
+      "capturedAt": "2026-10-12T11:30:21.883Z",
+      "sha256": "403f471e09e45ca626d49852b01a7f67d7e6185965a05055efda85510c42c687",
+      "sizeBytes": 579765
+    },
+    "S1": {
+      "fileId": "1vahvJcg5o48ZppJfiMTA0mM6GcK3ZtnB",
+      "capturedAt": "2026-10-12T11:41:29.100Z",
+      "sha256": "ac617c339e6d3a1e098d29a9261f19fb5a77ac04290b6d54e77068d5d8495017",
+      "sizeBytes": 579765
+    },
+    "rootS0": "JLEwx59vZBlotAgZVN1cueAwjjA8Akq6rWXj6Q0Vh9o=",
+    "rootS1": "JLEwx59vZBlotAgZVN1cueAwjjA8Akq6rWXj6Q0Vh9o=",
+    "metadataDigest": "sjLcXzaqkDAmw_DhfM7nNjr4cSEw1pzl5eVkdnhm3oE=",
+    "sameSheetFingerprints": true,
+    "sameMetadataDigest": true,
+    "comparison": {
+      "same": true,
+      "totalRowDifferences": 0,
+      "totalProtectedCellDifferences": 0,
+      "differences": [],
+      "truncated": false
+    }
+  },
+  "limitations": [
+    "Snapshot JSON are fingerprint records, NOT raw backups, and Google Drive originals are not WORM/immutable by default.",
+    "Hash values pin exact observed S0/S1 bytes. Originals must be preserved and rehashed on retrieval.",
+    "Third-party trigger inventory and production writes are NOT independently verified by EXSV10.",
+    "Browser Web App, google.script.run RPC, upload blob, session lifecycle across UI, PWA/installability, and external dependencies NOT TESTED.",
+    "Do not modify frozen RC8.2 workbook, scripts or pinned code; next work requires new disposable E2E workbook + separate script/deployment."
+  ],
+  "nextGate": "PHA07B2_B2_STAGING_WEBAPP_RPC_UPLOAD_E2E_DESIGN_V1",
+  "productionReady": false
+}
