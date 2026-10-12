@@ -69,6 +69,8 @@ Open Apps Script Project Settings and expose `appsscript.json`, then install exa
 | `E2E_WEB_ENABLED` | `false` |
 | `E2E_DEPLOYMENT_REVIEWED` | `false` |
 | `E2E_EXTERNAL_FETCH_ENABLED` | `false` |
+| `E2E_E0_ATTESTED` | `false` |
+| `E2E_E0_EVIDENCE_FILE_ID` | **unset/absent** |
 | `INDEX_LAPORAN_2B1_WRITE_ENABLED` | `false` |
 | `INDEX_LAPORAN_RC7_REPLAY_ENABLED` | `false` |
 | `PORTAL_FILE_SHARING_MODE` | `PRIVATE` |
@@ -97,3 +99,9 @@ Only then run `e2e10ReadOnlyPreflightV1()` and collect sanitized execution log. 
 8. Only after all above, a separately reviewed staging Web App deployment may be requested. Production remains NO-GO.
 
 **Hard stop:** No GitHub merge to `main`, no deployment, no Apps Script file installation in existing RC8.2/production, no toggling write/web flags at this stage.
+
+## 9. Source-hardening final addendum
+- The write guard requires `E2E_E0_ATTESTED=true`, a non-empty, syntactically valid `E2E_E0_EVIDENCE_FILE_ID`, an `E2E_RUN_ID` beginning with `E2E-`, **and zero installed triggers** before permitting stage writes. These controls are deliberately not satisfied during source preparation.
+- Blob validation was moved ahead of year/FOTO/PDF folder creation, so rejected MIME/oversized batches do not create empty subfolders. If a failure happens *after* valid file creation, record the created file IDs and perform targeted forensic cleanup; do not infer rollback from a caught error.
+- The source-only preflight now blocks premature E0 flags/evidence bindings; this is distinct from a later write-enabled test-preflight. 
+- Static QA must examine actual sharing mutations, not historic string labels `ANYONE_WITH_LINK` in disabled maintenance status reporting. In the installed candidate all file-sharing mutation paths are in the PRIVATE-only guard.
