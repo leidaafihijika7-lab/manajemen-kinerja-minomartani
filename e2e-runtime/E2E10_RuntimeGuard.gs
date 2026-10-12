@@ -94,6 +94,12 @@ function e2e10RequireWrites_() {
   if (e2e10VerifyWorkbookSentinels_(ss).writes !== 'true') throw new Error('E2E_WRITE_SENTINEL_DISABLED');
   var runId = String(p.getProperty('E2E_RUN_ID') || '').trim();
   if (!/^E2E-[A-Za-z0-9_-]{10,70}$/.test(runId)) throw new Error('E2E_RUN_ID_MISSING');
+  // E0 evidence is a prerequisite before any mutation in the disposable workbook.
+  if (p.getProperty('E2E_E0_ATTESTED') !== 'true' ||
+      !/^[A-Za-z0-9_-]{20,}$/.test(String(p.getProperty('E2E_E0_EVIDENCE_FILE_ID') || ''))) {
+    throw new Error('E2E_INDEPENDENT_E0_REQUIRED');
+  }
+  if (ScriptApp.getProjectTriggers().length !== 0) throw new Error('E2E_UNEXPECTED_TRIGGERS');
   return true;
 }
 
