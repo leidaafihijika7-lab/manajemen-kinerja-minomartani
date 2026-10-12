@@ -1,5 +1,11 @@
 function doGet() {
-  throw new Error('RC8_STAGING_WEB_DISABLED_NO_DEPLOYMENT');
+  e2e10RequireWebGate_();
+  var template = HtmlService.createTemplateFromFile('Index');
+  template.appVersion = APP_VERSION;
+  return template.evaluate()
+    .setTitle('Portal Kinerja Minomartani - STAGING E2E')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
 
 
@@ -341,7 +347,7 @@ function daftarEmailMaintainerPortal3B0_() {
   try {
     var spreadsheetId = String(props.getProperty("SPREADSHEET_ID") || "").trim();
     if (spreadsheetId) {
-      var owner = DriveApp.getFileById(spreadsheetId).getOwner();
+      var owner = e2e10GetAllowedFileById_(spreadsheetId).getOwner();
       if (owner) add(owner.getEmail());
     }
   } catch (ownerError) {
@@ -546,27 +552,22 @@ function invalidasiRuntimeCutoffTunjangan_() {
 }
 
 function getSS_() {
-  // RC8.2 ISOLATED STAGING: compile-time allowlist, no alternate databases.
-  if (typeof RC82_STAGE_ === 'undefined') throw new Error('RC82_MODULE_REQUIRED');
-  var allowed='1mpk7JAZo1fqUV7bYfJIYoYKHIoJTD_tGumtFQnQyagU';
-  var p=PropertiesService.getScriptProperties();
-  if(p.getProperty('RC82_STAGING_MODE')!=='true' ||
-     String(p.getProperty('SPREADSHEET_ID')||'').trim()!==allowed ||
-     p.getProperty('RC81_STAGING_MODE')==='true' || p.getProperty('RC8_STAGING_MODE')==='true')
-    throw new Error('RC82_STAGING_MODE_OR_DATABASE_INVALID');
+  if (typeof E2E10_STAGE_ === 'undefined') throw new Error('E2E_RUNTIME_GUARD_REQUIRED');
+  var props = e2e10AssertStage_();
+  var allowed = E2E10_STAGE_.DB;
+  if (props.getProperty('E2E_WEB_ENABLED') === 'true') {
+    e2e10AssertProjectBinding_();
+    e2e10RequireTesterPrincipal_();
+  }
   if (PORTAL_RUNTIME_CACHE_.spreadsheet) {
-    if(PORTAL_RUNTIME_CACHE_.spreadsheet.getId()!==allowed)
-      throw new Error('RC82_CACHED_DATABASE_MISMATCH');
+    if (PORTAL_RUNTIME_CACHE_.spreadsheet.getId() !== allowed)
+      throw new Error('E2E_CACHED_DATABASE_MISMATCH');
+    e2e10VerifyWorkbookSentinels_(PORTAL_RUNTIME_CACHE_.spreadsheet);
     return PORTAL_RUNTIME_CACHE_.spreadsheet;
   }
-  var ss=SpreadsheetApp.openById(allowed);
-  if(ss.getId()!==allowed) throw new Error('RC82_OPENED_WRONG_DATABASE');
-  var marker=ss.getSheetByName('MULAI_DI_SINI');
-  if(!marker || String(marker.getRange('A5').getValue())!=='STAGE_RC82_SUBMIT_IDENTITY_HARDENING' ||
-     String(marker.getRange('A8').getValue())!=='RC82_IDENTITY_HARDENING_WRITES_OPTIN_ONLY' ||
-     String(marker.getRange('B16').getValue())!==allowed)
-    throw new Error('RC82_WORKBOOK_SENTINEL_INVALID');
-  PORTAL_RUNTIME_CACHE_.spreadsheet=ss;
+  var ss = SpreadsheetApp.openById(allowed);
+  e2e10VerifyWorkbookSentinels_(ss);
+  PORTAL_RUNTIME_CACHE_.spreadsheet = ss;
   return ss;
 }
 
@@ -2019,6 +2020,7 @@ function folderCacheKey_(parentFolder, namaFolder) {
 
 function dapatkanAtauBuatFolder_(parentFolder, namaFolder) {
   if (!parentFolder) throw new Error('Folder induk tidak valid.');
+  e2e10AssertFolderAllowed_(parentFolder);
   namaFolder = String(namaFolder || '').trim();
   if (!namaFolder) throw new Error('Nama folder tidak boleh kosong.');
 
@@ -2028,7 +2030,7 @@ function dapatkanAtauBuatFolder_(parentFolder, namaFolder) {
 
   if (cachedId) {
     try {
-      return DriveApp.getFolderById(cachedId);
+      return e2e10GetAllowedFolderById_(cachedId);
     } catch (e) {
       // ID cache mungkin sudah dihapus/dipindahkan. Hapus cache lalu fallback cari sekali.
       props.deleteProperty(cacheKey);
@@ -2037,7 +2039,7 @@ function dapatkanAtauBuatFolder_(parentFolder, namaFolder) {
 
   // Fallback hanya saat cache belum ada. Setelah ditemukan/dibuat, akses berikutnya memakai ID folder.
   var folders = parentFolder.getFoldersByName(namaFolder);
-  var folder = folders.hasNext() ? folders.next() : parentFolder.createFolder(namaFolder);
+  var folder = folders.hasNext() ? folders.next() : e2e10AssertFileCreateTarget_(parentFolder).createFolder(namaFolder);
   try { props.setProperty(cacheKey, folder.getId()); } catch (e2) { }
   return folder;
 }
@@ -4788,6 +4790,7 @@ function adminGantiPinPegawai(username, pinBaru6Digit, token) {
 }
 
 function cekLogin(username, pin, clientId) {
+  e2e10RequireWrites_();
   try {
     var inputUserBersih = String(username || '').trim().toLowerCase();
     var inputPinMentah = String(pin || '').trim();
@@ -5521,37 +5524,12 @@ function buatFinalNameBuktiKinerja_(pegawai, meta, timestamp, originalName, mime
 }
 
 function modeSharingFilePortal_() {
-  var propertyName = CONFIG.SECURITY.FILE_SHARING_MODE_PROPERTY || 'PORTAL_FILE_SHARING_MODE';
-  var mode = String(portalScriptProperties_().getProperty(propertyName) || 'PRIVATE').trim().toUpperCase();
-  if (mode !== 'PRIVATE' && mode !== 'DOMAIN_WITH_LINK' && mode !== 'ANYONE_WITH_LINK') return 'PRIVATE';
-  return mode;
+  e2e10AssertStage_();
+  return 'PRIVATE';
 }
 
 function terapkanKebijakanSharingFilePortal_(file) {
-  if (!file) throw new Error('File Drive tidak tersedia untuk penerapan kebijakan akses.');
-  var mode = modeSharingFilePortal_();
-
-  if (mode === 'ANYONE_WITH_LINK') {
-    // Mode publik harus dipilih eksplisit melalui Script Property. Default tetap PRIVATE.
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return mode;
-  }
-  if (mode === 'DOMAIN_WITH_LINK') {
-    file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
-    return mode;
-  }
-
-  try {
-    var currentAccess = file.getSharingAccess();
-    if (currentAccess !== DriveApp.Access.PRIVATE) {
-      file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
-    }
-  } catch (e) {
-    // Fail closed: upload tidak boleh dianggap berhasil bila akses publik tidak
-    // dapat diverifikasi/dinonaktifkan.
-    throw new Error('Kebijakan akses file PRIVATE tidak dapat diterapkan. ' + getInternalErrorMessage_(e));
-  }
-  return mode;
+  return e2e10ForcePrivateSharing_(file);
 }
 
 // ===== TAHAP 3C-3: NORMALISASI AKSES FILE BUKTI LAMA =====
@@ -5569,11 +5547,11 @@ var MAINTENANCE_AKSES_BUKTI_LAMA_3C3 = {
 
 function konteksFolderBuktiLama3C3_() {
   var props = portalScriptProperties_();
-  var rootId = String(props.getProperty('FOLDER_ID_BUKTI_KINERJA') || props.getProperty('FOLDER_ID_BUKTI') || '').trim();
+  var rootId = e2e10RequireUploadRootId_();
   if (!rootId) {
     throw new Error('Konfigurasi Folder Bukti belum diatur. Isi Script Property FOLDER_ID_BUKTI_KINERJA atau FOLDER_ID_BUKTI.');
   }
-  var folder = DriveApp.getFolderById(rootId);
+  var folder = e2e10GetAllowedFolderById_(rootId);
   return { rootId: rootId, folder: folder };
 }
 
@@ -5681,11 +5659,8 @@ function mimeBuktiLamaDidukung3C3_(file) {
 }
 
 function aksesFileSudahSesuai3C3_(file, mode) {
-  var expectedAccess = mode === 'ANYONE_WITH_LINK'
-    ? DriveApp.Access.ANYONE_WITH_LINK
-    : DriveApp.Access.DOMAIN_WITH_LINK;
-  return file.getSharingAccess() === expectedAccess &&
-    file.getSharingPermission() === DriveApp.Permission.VIEW;
+  e2e10AssertFileAllowed_(file);
+  return file.getSharingAccess() === DriveApp.Access.PRIVATE;
 }
 
 function iteratorFileBuktiLama3C3_(state, folder) {
@@ -5740,6 +5715,7 @@ function statusMaintenanceAksesBuktiLama3C3() {
 }
 
 function maintenancePerbaikiAksesBuktiLama3C3() {
+  throw new Error('E2E_LEGACY_BULK_DRIVE_MAINTENANCE_DISABLED');
   var ctx = pastikanMaintainerPortal3B0_('PERBAIKI_AKSES_BUKTI_LAMA_3C3');
   var lock = LockService.getScriptLock();
   var locked = false;
@@ -5793,7 +5769,7 @@ function maintenancePerbaikiAksesBuktiLama3C3() {
       var folderId = state.folderIds[state.folderIndex];
       var iterator;
       try {
-        var folder = DriveApp.getFolderById(folderId);
+        var folder = e2e10GetAllowedFolderById_(folderId);
         iterator = iteratorFileBuktiLama3C3_(state, folder);
       } catch (folderError) {
         state.folderGagal = Number(state.folderGagal || 0) + 1;
@@ -5972,6 +5948,7 @@ function fileBeradaDiBawahFolder_(file, rootFolderId) {
 }
 
 function uploadBuktiKinerjaBlob(formObj) {
+  e2e10RequireUploadWrite_();
   var createdFileIds = [];
   try {
     var token = formObj && formObj.uploadToken ? String(formObj.uploadToken) : '';
@@ -5994,13 +5971,13 @@ function uploadBuktiKinerjaBlob(formObj) {
     }
 
     var props = PropertiesService.getScriptProperties();
-    var folderRootId = (props.getProperty('FOLDER_ID_BUKTI_KINERJA') || props.getProperty('FOLDER_ID_BUKTI') || '').trim();
+    var folderRootId = e2e10RequireUploadRootId_();
     if (!folderRootId) throw new Error('Konfigurasi Folder Bukti belum diatur. Isi Script Property FOLDER_ID_BUKTI_KINERJA atau FOLDER_ID_BUKTI.');
 
     var now = new Date();
     var timestamp = Utilities.formatDate(now, 'GMT+7', 'yyyyMMdd_HHmmss');
     var tahunStr = Utilities.formatDate(now, 'GMT+7', 'yyyy');
-    var rootFolder = DriveApp.getFolderById(folderRootId);
+    var rootFolder = e2e10GetAllowedFolderById_(folderRootId);
     var folderTahun = dapatkanAtauBuatFolder_(rootFolder, tahunStr);
     var folderFotoUtama = dapatkanAtauBuatFolder_(folderTahun, 'FOTO');
     var folderPDFUtama = dapatkanAtauBuatFolder_(folderTahun, 'PDF');
@@ -6051,7 +6028,7 @@ function uploadBuktiKinerjaBlob(formObj) {
       var targetFolder = isPdf ? folderPDFUtama : folderFotoUtama;
       var finalName = buatFinalNameBuktiKinerja_(pegawai, item.meta, timestamp, item.originalName, item.validasiFile.mime, item.validasiFile);
       var uploadBlob = Utilities.newBlob(item.bytes, item.validasiFile.mime, finalName);
-      var createdFile = targetFolder.createFile(uploadBlob);
+      var createdFile = e2e10AssertFileCreateTarget_(targetFolder).createFile(uploadBlob);
       createdFileIds.push(createdFile.getId());
       terapkanKebijakanSharingFilePortal_(createdFile);
 
@@ -6074,7 +6051,7 @@ function uploadBuktiKinerjaBlob(formObj) {
     return { sukses: true, files: results, uploadSelesaiPada: Utilities.formatDate(now, 'GMT+7', 'dd/MM/yyyy HH:mm:ss') };
   } catch (e) {
     for (var c = 0; c < createdFileIds.length; c++) {
-      try { DriveApp.getFileById(createdFileIds[c]).setTrashed(true); } catch (cleanupError) { }
+      try { e2e10GetAllowedFileById_(createdFileIds[c]).setTrashed(true); } catch (cleanupError) { }
     }
     return handleError('uploadBuktiKinerjaBlob', e, { sukses: false, pesan: 'Gagal mengunggah bukti. ' + (e && e.message ? e.message : e) });
   }
@@ -6082,6 +6059,7 @@ function uploadBuktiKinerjaBlob(formObj) {
 
 
 function hapusUploadBuktiKinerjaSementara(fileIds, token) {
+  e2e10RequireUploadWrite_();
   try {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, sessionExpired: true, pesan: 'Sesi habis. Silakan login ulang.' };
@@ -6090,7 +6068,7 @@ function hapusUploadBuktiKinerjaSementara(fileIds, token) {
     var allowedMap = {};
     allowedIds.forEach(function (id) { allowedMap[String(id)] = true; });
     var props = portalScriptProperties_();
-    var folderRootId = String(props.getProperty('FOLDER_ID_BUKTI_KINERJA') || props.getProperty('FOLDER_ID_BUKTI') || '').trim();
+    var folderRootId = e2e10RequireUploadRootId_();
     var ok = 0;
     var gagal = 0;
     var ditolak = 0;
@@ -6103,7 +6081,7 @@ function hapusUploadBuktiKinerjaSementara(fileIds, token) {
         continue;
       }
       try {
-        var file = DriveApp.getFileById(fid);
+        var file = e2e10GetAllowedFileById_(fid);
         if (!fileBeradaDiBawahFolder_(file, folderRootId)) {
           ditolak++;
           continue;
@@ -6182,6 +6160,7 @@ function bacaSubmitNonceState_(rawValue) {
 }
 
 function simpanDataKinerja(paket, token) {
+  e2e10RequireWrites_();
   var ctx = buatKonteksSubmitKinerja_();
 
   try {
@@ -6196,6 +6175,7 @@ function simpanDataKinerja(paket, token) {
       nama: String(ctx.pegawaiUser.nama).trim(),
       jabatan: String(ctx.pegawaiUser.jabatan).trim()
     });
+    e2e10CheckPayloadEvidence_(paket, token, ctx.idUser, 'BUKTI_KINERJA');
 
     var errorNonce = pasangSubmitNonceInFlight_(ctx);
     if (errorNonce) return errorNonce;
@@ -6390,7 +6370,7 @@ function pasangSubmitNonceInFlight_(ctx) {
 function muatKonfigurasiSubmitKinerja_(ctx) {
   ctx.props = PropertiesService.getScriptProperties();
   ctx.apiKey = (ctx.props.getProperty("API_KEY_GEMINI") || "").trim();
-  ctx.folderRootId = (ctx.props.getProperty("FOLDER_ID_BUKTI_KINERJA") || ctx.props.getProperty("FOLDER_ID_BUKTI") || "").trim();
+  ctx.folderRootId = e2e10RequireUploadRootId_();
 
   if (!ctx.folderRootId) throw new Error("Konfigurasi Folder Bukti belum diatur. Isi Script Property FOLDER_ID_BUKTI_KINERJA atau FOLDER_ID_BUKTI.");
 
@@ -6407,7 +6387,7 @@ function muatKonfigurasiSubmitKinerja_(ctx) {
 
 function siapkanFolderUploadSubmitKinerja_(ctx) {
   if (ctx.folderUploadSiap && ctx.folderFotoUtama && ctx.folderPDFUtama) return;
-  ctx.rootFolder = DriveApp.getFolderById(ctx.folderRootId);
+  ctx.rootFolder = e2e10GetAllowedFolderById_(ctx.folderRootId);
   ctx.folderTahun = dapatkanAtauBuatFolder_(ctx.rootFolder, ctx.tahunStr);
   ctx.folderFotoUtama = dapatkanAtauBuatFolder_(ctx.folderTahun, "FOTO");
   ctx.folderPDFUtama = dapatkanAtauBuatFolder_(ctx.folderTahun, "PDF");
@@ -6500,7 +6480,7 @@ function buatUploaderBuktiSubmitKinerja_(ctx) {
     var targetFolder = isPdf ? ctx.folderPDFUtama : ctx.folderFotoUtama;
     var finalSafeName = safeUploadFileName_(finalName || (safeOriName + '.' + validasiFile.ext));
     var fileBlob = Utilities.newBlob(bytesUpload, validasiFile.mime, finalSafeName);
-    var createdFile = targetFolder.createFile(fileBlob);
+    var createdFile = e2e10AssertFileCreateTarget_(targetFolder).createFile(fileBlob);
     ctx.uploadedFileIdsSubmit.push(createdFile.getId());
     terapkanKebijakanSharingFilePortal_(createdFile);
     return createdFile.getUrl();
@@ -7093,7 +7073,7 @@ function bersihkanUploadSubmitKinerja_(ctx) {
   if (!ctx.laporanBerhasilDisimpan && ctx.uploadedFileIdsSubmit && ctx.uploadedFileIdsSubmit.length) {
     for (var uf = 0; uf < ctx.uploadedFileIdsSubmit.length; uf++) {
       try {
-        DriveApp.getFileById(ctx.uploadedFileIdsSubmit[uf]).setTrashed(true);
+        e2e10GetAllowedFileById_(ctx.uploadedFileIdsSubmit[uf]).setTrashed(true);
       } catch (fileCleanupErr) {
         Logger.log("Peringatan: gagal membersihkan file upload submit " + ctx.uploadedFileIdsSubmit[uf] + ": " + (fileCleanupErr && fileCleanupErr.message ? fileCleanupErr.message : fileCleanupErr));
       }
@@ -7407,7 +7387,7 @@ function jalankanAIGemini_(promptAI, apiKey) {
     var baseUrlStr = "https://" + "generativelanguage.googleapis.com";
     var apiEndPointStr = baseUrlStr + "/v1beta/models/gemini-2.5-flash:generateContent?key=";
 
-    var response = UrlFetchApp.fetch(
+    var response = e2e10BlockExternalFetch_(
       apiEndPointStr + apiKey,
       {
         method: "post",
@@ -8279,6 +8259,7 @@ function bangunDataRevisiKinerjaDariPaket_(paket, pegawaiUser, oldRow) {
 }
 
 function simpanRevisiLaporanDitolakPegawai(paket, token) {
+  e2e10RequireWrites_();
   var submitCache = CacheService.getScriptCache();
   var nonceKey = '';
   var pertahankanNonce = false;
@@ -8290,6 +8271,7 @@ function simpanRevisiLaporanDitolakPegawai(paket, token) {
     var pegawaiUser = getPegawaiById_(idUser);
     if (!pegawaiUser) return '❌ GAGAL: Data pegawai tidak ditemukan.';
     if (!paket || typeof paket !== 'object') return '❌ GAGAL: Paket data revisi tidak valid.';
+    e2e10CheckPayloadEvidence_(paket, token, idUser, 'BUKTI_KINERJA');
 
     var idLaporan = normalizeId_(paket.idLaporanRevisi || paket.idLaporan || '');
     if (!idLaporan) return '❌ GAGAL: ID laporan revisi tidak valid.';
@@ -8651,7 +8633,7 @@ function buildDriveLampiranMeta_(url, label, cache, skipDriveFetch) {
 
     if (!lazy) {
       try {
-        var file = DriveApp.getFileById(fileId);
+        var file = e2e10GetAllowedFileById_(fileId);
         base.fileName = file.getName() || "";
         base.mimeType = file.getMimeType() || "";
       } catch (e) {
@@ -9969,6 +9951,7 @@ function ambilTimelinePublik(token, offset, limit) {
 }
 
 function prosesReviewAdmin(idLaporan, status, poinFinal, catatan, token) {
+  e2e10RequireWrites_();
   var idAdmin = validasiSession(token);
   if (!idAdmin) return { pesan: "Sesi habis." };
   if (!cekHakAksesAdmin(idAdmin)) return { pesan: "Akses Ditolak! Anda bukan Admin." };
@@ -10179,7 +10162,7 @@ function panggilGeminiDenganRetry_(apiKey, promptAI) {
 
   for (var coba = 1; coba <= maxPercobaan; coba++) {
     try {
-      var response = UrlFetchApp.fetch(apiEndPointStr + apiKey, {
+      var response = e2e10BlockExternalFetch_(apiEndPointStr + apiKey, {
         method: 'post',
         contentType: 'application/json',
         muteHttpExceptions: true,
@@ -11099,17 +11082,8 @@ function formatTanggalISODisposisi_(val) {
 }
 
 function getFolderRootDisposisi_() {
-  var props = PropertiesService.getScriptProperties();
-  var folderIdDisposisi = (props.getProperty("FOLDER_ID_DISPOSISI") || "").trim();
-  var folderIdBukti = (props.getProperty("FOLDER_ID_BUKTI") || "").trim();
-  if (!folderIdDisposisi && !folderIdBukti) {
-    throw new Error("Konfigurasi folder disposisi belum diatur. Isi Script Property FOLDER_ID_DISPOSISI atau FOLDER_ID_BUKTI.");
-  }
-  var root = DriveApp.getFolderById(folderIdDisposisi || folderIdBukti);
-  if (!folderIdDisposisi && folderIdBukti) {
-    root = dapatkanAtauBuatFolder_(root, "DISPOSISI_SURAT");
-  }
-  return root;
+  var root = e2e10GetAllowedFolderById_(e2e10RequireUploadRootId_());
+  return dapatkanAtauBuatFolder_(root, 'DISPOSISI_SURAT');
 }
 
 function buildNamaFinalLampiranDisposisi_(tanggalDisposisi, nomorDisposisi, perihal, ext) {
@@ -11129,6 +11103,7 @@ function getTargetFolderLampiranDisposisi_(tanggalDisposisi, isPdf) {
 }
 
 function simpanLampiranDisposisiBytes_(bytesUpload, mimeType, fileName, nomorDisposisi, tanggalDisposisi, perihal) {
+  e2e10RequireUploadWrite_();
   var oriName = (fileName || "lampiran").toString();
   var maxFileBytes = Number(CONFIG.FILE_LIMITS.MAX_BLOB_FILE_BYTES || (10 * 1024 * 1024));
   if (!bytesUpload || bytesUpload.length > maxFileBytes) {
@@ -11140,7 +11115,7 @@ function simpanLampiranDisposisiBytes_(bytesUpload, mimeType, fileName, nomorDis
   var targetFolder = getTargetFolderLampiranDisposisi_(tanggalDisposisi, isPdf);
   var namaFinal = buildNamaFinalLampiranDisposisi_(tanggalDisposisi, nomorDisposisi, perihal, validasiFile.ext);
   var blob = Utilities.newBlob(bytesUpload, validasiFile.mime, namaFinal);
-  var f = targetFolder.createFile(blob);
+  var f = e2e10AssertFileCreateTarget_(targetFolder).createFile(blob);
   try {
     terapkanKebijakanSharingFilePortal_(f);
   } catch (sharingError) {
@@ -11157,6 +11132,7 @@ function simpanLampiranDisposisi_(fileData, mimeType, fileName, nomorDisposisi, 
 }
 
 function uploadLampiranDisposisiBlob(formObj) {
+  e2e10RequireUploadWrite_();
   try {
     var token = formObj && formObj.uploadToken ? String(formObj.uploadToken) : '';
     var idUser = validasiSession(token);
@@ -11185,7 +11161,7 @@ function uploadLampiranDisposisiBlob(formObj) {
     try {
       daftarkanUploadSementara_('DISPOSISI', token, idUser, [lampiran.fileId]);
     } catch (registryError) {
-      try { DriveApp.getFileById(lampiran.fileId).setTrashed(true); } catch (cleanupError) { }
+      try { e2e10GetAllowedFileById_(lampiran.fileId).setTrashed(true); } catch (cleanupError) { }
       throw registryError;
     }
     return {
@@ -11215,7 +11191,7 @@ function normalisasiLampiranDisposisiDariPayload_(payload, nomorDisposisi, tangg
     if (registered.indexOf(fileId) < 0) {
       throw new Error('Lampiran disposisi tidak terdaftar sebagai upload sementara milik sesi ini.');
     }
-    var file = DriveApp.getFileById(fileId);
+    var file = e2e10GetAllowedFileById_(fileId);
     var rootDisposisi = getFolderRootDisposisi_();
     if (!fileBeradaDiBawahFolder_(file, rootDisposisi.getId())) {
       throw new Error('Lampiran disposisi berada di luar folder portal yang diizinkan.');
@@ -11234,6 +11210,7 @@ function normalisasiLampiranDisposisiDariPayload_(payload, nomorDisposisi, tangg
 
   var url = safeHttpUrlServer_(payload.lampiranUrl || payload.fileUrl || '');
   if (url) {
+    e2e10AssertUploadedReference_(url, token, idUser, 'DISPOSISI');
     return { url: url, nama: sanitizeForSheet_(payload.lampiranNama || payload.fileName || 'Dokumen Surat') };
   }
 
@@ -18597,7 +18574,7 @@ function cekHakAksesDisposisiInbox_(idUser) {
 // ===== PATCH v2026.05.12.37: Optimasi Timeline =====
 // Fokus:
 // - Timeline memakai getRekapKinerjaValuesReadOnly_() supaya tidak membaca sheet berat berulang.
-// - Lampiran Timeline memakai mode skipDriveFetch agar tidak memanggil DriveApp.getFileById()
+// - Lampiran Timeline memakai mode skipDriveFetch agar tidak memanggil e2e10GetAllowedFileById_()
 //   untuk setiap bukti visual.
 // - Mode skip tetap menebak PDF/gambar dari label/URL, tidak dipaksa image/jpeg semua.
 // - Fungsi buildDriveLampiranMeta_ tetap kompatibel dengan pemanggil lama:
@@ -18659,7 +18636,7 @@ buildDriveLampiranMeta_ = function (url, label, cache, skipDriveFetch) {
       base.mimeType = tebakMimeLampiranTanpaDriveV37_(label, rawUrl);
     } else {
       try {
-        var file = DriveApp.getFileById(fileId);
+        var file = e2e10GetAllowedFileById_(fileId);
         base.fileName = file.getName() || '';
         base.mimeType = file.getMimeType() || '';
       } catch (e) {
