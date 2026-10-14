@@ -60,7 +60,7 @@ Run `e0v10CaptureBaselineV1()` in the **auditor** only, once. The verifier:
 1. Validates the prior saved SAV10 PASS evidence (private, correct target and pinned source commit).
 2. Re-attests live target source before capture and after capture; refuses mismatch.
 3. Validates all 12 exact tab names and E2E sentinels.
-4. Reads every allocated cell position (all rows/columns, in 500-row chunks) through **Sheets API read-only**, recording user-entered values/formulas, effective/ formatted values, entered formats, notes, validations, chips and links, plus whole-workbook metadata and per-sheet SHA-256.
+4. Reads every allocated cell position (all rows/columns, in 500-row chunks) through **Sheets API read-only**, recording user-entered values/formulas, effective/formatted values, entered formats, notes, validations, chips, links, row/column dimension metadata (size and hidden states), whole-workbook metadata and per-sheet SHA-256.
 5. Verifies baseline fixtures: `Rekap_Kinerja=2`, `Index_Laporan=2`, `Index_Laporan_Sync_Queue=0`, `Data_Pegawai=0` (data rows).
 6. Independently reads Drive permissions/parents and verifies workbook, upload folder and evidence folder each report owner-only; upload folder has no files/subfolders.
 7. Re-reads sentinel, metadata, Drive modification timestamps, upload inventory and source after capture; refuses evidence publication if changed.
