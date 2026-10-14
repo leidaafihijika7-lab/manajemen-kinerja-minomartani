@@ -1,0 +1,173 @@
+// SheetSchema.gs adalah sumber kebenaran tunggal untuk SHEET_COLUMNS.
+// Jangan mendefinisikan SHEET_COLUMNS lagi di Kode.gs; cukup pastikan file ini ada di project Apps Script.
+var PORTAL_SHEET_SCHEMA_VERSION_ = "2026.08.14.01";
+
+var SHEET_COLUMNS = {
+  DATA_PEGAWAI: {
+    ID: 0, USERNAME: 1, NAMA: 2, JABATAN: 3, PIN_HASH: 4, AKSES: 5,
+    WA: 6, STATUS: 7, PIN_SALT: 8, PIN_HASH_VERSION: 9, PIN_UPDATED_AT: 10
+  },
+  REKAP_KINERJA: {
+    TANGGAL_LAPORAN: 0, NAMA: 1, JABATAN: 2, KATEGORI: 3, DESKRIPSI: 4,
+    VISUAL_URL: 5, POIN_SISTEM: 6, ALASAN_SISTEM: 7, STATUS_REVIEW: 8,
+    POIN_FINAL: 9, DASAR_KEGIATAN: 10, DASAR_URL: 11, NAMA_KEGIATAN: 12,
+    TANGGAL_KEGIATAN: 13, LOKASI_KEGIATAN: 14, PENYELENGGARA: 15,
+    PERAN: 16, CATATAN_ADMIN: 17, ID_LAPORAN: 18, ID_USER: 19,
+    WAKTU_REVIEW_ADMIN: 20, NONCE: 21, REVISI_KE: 22,
+    TERAKHIR_DIREVISI_PADA: 23, TERAKHIR_DIREVISI_OLEH: 24,
+    PAYLOAD_JSON: 25, ID_DISPOSISI: 26, NOMOR_DISPOSISI: 27,
+    JENIS_DISPOSISI: 28,
+    JENIS_FORM_DETAIL: 29, PAYLOAD_DETAIL_JSON: 30,
+    OUTPUT_RINGKAS: 31, TINDAK_LANJUT_REKOMENDASI: 32,
+    APBKAL_BIDANG: 33, APBKAL_KODE_REKENING: 34,
+    APBKAL_NAMA_KEGIATAN: 35, APBKAL_TERMIN_PENCAIRAN: 36,
+    APBKAL_TAHAPAN_KEGIATAN: 37, APBKAL_STATUS_PELAKSANAAN: 38,
+    APBKAL_BATAS_WAKTU_PELAPORAN: 39,
+    APBKAL_TANGGAL_PELAKSANAAN_RIIL: 40,
+    APBKAL_LOKASI: 41, APBKAL_METODE: 42,
+    APBKAL_CARIK_JENIS_TUGAS: 43,
+    APBKAL_CARIK_NAMA_KEGIATAN: 44,
+    APBKAL_CARIK_TANGGAL_PELAKSANAAN: 45,
+    PIMPINAN_JENIS_TUGAS: 46, PIMPINAN_DASAR: 47,
+    PIMPINAN_PEMBERI: 48, PIMPINAN_NAMA_AGENDA: 49,
+    PIMPINAN_TANGGAL_PELAKSANAAN: 50, PIMPINAN_LOKASI: 51,
+    PIMPINAN_PENYELENGGARA: 52,
+    STAF_INSTRUKSI_PEMBERI: 53, STAF_INSTRUKSI_BENTUK: 54,
+    STAF_INSTRUKSI_NAMA_TUGAS: 55,
+    STAF_INSTRUKSI_TANGGAL_PELAKSANAAN: 56,
+    STAF_REGULER_NAMA_TUGAS: 57,
+    STAF_REGULER_TANGGAL_PELAKSANAAN: 58,
+    STAF_REGULER_LOKASI: 59, STAF_REGULER_SASARAN: 60,
+    STAF_REGULER_PERAN: 61,
+    DUKUH_KATEGORI_FUNGSI: 62, DUKUH_DETAIL_FUNGSI: 63,
+    DUKUH_PIHAK_TERLIBAT: 64,
+    WAJIB_PAMONG_BULAN: 65, WAJIB_PAMONG_DETAIL_JSON: 66,
+    SUMBER_DETAIL_FORM: 67, VERSI_SCHEMA_DETAIL: 68,
+    APBKAL_CARIK_LOKASI: 69, STAF_INSTRUKSI_LOKASI: 70
+  },
+  REKAP_TUNJANGAN_BULANAN: {
+    PERIODE: 0, ID_USER: 1, NAMA: 2, JABATAN: 3, KELOMPOK: 4,
+    JUMLAH_LAPORAN_DISETUJUI: 5, POIN_PROD: 6, POIN_TU: 7,
+    PERSEN_PROD: 8, PERSEN_TU: 9, MAX_PROD: 10, MAX_TU: 11,
+    RP_PROD: 12, RP_TU: 13, RP_TOTAL: 14, STATUS_REKAP: 15,
+    CATATAN_CARIK: 16, CATATAN_LURAH: 17, CATATAN_BENDAHARA: 18,
+    DIBUAT_OLEH: 19, DIBUAT_PADA: 20, DIKUNCI_PADA: 21,
+    DIAJUKAN_PADA: 22, DISETUJUI_PADA: 23, DIKEMBALIKAN_PADA: 24,
+    DITERUSKAN_BENDAHARA_PADA: 25, DICAIRKAN_PADA: 26,
+    NOMOR_BUKTI_CAIR: 27, BATCH_ID: 28, IS_ACTIVE: 29,
+    LABEL_PEMBAYARAN: 30, TANGGAL_MULAI_PERIODE: 31,
+    TANGGAL_AKHIR_PERIODE: 32, TANGGAL_CUTOFF: 33
+  },
+  DISPOSISI_SURAT: {
+    ID_DISPOSISI: 0, NOMOR_DISPOSISI: 1, TANGGAL_DISPOSISI: 2,
+    JENIS_DISPOSISI: 3, PERIHAL: 4, ISI_RINGKAS_INSTRUKSI: 5,
+    PEMBERI_ID: 6, PEMBERI_NAMA: 7, PEMBERI_JABATAN: 8,
+    LAMPIRAN_URL: 9, LAMPIRAN_NAMA: 10, TANGGAL_MULAI: 11,
+    TANGGAL_SELESAI: 12, STATUS_DISPOSISI: 13, DIBUAT_PADA: 14,
+    DIUBAH_PADA: 15, SUMBER_DISPOSISI: 16, NOMOR_LEMBAR_MANUAL: 17,
+    TANGGAL_LEMBAR_MANUAL: 18, DIINPUT_OLEH_ID: 19,
+    DIINPUT_OLEH_NAMA: 20, DIINPUT_OLEH_JABATAN: 21,
+    DIINPUT_PADA: 22, MODE_INPUT: 23, CATATAN_OPERATOR: 24
+  },
+  DISPOSISI_PENERIMA: {
+    ID_DISPOSISI: 0, ID_PENERIMA: 1, NAMA_PENERIMA: 2,
+    JABATAN_PENERIMA: 3, MODE_PENERIMA: 4, STATUS_BACA: 5,
+    STATUS_TINDAK_LANJUT: 6, ID_LAPORAN_TERKAIT: 7,
+    WAKTU_LAPOR: 8, CATATAN_TINDAK_LANJUT: 9,
+    DIBUAT_PADA: 10, DIUBAH_PADA: 11
+  },
+  DISPOSISI_LOG: {
+    WAKTU: 0, ID_DISPOSISI: 1, AKSI: 2, OLEH_ID: 3,
+    OLEH_NAMA: 4, OLEH_JABATAN: 5, DETAIL: 6, ID_LOG: 7,
+    AKTOR_PERAN: 8, TARGET_TIPE: 9, TARGET_ID: 10,
+    TARGET_NAMA: 11, ALASAN: 12, DETAIL_JSON: 13
+  },
+  DISPOSISI_PETUGAS: {
+    ID_PENUGASAN: 0, PEGAWAI_ID: 1, PEGAWAI_NAMA: 2,
+    PEGAWAI_JABATAN: 3, STATUS_PETUGAS: 4,
+    DITETAPKAN_OLEH_ID: 5, DITETAPKAN_OLEH_NAMA: 6,
+    DITETAPKAN_PADA: 7, DINONAKTIFKAN_OLEH_ID: 8,
+    DINONAKTIFKAN_OLEH_NAMA: 9, DINONAKTIFKAN_PADA: 10,
+    CATATAN: 11
+  },
+  // Sheet index laporan. Tahap 2B-1 menulis sinkron secara opsional.
+  // Tahap 2B-2A dapat memakai ROW_REKAP untuk pembacaan Riwayat dengan fallback.
+  INDEX_LAPORAN: {
+    ID_LAPORAN: 0, ROW_REKAP: 1, ID_USER: 2, TANGGAL_LAPORAN: 3,
+    PERIODE_RESMI: 4, KATEGORI: 5, STATUS_REVIEW: 6, POIN_FINAL: 7,
+    ID_DISPOSISI: 8, NONCE: 9, TERAKHIR_DIUBAH: 10, INDEX_VERSION: 11
+  },
+  // Tab antrean bersifat opsional dan dibuat otomatis ketika kegagalan
+  // sinkronisasi Index_Laporan pertama kali perlu dicatat.
+  INDEX_LAPORAN_SYNC_QUEUE: {
+    QUEUE_ID: 0, WAKTU: 1, OPERATION: 2, ROW_REKAP: 3,
+    ID_LAPORAN: 4, ID_USER: 5, NONCE: 6, CONTEXT: 7,
+    ATTEMPTS: 8, STATUS: 9, LAST_ERROR: 10, DIPROSES_PADA: 11
+  },
+
+  AI_LOGS: {
+    WAKTU: 0, ID_LAPORAN: 1, PROMPT: 2, RESPONS: 3,
+    POIN: 4, STATUS: 5, INDEX_REKAP: 6, MODEL: 7
+  },
+
+  // Sheet: Rekap_Bulanan — Narasi laporan bulanan per pegawai (dihasilkan AI)
+  REKAP_BULANAN: {
+    PERIODE: 0, ID_USER: 1, NAMA: 2, JABATAN: 3,
+    JUMLAH_LAPORAN: 4, NARASI: 5, DIBUAT_PADA: 6, MODEL_AI: 7
+  },
+
+  // Sheet: Audit_Log — Log audit aksi sistem (submit, login, review)
+  AUDIT_LOG: {
+    WAKTU: 0, ID_USER: 1, AKSI: 2, DETAIL: 3
+  },
+
+  // Sheet: Audit_Tunjangan — Log audit perubahan status rekap tunjangan
+  AUDIT_TUNJANGAN: {
+    WAKTU: 0, ID_USER: 1, NAMA_USER: 2, AKSI: 3, PERIODE: 4,
+    TARGET_ID_USER: 5, TARGET_NAMA: 6,
+    STATUS_LAMA: 7, STATUS_BARU: 8, DETAIL: 9
+  }
+
+  // Catatan: Master_Tunjangan menggunakan dynamic header detection
+  // (findHeaderIndex_) karena struktur kolomnya fleksibel dan tidak
+  // bergantung pada posisi tetap. Tidak perlu didaftarkan di sini.
+};
+
+// Gagal lebih awal bila ada indeks schema yang tidak valid. Setelah lolos,
+// kunci setiap peta kolom agar posisi tidak dapat diubah saat runtime.
+(function validasiDanKunciSheetColumns_() {
+  Object.keys(SHEET_COLUMNS).forEach(function (sheetKey) {
+    var columns = SHEET_COLUMNS[sheetKey];
+    var seen = {};
+    var maxIndex = -1;
+
+    Object.keys(columns).forEach(function (columnKey) {
+      var index = columns[columnKey];
+      if (typeof index !== "number" || index < 0 || index % 1 !== 0) {
+        throw new Error(
+          "Indeks SHEET_COLUMNS tidak valid: " + sheetKey + "." + columnKey
+        );
+      }
+      if (Object.prototype.hasOwnProperty.call(seen, index)) {
+        throw new Error(
+          "Indeks SHEET_COLUMNS duplikat: " + sheetKey + "[" + index + "]"
+        );
+      }
+      seen[index] = columnKey;
+      if (index > maxIndex) maxIndex = index;
+    });
+
+    for (var expected = 0; expected <= maxIndex; expected++) {
+      if (!Object.prototype.hasOwnProperty.call(seen, expected)) {
+        throw new Error(
+          "Urutan SHEET_COLUMNS tidak berkelanjutan: " +
+          sheetKey + " kehilangan indeks " + expected
+        );
+      }
+    }
+
+    Object.freeze(columns);
+  });
+
+  Object.freeze(SHEET_COLUMNS);
+})();
