@@ -110,8 +110,8 @@ function e0v10GridChunk_(sheet,startRow,endRow,colCount) {
   var title=String(sheet.properties.title).replace(/'/g,"''");
   var range="'"+title+"'!A"+(startRow+1)+":"+e0v10ColumnLetter_(colCount)+endRow;
   var fields='spreadsheetId,sheets(properties(sheetId,title),data(startRow,startColumn,' +
-    'rowData(values(userEnteredValue,effectiveValue,formattedValue,userEnteredFormat,' +
-    'note,dataValidation,hyperlink,textFormatRuns,chipRuns))))';
+    'rowMetadata,columnMetadata,rowData(values(userEnteredValue,effectiveValue,' +
+    'formattedValue,userEnteredFormat,note,dataValidation,hyperlink,textFormatRuns,chipRuns))))';
   var resource=sav10ApiGet_(
     'https://sheets.googleapis.com/v4/spreadsheets/'+encodeURIComponent(id)+
     '?ranges='+encodeURIComponent(range)+'&fields='+encodeURIComponent(fields),
@@ -121,7 +121,7 @@ function e0v10GridChunk_(sheet,startRow,endRow,colCount) {
       Number(resource.sheets[0].properties.sheetId)!==Number(sheet.properties.sheetId)) {
     throw new Error('E0_GRID_CHUNK_INVALID');
   }
-  var out=[],blocks=resource.sheets[0].data||[];
+  var out=[],rowMeta=[],colMeta=[],blocks=resource.sheets[0].data||[];
   blocks.forEach(function(block) {
     var rs=typeof block.startRow==='number'?block.startRow:startRow;
     var cs=typeof block.startColumn==='number'?block.startColumn:0;
@@ -135,8 +135,20 @@ function e0v10GridChunk_(sheet,startRow,endRow,colCount) {
         }
       });
     });
+    (block.rowMetadata||[]).forEach(function(props,i) {
+      if (props && Object.keys(props).length) {
+        if (rs+i<startRow || rs+i>=endRow) throw new Error('E0_ROW_METADATA_OUT_OF_RANGE');
+        rowMeta.push({row:rs+i,properties:props});
+      }
+    });
+    (block.columnMetadata||[]).forEach(function(props,i) {
+      if (props && Object.keys(props).length) {
+        if (cs+i<0 || cs+i>=colCount) throw new Error('E0_COLUMN_METADATA_OUT_OF_RANGE');
+        colMeta.push({column:cs+i,properties:props});
+      }
+    });
   });
-  return out;
+  return {cells:out,rowMetadata:rowMeta,columnMetadata:colMeta};
 }
 
 function e0v10CaptureSheet_(sheet) {
@@ -147,21 +159,32 @@ function e0v10CaptureSheet_(sheet) {
       rows<1 || cols<1 || rows>E0V10_POLICY_.MAX_ROW_COUNT ||
       cols>E0V10_POLICY_.MAX_COLUMN_COUNT)
     throw new Error('E0_UNSUPPORTED_GRID_SIZE:'+String(p.title||'').slice(0,40));
-  var cells=[],chunks=0;
+  var cells=[],rowMetadata=[],columnByIndex={},chunks=0;
   for (var from=0;from<rows;from+=E0V10_POLICY_.GRID_CHUNK_ROWS) {
     var to=Math.min(rows,from+E0V10_POLICY_.GRID_CHUNK_ROWS);
-    var records=e0v10GridChunk_(sheet,from,to,cols);
-    for(var i=0;i<records.length;i++)cells.push(records[i]);
+    var section=e0v10GridChunk_(sheet,from,to,cols);
+    section.cells.forEach(function(x){cells.push(x);});
+    section.rowMetadata.forEach(function(x){rowMetadata.push(x);});
+    section.columnMetadata.forEach(function(x){
+      var index=String(x.column),prior=columnByIndex[index];
+      if (prior && sav10StableJson_(prior)!==sav10StableJson_(x))
+        throw new Error('E0_COLUMN_METADATA_CHANGED_DURING_CAPTURE');
+      columnByIndex[index]=x;
+    });
     chunks++;
   }
   cells.sort(function(a,b){return a.row-b.row||a.col-b.col;});
+  rowMetadata.sort(function(a,b){return a.row-b.row;});
+  var colMetadata=Object.keys(columnByIndex).map(function(k){return columnByIndex[k];})
+    .sort(function(a,b){return a.column-b.column;});
   var body={sheetId:p.sheetId,title:p.title,rows:rows,columns:cols,
-    recordedCells:cells};
+    recordedCells:cells,rowMetadata:rowMetadata,columnMetadata:colMetadata};
   return {
     title:p.title,sheetId:p.sheetId,gridRows:rows,gridColumns:cols,
     chunks:chunks,recordedCellCount:cells.length,
+    recordedRowMetadata:rowMetadata.length,recordedColumnMetadata:colMetadata.length,
     hash:sav10HexDigest_(sav10StableJson_(body)),
-    cells:cells
+    cells:cells,rowMetadata:rowMetadata,columnMetadata:colMetadata
   };
 }
 
@@ -271,7 +294,7 @@ function e0v10RunCaptureCore_() {
       sheets:sheets
     },captureCoverage:{
       grid:"all 12 sheets and allocated grid, fixed read-only chunks; unformatted empty cells represented implicitly",
-      cellData:"user-entered and effective values, formatted values, user-entered formatting, notes, validation, chips and links; conditional formatting in metadata",
+      cellData:"user-entered and effective values, formatted values, user-entered formatting, notes, validation, chips and links; conditional formatting in metadata; row/column pixel size and hidden-state metadata captured per allocated dimension",
       drive:"upload root content empty; owner-only metadata readback",
       limits:"No Apps Script ScriptProperties, deployment IAM or production-write inventory was independently inspected"
     },
