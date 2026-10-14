@@ -111,7 +111,7 @@ function e0v10GridChunk_(sheet,startRow,endRow,colCount) {
   var range="'"+title+"'!A"+(startRow+1)+":"+e0v10ColumnLetter_(colCount)+endRow;
   var fields='spreadsheetId,sheets(properties(sheetId,title),data(startRow,startColumn,' +
     'rowData(values(userEnteredValue,effectiveValue,formattedValue,userEnteredFormat,' +
-    'effectiveFormat,note,dataValidation,hyperlink,textFormatRuns,chipRuns))))';
+    'note,dataValidation,hyperlink,textFormatRuns,chipRuns))))';
   var resource=sav10ApiGet_(
     'https://sheets.googleapis.com/v4/spreadsheets/'+encodeURIComponent(id)+
     '?ranges='+encodeURIComponent(range)+'&fields='+encodeURIComponent(fields),
@@ -248,8 +248,8 @@ function e0v10RunCaptureCore_() {
       metadata:metadata,metadataSha256:sav10HexDigest_(sav10StableJson_(metadata)),
       sheets:sheets
     },captureCoverage:{
-      grid:"all 12 sheets; all allocated rows and columns, in fixed read-only chunks",
-      cellData:"user-entered/effective/format/note/validation/chips/links",
+      grid:"all 12 sheets and allocated grid, fixed read-only chunks; unformatted empty cells represented implicitly",
+      cellData:"user-entered and effective values, formatted values, user-entered formatting, notes, validation, chips and links; conditional formatting in metadata",
       drive:"upload root content empty; owner-only metadata readback",
       limits:"No Apps Script ScriptProperties, deployment IAM or production-write inventory was independently inspected"
     },
