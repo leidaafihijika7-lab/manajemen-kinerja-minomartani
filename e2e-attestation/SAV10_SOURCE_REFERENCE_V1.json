@@ -1,0 +1,66 @@
+{
+  "schema": "PHA07B2_B2_SAV10_SOURCE_REFERENCE_V1",
+  "kind": "independent-source-attestation-allowlist",
+  "referenceCommit": "51fb7a0cd68927eb1a263f1edb8c421d40defd83",
+  "referencePath": "e2e-runtime/",
+  "canonicalization": {
+    "sourceFiles": "replace CRLF/CR with LF; remove terminal LF characters only",
+    "manifest": "parse JSON and recursively serialize sorted object keys; preserve array ordering"
+  },
+  "expected": [
+    {
+      "name": "Kode",
+      "type": "SERVER_JS",
+      "githubName": "Kode.gs",
+      "sha256": "c5293e8d7dd699ba6d3d6b328207e275f1383f100555a89e85fbb632f9becc8b",
+      "gitBlob": "2c9fb9e252accde8617726654cf84d855aa00077"
+    },
+    {
+      "name": "Index",
+      "type": "HTML",
+      "githubName": "Index.html",
+      "sha256": "504cbffd74e841b3ef6638c43a3d76f9647923aa3aa376fd9ab1a957ea8f9a11",
+      "gitBlob": "9c28367e2b99496d87d6d732b4121dbb1cba14eb"
+    },
+    {
+      "name": "SheetSchema",
+      "type": "SERVER_JS",
+      "githubName": "SheetSchema.gs",
+      "sha256": "3f76d416a8e5f1b2d495a7e38b89f539ada19c7027cef64a2a30abd9d86e5c10",
+      "gitBlob": "93ce60fd9fe7869b7d5fdfc7adb8a3f45fc5a690"
+    },
+    {
+      "name": "IndexQueueGuardRC7",
+      "type": "SERVER_JS",
+      "githubName": "IndexQueueGuardRC7.gs",
+      "sha256": "b7c1b23060390d1397927a2f75b81a5060b1976149a4695b7ec9bc3823ea0ef4",
+      "gitBlob": "f709e9f4692aec28efc7f4bf6e0c2d04e909ef12"
+    },
+    {
+      "name": "E2E10_RuntimeGuard",
+      "type": "SERVER_JS",
+      "githubName": "E2E10_RuntimeGuard.gs",
+      "sha256": "3b555171c1192964bc4107e6d06c3e1d510cd117bafe5196830f059413777a02",
+      "gitBlob": "8f131846206750845014324d47a028915e63b742"
+    },
+    {
+      "name": "E2E10_IsolatedReadOnlyPreflight",
+      "type": "SERVER_JS",
+      "githubName": "E2E10_IsolatedReadOnlyPreflight.gs",
+      "sha256": "c5ace0f14bd317a04d1ffee63072d25d73b89e0ee6a7bfa0a18e584b911f2e1e",
+      "gitBlob": "fc4eeec2dcdb52435a96377c7e9de80524dc2f40"
+    },
+    {
+      "name": "appsscript",
+      "type": "JSON",
+      "githubName": "appsscript.json",
+      "sha256": "04bd6d2a0d756fab43bccb2237584f9c9c53046487ff4256db4aa72c79fff86d",
+      "gitBlob": "cb364d0824e204aa1deaeba186bb5a853834ae88"
+    }
+  ],
+  "expectedInstalledFileCount": 7,
+  "blockExtraFiles": true,
+  "sourceExposure": "No raw source, PIN or OAuth tokens in logs or evidence",
+  "status": "REFERENCE_BUILT_FROM_GITHUB_NOT_INSTALLED_ATTESTATION",
+  "productionReady": false
+}
