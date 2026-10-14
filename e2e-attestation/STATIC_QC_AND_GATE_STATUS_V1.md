@@ -1,5 +1,5 @@
 # PHA-07B B2 — SAV10 / E0V10 Independent Auditor Static QA
-**Date: 2026-10-14 | 19 / 19 STATIC assertions PASS | Installed GAS API execution: NOT RUN**
+**Date: 2026-10-14 | 20 / 20 STATIC assertions PASS | Installed GAS API execution: NOT RUN**
 
 ## Source pin / verification
 - Expected source reference: `e2e-attestation/SAV10_SOURCE_REFERENCE_V1.json` from source commit `51fb7a0cd68927eb1a263f1edb8c421d40defd83`.
@@ -7,7 +7,7 @@
 - All seven candidate source entries have *canonical SHA-256* digests. The >1MB `Index.html` was read via the GitHub content-fetch path and hashed in full; no empty HTML digest was accepted.
 - Hashing procedure was checked independently against standard SHA-256 `abc` test vector before pinning the seven digests.
 
-## 19 / 19 code static QA assertions
+## 20 / 20 code static QA assertions
 1. Reference has exactly seven source files.
 2. Reference HTML digest is non-empty.
 3. All seven expected hashes are compiled into the independent source attestor.
@@ -27,6 +27,7 @@
 17. Auditor's Sheets scope is read-only.
 18. Auditor has no `doGet`, `doPost`, or trigger installer.
 19. Auditor includes no literal client secret, private key or production Gemini API key.
+20. Full-grid reads include row/column dimension metadata and record their per-sheet integrity fingerprints.
 
 ## Live metadata pre-scan (not an E0 snapshot)
 - Rechecked via connected Drive metadata and folder listing: isolated spreadsheet has 12 exact expected tabs; owner-only permission metadata for workbook, upload folder, evidence folder; upload root was empty. See `e2e-attestation/PRE_E0_METADATA_OBSERVATION_2026-10-14.json`.
