@@ -109,13 +109,9 @@ function e0v10GridChunk_(sheet,startRow,endRow,colCount) {
   var id=E0V10_POLICY_.DB;
   var title=String(sheet.properties.title).replace(/'/g,"''");
   var range="'"+title+"'!A"+(startRow+1)+":"+e0v10ColumnLetter_(colCount)+endRow;
-  var fields=[
-    'spreadsheetId',
-    'sheets(properties(sheetId,title),data(startRow,startColumn,rowData(values(',
-    'userEnteredValue,effectiveValue,formattedValue,userEnteredFormat,effectiveFormat,',
-    'note,dataValidation,hyperlink,textFormatRuns,chipRuns',
-    '))))'
-  ].join('');
+  var fields='spreadsheetId,sheets(properties(sheetId,title),data(startRow,startColumn,' +
+    'rowData(values(userEnteredValue,effectiveValue,formattedValue,userEnteredFormat,' +
+    'effectiveFormat,note,dataValidation,hyperlink,textFormatRuns,chipRuns))))';
   var resource=sav10ApiGet_(
     'https://sheets.googleapis.com/v4/spreadsheets/'+encodeURIComponent(id)+
     '?ranges='+encodeURIComponent(range)+'&fields='+encodeURIComponent(fields),
