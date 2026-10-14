@@ -1,0 +1,84 @@
+{
+  "schema": "PHA07B2_B2_PRE_E0_METADATA_OBSERVATION_V1",
+  "dateObserved": "2026-10-14",
+  "source": "connected Google Drive metadata and direct folder listing; does NOT include installed Apps Script source or full typed cell state",
+  "status": "PRE_E0_METADATA_CHECK_PASS_E0_NOT_CAPTURED",
+  "staging": {
+    "spreadsheetId": "1A4lzft_uV0hwCYroJnyNFIwx-WBzuQyvoIpFtKfDkic",
+    "sheetCount": 12,
+    "sheets": [
+      "MULAI_DI_SINI",
+      "SKENARIO_B0",
+      "Rekap_Kinerja",
+      "Index_Laporan",
+      "Index_Laporan_Sync_Queue",
+      "Disposisi_Surat",
+      "Disposisi_Penerima",
+      "Audit_Log",
+      "Disposisi_Log",
+      "EVENT_JOURNAL_B0",
+      "Data_Pegawai",
+      "Disposisi_Petugas"
+    ],
+    "parents": [
+      "1VWyLFAAC-E3C_XVc95UJnxDoPU2aCrpt"
+    ],
+    "shared": false,
+    "permissionsObserved": [
+      {
+        "type": "user",
+        "role": "owner"
+      }
+    ]
+  },
+  "upload": {
+    "folderId": "1SbkHmLXkCEPUqow8YtVpZqW7jS7yGJy0",
+    "parents": [
+      "1VWyLFAAC-E3C_XVc95UJnxDoPU2aCrpt"
+    ],
+    "shared": false,
+    "permissionsObserved": [
+      {
+        "type": "user",
+        "role": "owner"
+      }
+    ],
+    "directFilesObserved": 0,
+    "listing": "{\"files\":[]}"
+  },
+  "evidence": {
+    "folderId": "1x0CKHFGQ9rEXWTb_2BMtnqp7bO--pnrG",
+    "parents": [
+      "0AIHNAu557L5oUk9PVA"
+    ],
+    "shared": false,
+    "permissionsObserved": [
+      {
+        "type": "user",
+        "role": "owner"
+      }
+    ]
+  },
+  "sourceAttestation": {
+    "referenceCommit": "51fb7a0cd68927eb1a263f1edb8c421d40defd83",
+    "expectedFileCount": 7,
+    "referenceManifest": "e2e-attestation/SAV10_SOURCE_REFERENCE_V1.json",
+    "status": "NOT_TESTED_INSTALLED_SOURCE"
+  },
+  "e0": {
+    "status": "NOT_CAPTURED",
+    "fullGridRead": false,
+    "savedEvidenceFileId": null
+  },
+  "writeGate": {
+    "stageWriteEnabled": false,
+    "webAppDeployed": false,
+    "productionReady": false,
+    "claimScope": "Based on previously reported preflight; current live Script Properties not independently read in this observation"
+  },
+  "notes": [
+    "Metadata alone does not qualify as E0.",
+    "The user should re-run current target E2E read-only preflight immediately prior to full E0 capture.",
+    "No stage workbook/Drive mutations were performed by this metadata observation."
+  ]
+}
