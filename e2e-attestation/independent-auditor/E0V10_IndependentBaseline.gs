@@ -218,7 +218,29 @@ function e0v10RunCaptureCore_() {
       sav10StableJson_(policy.EXPECTED_SHEETS.slice().sort()))
     throw new Error('E0_SHEET_NAMES_MISMATCH');
   var sheets=tabs.map(e0v10CaptureSheet_);
+  // Validate synthetic baseline fixture cardinalities independently of target runner.
+  var actualFixtureCounts = {};
+  var expectedFixtureCounts = {
+    Rekap_Kinerja:2,Index_Laporan:2,
+    Index_Laporan_Sync_Queue:0,Data_Pegawai:0
+  };
+  Object.keys(expectedFixtureCounts).forEach(function(name) {
+    var item=sheets.filter(function(sh){return sh.title===name;})[0];
+    if (!item) throw new Error('E0_REQUIRED_FIXTURE_SHEET_MISSING');
+    var occupied={};
+    item.cells.forEach(function(rec){
+      if (rec.row>0 && rec.cell && rec.cell.userEnteredValue!==undefined)
+        occupied[rec.row]=true;
+    });
+    actualFixtureCounts[name]=Object.keys(occupied).length;
+    if (actualFixtureCounts[name]!==expectedFixtureCounts[name])
+      throw new Error('E0_FIXTURE_COUNT_MISMATCH:'+name);
+  });
   var sentinelAfter=e0v10ReadSentinel_();
+  var metadataAfter=e0v10SheetsMetadata_();
+  if (sav10HexDigest_(sav10StableJson_(metadataAfter)) !==
+      sav10HexDigest_(sav10StableJson_(metadata)))
+    throw new Error('E0_SHEET_METADATA_CHANGED_DURING_CAPTURE');
   var dbAfter=e0v10DriveFileMeta_(policy.DB);
   var uploadAfter=e0v10DriveFileMeta_(policy.UPLOAD);
   var lastUpload=e0v10ListFolderAll_(policy.UPLOAD);
@@ -239,7 +261,7 @@ function e0v10RunCaptureCore_() {
       prior:approved, before:attBefore,after:attAfter,
       canonicalReferenceCommit:SAV10_POLICY_.REFERENCE_COMMIT
     },
-    sentinel:sentinelBefore,driveResources:{
+    sentinel:sentinelBefore,fixtureCounts:actualFixtureCounts,driveResources:{
       workbook:e0v10CompactDriveMeta_(dbBefore),
       upload:e0v10CompactDriveMeta_(upload),
       evidence:e0v10CompactDriveMeta_(evidence),
