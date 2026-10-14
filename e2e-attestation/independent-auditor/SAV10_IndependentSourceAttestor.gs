@@ -163,7 +163,9 @@ function sav10SavePrivateJson_(prefix, document) {
 }
 
 function sav10GetAuditorScriptIdV1() {
-  return {auditorScriptId:ScriptApp.getScriptId(), productionReady:false};
+  var id=ScriptApp.getScriptId();
+  console.log('SAV10_AUDITOR_SCRIPT_ID: '+id);
+  return {auditorScriptId:id, productionReady:false};
 }
 
 function sav10IndependentSourceAttestationV1() {
