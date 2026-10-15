@@ -1,12 +1,5 @@
 function doGet() {
-  var template = HtmlService.createTemplateFromFile('Index');
-  template.appVersion = APP_VERSION;
-
-  return template
-    .evaluate()
-    .setTitle('Portal Kinerja Minomartani')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no') // KUNCI PWA DI GOOGLE APPS SCRIPT
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+  throw new Error('RC8_STAGING_WEB_DISABLED_NO_DEPLOYMENT');
 }
 
 
@@ -553,15 +546,28 @@ function invalidasiRuntimeCutoffTunjangan_() {
 }
 
 function getSS_() {
-  if (PORTAL_RUNTIME_CACHE_.spreadsheet) return PORTAL_RUNTIME_CACHE_.spreadsheet;
-
-  var sheetId = (portalScriptProperties_().getProperty("SPREADSHEET_ID") || "").trim();
-  if (!sheetId) {
-    throw new Error("Konfigurasi SPREADSHEET_ID belum diatur di Script Properties. Aplikasi diblokir untuk mencegah salah target database.");
+  // RC8.2 ISOLATED STAGING: compile-time allowlist, no alternate databases.
+  if (typeof RC82_STAGE_ === 'undefined') throw new Error('RC82_MODULE_REQUIRED');
+  var allowed='1mpk7JAZo1fqUV7bYfJIYoYKHIoJTD_tGumtFQnQyagU';
+  var p=PropertiesService.getScriptProperties();
+  if(p.getProperty('RC82_STAGING_MODE')!=='true' ||
+     String(p.getProperty('SPREADSHEET_ID')||'').trim()!==allowed ||
+     p.getProperty('RC81_STAGING_MODE')==='true' || p.getProperty('RC8_STAGING_MODE')==='true')
+    throw new Error('RC82_STAGING_MODE_OR_DATABASE_INVALID');
+  if (PORTAL_RUNTIME_CACHE_.spreadsheet) {
+    if(PORTAL_RUNTIME_CACHE_.spreadsheet.getId()!==allowed)
+      throw new Error('RC82_CACHED_DATABASE_MISMATCH');
+    return PORTAL_RUNTIME_CACHE_.spreadsheet;
   }
-
-  PORTAL_RUNTIME_CACHE_.spreadsheet = SpreadsheetApp.openById(sheetId);
-  return PORTAL_RUNTIME_CACHE_.spreadsheet;
+  var ss=SpreadsheetApp.openById(allowed);
+  if(ss.getId()!==allowed) throw new Error('RC82_OPENED_WRONG_DATABASE');
+  var marker=ss.getSheetByName('MULAI_DI_SINI');
+  if(!marker || String(marker.getRange('A5').getValue())!=='STAGE_RC82_SUBMIT_IDENTITY_HARDENING' ||
+     String(marker.getRange('A8').getValue())!=='RC82_IDENTITY_HARDENING_WRITES_OPTIN_ONLY' ||
+     String(marker.getRange('B16').getValue())!==allowed)
+    throw new Error('RC82_WORKBOOK_SENTINEL_INVALID');
+  PORTAL_RUNTIME_CACHE_.spreadsheet=ss;
+  return ss;
 }
 
 function getSheet_(name) {
@@ -6182,6 +6188,15 @@ function simpanDataKinerja(paket, token) {
     var errorAwal = validasiRequestAwalSubmitKinerja_(ctx, paket, token);
     if (errorAwal) return errorAwal;
 
+    // RC8.2: client-supplied name/role are NEVER the authority for approval or points.
+    // Reject a forged identity BEFORE nonce reservation, upload, scoring, or persistence.
+    var errorIdentitas = validasiIdentitasSubmitKinerjaSesi_(ctx, paket);
+    if (errorIdentitas) return errorIdentitas;
+    paket = Object.assign({}, paket, {
+      nama: String(ctx.pegawaiUser.nama).trim(),
+      jabatan: String(ctx.pegawaiUser.jabatan).trim()
+    });
+
     var errorNonce = pasangSubmitNonceInFlight_(ctx);
     if (errorNonce) return errorNonce;
 
@@ -6205,7 +6220,7 @@ function simpanDataKinerja(paket, token) {
     draft.urlDasar = uploadDokumenDasarSubmitKinerja_(paket, ctx, draft, uploader);
     draft.narasiUntukAI = batasiNarasiAISubmitKinerja_(draft.narasiUntukAI);
 
-    var evaluasi = hitungEvaluasiAwalSubmitKinerja_(paket, draft.kategoriSheet);
+    var evaluasi = hitungEvaluasiAwalSubmitKinerja_(paket, draft.kategoriSheet, ctx.pegawaiUser);
     var baris = buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi);
 
     var hasilSimpan = simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, baris);
@@ -6271,6 +6286,39 @@ function isPaketLaporanWajibPasal33_(paket) {
   }
 }
 // ===== END PATCH_PASAL33_CUTOFF_BYPASS_BACKEND =====
+
+/**
+ * RC8.2 security boundary: values shown in client forms are untrusted.
+ * Canonical normalization is used only for comparison; the authoritative
+ * identity from the signed session is subsequently used for all calculations
+ * and persistence.
+ */
+function normalisasiIdentitasSubmitKinerjaSesi_(value) {
+  if (typeof value !== "string") return "";
+  return value.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("id-ID");
+}
+
+function validasiIdentitasSubmitKinerjaSesi_(ctx, paket) {
+  var user = ctx && ctx.pegawaiUser;
+  if (!ctx || !ctx.idUser || !user || !idsEqual_(user.id, ctx.idUser) ||
+      !statusPegawaiAktif_(user.status)) {
+    return "❌ GAGAL: Identitas akun sesi tidak valid. Silakan login kembali.";
+  }
+  if (!paket || typeof paket !== "object" ||
+      typeof paket.nama !== "string" || typeof paket.jabatan !== "string" ||
+      typeof user.nama !== "string" || typeof user.jabatan !== "string" ||
+      !normalisasiIdentitasSubmitKinerjaSesi_(user.nama) ||
+      !normalisasiIdentitasSubmitKinerjaSesi_(user.jabatan)) {
+    return "❌ GAGAL: Identitas nama/jabatan tidak valid. Muat ulang halaman.";
+  }
+  if (normalisasiIdentitasSubmitKinerjaSesi_(paket.nama) !==
+        normalisasiIdentitasSubmitKinerjaSesi_(user.nama) ||
+      normalisasiIdentitasSubmitKinerjaSesi_(paket.jabatan) !==
+        normalisasiIdentitasSubmitKinerjaSesi_(user.jabatan)) {
+    return "❌ GAGAL: Identitas nama/jabatan tidak sesuai dengan akun yang sedang login. Muat ulang halaman.";
+  }
+  return "";
+}
 
 function validasiRequestAwalSubmitKinerja_(ctx, paket, token) {
   ctx.idUser = validasiSession(token);
@@ -6688,9 +6736,12 @@ function batasiNarasiAISubmitKinerja_(narasiUntukAI) {
   return narasiUntukAI;
 }
 
-function hitungEvaluasiAwalSubmitKinerja_(paket, kategoriSheet) {
+function hitungEvaluasiAwalSubmitKinerja_(paket, kategoriSheet, pegawaiUser) {
+  if (!pegawaiUser || typeof pegawaiUser.jabatan !== "string" || !pegawaiUser.jabatan.trim()) {
+    throw new Error("SUBMIT_SESSION_JABATAN_MISSING");
+  }
   var parsed = { poin: 0, alasan: "Evaluasi Manual", deskripsi_baku: paket.deskripsi || "" };
-  var jLow = paket.jabatan.toLowerCase();
+  var jLow = pegawaiUser.jabatan.trim().toLowerCase();
   var hasilKalkulasi = kalkulasiPoinKinerja_(paket, kategoriSheet, jLow);
   parsed.poin = hasilKalkulasi.poin;
   parsed.alasan = hasilKalkulasi.alasan;
@@ -6877,7 +6928,7 @@ function buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi) {
   var disposisiRef = draft.disposisiRef;
 
   var barisBaru = [
-    waktuSekarang, sanitizeForSheet_(paket.nama), sanitizeForSheet_(paket.jabatan), sanitizeForSheet_(draft.kategoriSheet),
+    waktuSekarang, sanitizeForSheet_(ctx.pegawaiUser.nama), sanitizeForSheet_(ctx.pegawaiUser.jabatan), sanitizeForSheet_(draft.kategoriSheet),
     sanitizeForSheet_(parsed.deskripsi_baku), urlVisualFinal, parsed.poin, sanitizeForSheet_(parsed.alasan),
     evaluasi.statusAwal, parsed.poin, sanitizeForSheet_(draft.dasarKegiatan), draft.urlDasar, sanitizeForSheet_(draft.namaKegiatan),
     sanitizeForSheet_(draft.tanggalKegiatan), sanitizeForSheet_(draft.lokasiKegiatan), sanitizeForSheet_(draft.penyelenggaraKeg),
@@ -20353,40 +20404,12 @@ function queueDedupKeyIndexLaporan2B1_(item) {
   return INDEX_LAPORAN_2B1_CONFIG.DEDUP_CACHE_PREFIX + hex;
 }
 
-function antrekanPerbaikanIndexLaporan2B1_(item, error) {
-  item = item || {};
-  try {
-    var cache = CacheService.getScriptCache();
-    var dedupKey = queueDedupKeyIndexLaporan2B1_(item);
-    if (cache.get(dedupKey)) return { sukses: true, duplikat: true };
-    cache.put(dedupKey, '1', 600);
-
-    var sh = ensureIndexSyncQueueSheet2B1_();
-    sh.appendRow([
-      Utilities.getUuid(), new Date(), String(item.operation || 'ROW'), Number(item.rowRekap || 0),
-      normalizeId_(item.idLaporan), normalizeId_(item.idUser), String(item.nonce || ''),
-      String(item.context || ''), 0, 'PENDING', String(error && error.message ? error.message : error || ''), ''
-    ]);
-    return { sukses: true, duplikat: false };
-  } catch (queueError) {
-    Logger.log('GAGAL MENULIS QUEUE INDEX 2B1: ' + (queueError && queueError.message ? queueError.message : queueError));
-    return { sukses: false, pesan: String(queueError && queueError.message ? queueError.message : queueError) };
-  }
+function antrekanPerbaikanIndexLaporan2B1_(item,error) {
+  return rc7AntrekanPerbaikanIndexLaporan2B1_(item,error);
 }
 
-function sinkronkanSatuRowIndexLaporan2B1_(rowRekap, context, options) {
-  options = options || {};
-  try {
-    return sinkronkanSatuRowIndexLaporan2B1Internal_(rowRekap, context, !!options.force);
-  } catch (e) {
-    if (!options.noQueue) {
-      antrekanPerbaikanIndexLaporan2B1_({
-        operation: 'ROW', rowRekap: rowRekap, context: context
-      }, e);
-    }
-    Logger.log('DUAL-WRITE INDEX GAGAL [' + String(context || '') + '] row ' + rowRekap + ': ' + (e && e.message ? e.message : e));
-    return { sukses: false, rowRekap: Number(rowRekap || 0), pesan: String(e && e.message ? e.message : e) };
-  }
+function sinkronkanSatuRowIndexLaporan2B1_(rowRekap,context,options) {
+  return rc7SinkronkanSatuRowIndexLaporan2B1_(rowRekap,context,options);
 }
 
 function sinkronkanIndexLaporanById2B1_(idLaporan, context, options) {
@@ -20439,67 +20462,11 @@ function tandaiPerluRebuildIndexLaporan2B1_(context, detail) {
 }
 
 function hitungStatusQueueIndexLaporan2B1_() {
-  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B1_CONFIG.QUEUE_SHEET_NAME);
-  var out = { total: 0, pending: 0, selesai: 0, gagal: 0, perluRebuild: 0 };
-  if (!sh || sh.getLastRow() < 2) return out;
-  var data = sh.getRange(2, 1, sh.getLastRow() - 1, INDEX_LAPORAN_2B1_CONFIG.QUEUE_HEADERS.length).getValues();
-  out.total = data.length;
-  for (var i = 0; i < data.length; i++) {
-    var op = String(data[i][2] || '');
-    var st = String(data[i][9] || '').toUpperCase();
-    if (op === 'FULL_REBUILD' && st !== 'DONE') out.perluRebuild++;
-    if (st === 'PENDING' || st === 'RETRY') out.pending++;
-    else if (st === 'DONE') out.selesai++;
-    else if (st === 'FAILED' || st === 'NEED_REBUILD') out.gagal++;
-  }
-  return out;
+  return rc7HitungStatusQueueIndexLaporan2B1_();
 }
 
 function prosesAntreanPerbaikanIndexLaporan2B1(limit) {
-  pastikanPemilikDatabaseIndexLaporan2B0_();
-  limit = Math.max(1, Math.min(Number(limit || INDEX_LAPORAN_2B1_CONFIG.QUEUE_PROCESS_LIMIT_DEFAULT), 200));
-  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B1_CONFIG.QUEUE_SHEET_NAME);
-  if (!sh || sh.getLastRow() < 2) return { sukses: true, diproses: 0, selesai: 0, gagal: 0, pesan: 'Queue kosong.' };
-
-  var width = INDEX_LAPORAN_2B1_CONFIG.QUEUE_HEADERS.length;
-  var data = sh.getRange(2, 1, sh.getLastRow() - 1, width).getValues();
-  var diproses = 0, selesai = 0, gagal = 0, needRebuild = 0;
-  for (var i = 0; i < data.length && diproses < limit; i++) {
-    var status = String(data[i][9] || '').toUpperCase();
-    var attempts = Number(data[i][8] || 0);
-    if (!(status === 'PENDING' || status === 'RETRY' || status === 'FAILED')) continue;
-    if (attempts >= INDEX_LAPORAN_2B1_CONFIG.QUEUE_MAX_ATTEMPTS) continue;
-
-    diproses++;
-    var operation = String(data[i][2] || 'ROW');
-    var res = null;
-    if (operation === 'FULL_REBUILD') {
-      needRebuild++;
-      sh.getRange(i + 2, 9, 1, 4).setValues([[attempts + 1, 'NEED_REBUILD', 'Nonaktifkan dual-write lalu jalankan bangunUlangIndexLaporan2B0() secara manual.', new Date()]]);
-      continue;
-    }
-
-    if (operation === 'ROW') {
-      res = sinkronkanSatuRowIndexLaporan2B1_(Number(data[i][3] || 0), String(data[i][7] || 'QUEUE'), { force: true, noQueue: true });
-    } else if (operation === 'BY_ID') {
-      res = sinkronkanIndexLaporanById2B1_(data[i][4], String(data[i][7] || 'QUEUE'), { force: true, noQueue: true });
-    } else if (operation === 'BY_NONCE') {
-      res = sinkronkanIndexLaporanByNonce2B1_(data[i][5], data[i][6], String(data[i][7] || 'QUEUE'), { force: true, noQueue: true });
-    } else {
-      res = { sukses: false, pesan: 'Operation queue tidak dikenal: ' + operation };
-    }
-
-    if (res && res.sukses) {
-      selesai++;
-      sh.getRange(i + 2, 9, 1, 4).setValues([[attempts + 1, 'DONE', '', new Date()]]);
-    } else {
-      gagal++;
-      var nextStatus = attempts + 1 >= INDEX_LAPORAN_2B1_CONFIG.QUEUE_MAX_ATTEMPTS ? 'FAILED' : 'RETRY';
-      sh.getRange(i + 2, 9, 1, 4).setValues([[attempts + 1, nextStatus, String(res && res.pesan ? res.pesan : 'Sinkronisasi gagal.'), new Date()]]);
-    }
-  }
-
-  return { sukses: gagal === 0, diproses: diproses, selesai: selesai, gagal: gagal, perluRebuild: needRebuild, queue: hitungStatusQueueIndexLaporan2B1_() };
+  return rc7ProsesAntreanPerbaikanIndexLaporan2B1_(limit);
 }
 
 function ujiSinkronisasiBarisTerakhirIndexLaporan2B1() {
