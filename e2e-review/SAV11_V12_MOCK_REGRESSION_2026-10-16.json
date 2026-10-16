@@ -1,0 +1,158 @@
+{
+  "schema": "PHA07B2_B2_SAV11_V12_AUDITOR_MOCK_REGRESSION",
+  "date": "2026-10-16",
+  "timeZone": "Asia/Jakarta",
+  "executionType": "IN_MEMORY_GOOGLE_SERVICE_MOCKS_NOT_CONNECTED_TO_LIVE_APPS_SCRIPT",
+  "sourceReferenceCommit": "b865d6c830e215cc062e553b33db5bb866db95dc",
+  "auditorVersion": "PHA07B2-B2-SAV11-2026.10.16.2",
+  "tests": 15,
+  "pass": 15,
+  "fail": 0,
+  "scenarios": [
+    {
+      "id": "VALID_EIGHT_FILES",
+      "expectedStatus": "SAV11_SOURCE_MATCH_PASS",
+      "actualStatus": "SAV11_SOURCE_MATCH_PASS",
+      "pass": true,
+      "mockEvidenceCreated": 1,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 4
+    },
+    {
+      "id": "CANONICAL_EOL_ONLY",
+      "expectedStatus": "SAV11_SOURCE_MATCH_PASS",
+      "actualStatus": "SAV11_SOURCE_MATCH_PASS",
+      "pass": true,
+      "mockEvidenceCreated": 1,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 4
+    },
+    {
+      "id": "MANIFEST_JSON_KEY_REORDER",
+      "expectedStatus": "SAV11_SOURCE_MATCH_PASS",
+      "actualStatus": "SAV11_SOURCE_MATCH_PASS",
+      "pass": true,
+      "mockEvidenceCreated": 1,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 4
+    },
+    {
+      "id": "TAMPER_KODE",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 2
+    },
+    {
+      "id": "SECOND_READ_TAMPER",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 4
+    },
+    {
+      "id": "EXTRA_FILE",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 2
+    },
+    {
+      "id": "MISSING_FILE",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 2
+    },
+    {
+      "id": "WRONG_TYPE",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 2
+    },
+    {
+      "id": "WRONG_TITLE",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 2
+    },
+    {
+      "id": "API_403",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 1
+    },
+    {
+      "id": "AUDITOR_EQUALS_TARGET",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 0
+    },
+    {
+      "id": "EVIDENCE_FOLDER_NONPRIVATE",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 0,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 4
+    },
+    {
+      "id": "EVIDENCE_FILE_PUBLIC",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 1,
+      "mockRollbackCount": 1,
+      "mockApiGetCount": 4
+    },
+    {
+      "id": "EVIDENCE_READBACK_TAMPER",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 1,
+      "mockRollbackCount": 1,
+      "mockApiGetCount": 4
+    },
+    {
+      "id": "EVIDENCE_ROLLBACK_FAIL",
+      "expectedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "actualStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "pass": true,
+      "mockEvidenceCreated": 1,
+      "mockRollbackCount": 0,
+      "mockApiGetCount": 4
+    }
+  ],
+  "caveats": [
+    "Source hash stub used pinned manifest for source-normalized strings; independent real GitHub-source SHA256 checked separately using SHA-256 implementation with published abc and empty-string vectors.",
+    "Evidence object writes/rollbacks occurred only inside fake DriveApp stubs; no actual Drive file created by mock tests.",
+    "A mocked PASS is not SAV11_SOURCE_MATCH_PASS on the installed Apps Script project.",
+    "Mock mismatch coverage is not an Apps Script syntax/permission/ACL test."
+  ],
+  "actualInstalledSourceAttestation": "NOT_EXECUTED",
+  "liveEvidenceWrites": 0,
+  "webAppDeploymentApproved": false,
+  "productionReady": false
+}
