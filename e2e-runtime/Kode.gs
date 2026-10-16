@@ -210,7 +210,7 @@ function cariJabatanRole_(jabatan) {
 // 1. Update APP_VERSION above if you made changes to constants
 // 2. Deploy as new version in Google Apps Script
 // 3. Run initialization functions from Script Editor:
-//    → Run: maintenanceInitializeAppConstants3B0()
+//    → Run: maintenanceInitializeAppConstants3B0_()
 //    → This saves all constants to PropertiesService
 //    → Run: maintenanceRefreshMasterTunjanganV03()  [tarif v0.3]
 //    → This pre-caches Master Tunjangan data for performance
@@ -245,7 +245,7 @@ function initializeAppConstantsInternal3B0_() {
     Logger.log("✅ App constants initialized successfully at: " + new Date().toString());
     return { sukses: true, pesan: "Constants initialized", timestamp: new Date().toString() };
   } catch (e) {
-    return handleError_("initializeAppConstants", e, { sukses: false, pesan: "" });
+    return handleError_("initializeAppConstants_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -293,7 +293,7 @@ function ambilConstantsAplikasi_() {
       timestamp: new Date().toString()
     };
   } catch (e) {
-    return handleError_("ambilConstantsAplikasi", e, {
+    return handleError_("ambilConstantsAplikasi_", e, {
       sukses: false,
       pesan: "",
       data: mergeKonstantaAplikasi3B0_(JSON.parse(JSON.stringify(APP_SHARED_DEFAULTS || {})), { APP_VERSION: APP_VERSION })
@@ -414,7 +414,7 @@ function maintenanceStatusPortal3B0_() {
     Logger.log(JSON.stringify(result, null, 2));
     return result;
   } catch (e) {
-    return handleError_("maintenanceStatusPortal3B0", e, { sukses: false, pesan: "" });
+    return handleError_("maintenanceStatusPortal3B0_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -428,7 +428,7 @@ function maintenanceInitializeAppConstants3B0_() {
     return result;
   } catch (e) {
     catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
-    return handleError_("maintenanceInitializeAppConstants3B0", e, { sukses: false, pesan: "" });
+    return handleError_("maintenanceInitializeAppConstants3B0_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -442,7 +442,7 @@ function maintenanceSiapkanKolomKeamananPin3B0_() {
     return result;
   } catch (e) {
     catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
-    return handleError_("maintenanceSiapkanKolomKeamananPin3B0", e, { sukses: false, pesan: "" });
+    return handleError_("maintenanceSiapkanKolomKeamananPin3B0_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -456,7 +456,7 @@ function maintenanceSiapkanKolomDetailRekap3B0_() {
     return result;
   } catch (e) {
     catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
-    return handleError_("maintenanceSiapkanKolomDetailRekap3B0", e, { sukses: false, pesan: "" });
+    return handleError_("maintenanceSiapkanKolomDetailRekap3B0_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -470,19 +470,19 @@ function maintenancePerbaikiPeriodeTunjangan3B0_() {
     return result;
   } catch (e) {
     catatMaintenancePortal3B0_(ctx, "FAILED", getInternalErrorMessage_(e));
-    return handleError_("maintenancePerbaikiPeriodeTunjangan3B0", e, { sukses: false, pesan: "" });
+    return handleError_("maintenancePerbaikiPeriodeTunjangan3B0_", e, { sukses: false, pesan: "" });
   }
 }
 
 // Compatibility stubs: nama lama tetap ada agar pemanggilan lama gagal secara
 // jelas, tetapi tidak lagi mempunyai side effect.
-function initializeAppConstants_() { return hasilEndpointMaintenanceDiblokir3B0_("initializeAppConstants"); }
-function siapkanKolomKeamananPinPegawai_() { return hasilEndpointMaintenanceDiblokir3B0_("siapkanKolomKeamananPinPegawai"); }
-function siapkanKolomDetailFormRekapKinerja_() { return hasilEndpointMaintenanceDiblokir3B0_("siapkanKolomDetailFormRekapKinerja"); }
-function perbaikiKolomPeriodeTunjangan_() { return hasilEndpointMaintenanceDiblokir3B0_("perbaikiKolomPeriodeTunjangan"); }
-function logAudit_() { return hasilEndpointMaintenanceDiblokir3B0_("logAudit"); }
-function logAI_() { return hasilEndpointMaintenanceDiblokir3B0_("logAI"); }
-function dapatkanAtauBuatFolder_() { return hasilEndpointMaintenanceDiblokir3B0_("dapatkanAtauBuatFolder"); }
+function initializeAppConstants_() { return hasilEndpointMaintenanceDiblokir3B0_("initializeAppConstants_"); }
+function siapkanKolomKeamananPinPegawai_() { return hasilEndpointMaintenanceDiblokir3B0_("siapkanKolomKeamananPinPegawai_"); }
+function siapkanKolomDetailFormRekapKinerja_() { return hasilEndpointMaintenanceDiblokir3B0_("siapkanKolomDetailFormRekapKinerja_"); }
+function perbaikiKolomPeriodeTunjangan_() { return hasilEndpointMaintenanceDiblokir3B0_("perbaikiKolomPeriodeTunjangan_"); }
+function logAudit_() { return hasilEndpointMaintenanceDiblokir3B0_("logAudit_"); }
+function logAI_() { return hasilEndpointMaintenanceDiblokir3B0_("logAI_"); }
+function dapatkanAtauBuatFolder_() { return hasilEndpointMaintenanceDiblokir3B0_("dapatkanAtauBuatFolder_"); }
 // ===== END TAHAP 3B-0 =====
 
 
@@ -715,7 +715,7 @@ function refreshCacheRekapKinerjaReadOnly_(token) {
     var data = getRekapKinerjaValuesReadOnly_();
     return { sukses: true, pesan: "Cache read-only Rekap_Kinerja berhasil diperbarui.", jumlahBaris: data ? data.length : 0 };
   } catch (e) {
-    return handleError_("refreshCacheRekapKinerjaReadOnly", e, { sukses: false, pesan: "" });
+    return handleError_("refreshCacheRekapKinerjaReadOnly_", e, { sukses: false, pesan: "" });
   }
 }
 // ===== END CACHE READ-ONLY REKAP_KINERJA =====
@@ -845,7 +845,7 @@ function refreshDataPegawaiCache_(token) {
 
     return { sukses: true, pesan: "Cache berhasil diperbarui. Jumlah pegawai: " + (data.length - 1) };
   } catch (e) {
-    return handleError_("refreshDataPegawaiCache", e, { sukses: false, pesan: "" });
+    return handleError_("refreshDataPegawaiCache_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -1226,7 +1226,7 @@ function cekSessionAktif_(token) {
     }
     return result;
   } catch (e) {
-    return handleError_('cekSessionAktif', e, {
+    return handleError_('cekSessionAktif_', e, {
       sukses: false,
       sessionExpired: false,
       pesan: 'Sesi belum dapat diverifikasi. Silakan coba lagi.'
@@ -1712,7 +1712,7 @@ function cekNotifikasiLaporanWajib_(token) {
       persenProdHak: Number(hak.persenProdHak || 0)
     };
   } catch (e) {
-    return handleError_("cekNotifikasiLaporanWajib", e, {
+    return handleError_("cekNotifikasiLaporanWajib_", e, {
       sukses: false,
       aktif: false,
       pesan: ""
@@ -1961,7 +1961,7 @@ function pesanErrorStringAman_(functionName, error, prefix) {
   return (prefix || "") + sanitasiPesanErrorUntukUser_(getInternalErrorMessage_(error), errorId);
 }
 
-function handleError(functionName, error, defaultReturn) {
+function handleError_(functionName, error, defaultReturn) {
   var errorId = buatErrorIdAman_();
   catatErrorInternal_(functionName, error, errorId);
 
@@ -2044,7 +2044,7 @@ function dapatkanAtauBuatFolder_(parentFolder, namaFolder) {
   return folder;
 }
 
-function parseTanggal(val) {
+function parseTanggal_(val) {
   if (val instanceof Date) {
     return isNaN(val.getTime()) ? new Date(0) : val;
   }
@@ -2379,16 +2379,16 @@ function getDaftarPegawaiAktifUntukDisposisiInternal_() {
   return list;
 }
 
-function ambilDaftarPegawaiAktifUntukDisposisi(token) {
+function ambilDaftarPegawaiAktifUntukDisposisi_(token) {
   try {
-    var idUser = validasiSession(token);
+    var idUser = validasiSession_(token);
     if (!idUser) return { sukses: false, pesan: "Sesi habis. Silakan login ulang.", data: [] };
     if (!cekHakAksesDisposisiModul_(idUser)) {
       return { sukses: false, pesan: "Akses ditolak. Hanya Lurah dan Operator Disposisi aktif.", data: [] };
     }
     return { sukses: true, data: getDaftarPegawaiAktifUntukDisposisiInternal_() };
   } catch (e) {
-    return handleError("ambilDaftarPegawaiAktifUntukDisposisi", e, { sukses: false, pesan: "", data: [] });
+    return handleError_("ambilDaftarPegawaiAktifUntukDisposisi_", e, { sukses: false, pesan: "", data: [] });
   }
 }
 
@@ -2563,7 +2563,7 @@ function parseJamCutoffTunjangan_(jamCutoff) {
 }
 
 function formatTanggalJamISO_(val) {
-  var d = parseTanggal(val);
+  var d = parseTanggal_(val);
   if (!(d instanceof Date) || isNaN(d.getTime())) return "";
   return Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd HH:mm:ss");
 }
@@ -2600,7 +2600,7 @@ function buildDefaultDateRangeFromPeriode_(periode) {
 }
 
 function formatTanggalISO_(val) {
-  var d = parseDateOnly_(val) || parseTanggal(val);
+  var d = parseDateOnly_(val) || parseTanggal_(val);
   if (!(d instanceof Date) || isNaN(d.getTime())) return "";
   return Utilities.formatDate(d, "GMT+7", "yyyy-MM-dd");
 }
@@ -2612,7 +2612,7 @@ function formatTanggalJamClient_(val) {
   if (val instanceof Date && !isNaN(val.getTime())) {
     d = val;
   } else {
-    d = parseTanggal(val);
+    d = parseTanggal_(val);
   }
 
   if (d instanceof Date && !isNaN(d.getTime())) {
@@ -2623,7 +2623,7 @@ function formatTanggalJamClient_(val) {
 }
 
 function jamDariTanggalCutoff_(tanggalCutoff, fallbackJam) {
-  var d = parseTanggal(tanggalCutoff);
+  var d = parseTanggal_(tanggalCutoff);
   if (d instanceof Date && !isNaN(d.getTime())) {
     return Utilities.formatDate(d, "GMT+7", "HH:mm:ss");
   }
@@ -2745,7 +2745,7 @@ function ambilCutoffTunjanganPeriode_(periode) {
  */
 
 function periodeDariTanggalLaporan_(tanggalLaporan) {
-  var d = parseTanggal(tanggalLaporan);
+  var d = parseTanggal_(tanggalLaporan);
   if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) return "";
   return Utilities.formatDate(d, "GMT+7", "yyyy-MM");
 }
@@ -2759,7 +2759,7 @@ function periodeDariTanggalLaporan_(tanggalLaporan) {
  */
 
 function evaluasiCutoffLaporan_(tanggalLaporan) {
-  var d = parseTanggal(tanggalLaporan);
+  var d = parseTanggal_(tanggalLaporan);
   if (!(d instanceof Date) || isNaN(d.getTime()) || d.getTime() === 0) {
     return { valid: false, lewatCutoff: false, periode: "", meta: null };
   }
@@ -2809,13 +2809,13 @@ function gabungCatatanCutoff_(catatanLama, meta) {
 /**
  * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
  * Tanggal: 2026-06-03
- * Fungsi lama: aturCutoffTunjanganApril2026
+ * Fungsi lama: aturCutoffTunjanganApril2026_
  * Digantikan oleh definisi final pada baris asli ±9951.
  * Catatan: Fungsi historis April 2026; gunakan definisi terakhir yang aktif atau pindahkan ke LegacyMaintenance.
  * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
  */
 
-function aturCutoffTunjanganApril2026() {
+function aturCutoffTunjanganApril2026_() {
   pastikanMaintainerPortal3B0_('ATUR_CUTOFF_TUNJANGAN_APRIL_2026');
   var meta = simpanCutoffTunjanganPeriode_("2026-04", "2026-04-01", "2026-04-27", "18:13:40");
   Logger.log("Cut-off April 2026 disimpan: " + JSON.stringify({
@@ -2839,13 +2839,13 @@ function aturCutoffTunjanganApril2026() {
 /**
  * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
  * Tanggal: 2026-06-03
- * Fungsi lama: koreksiLaporanLewatCutoffApril2026
+ * Fungsi lama: koreksiLaporanLewatCutoffApril2026_
  * Digantikan oleh definisi final pada baris asli ±13894.
  * Catatan: Legacy koreksi massal cut-off April 2026; versi final menonaktifkan perubahan massal lama.
  * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
  */
 
-function koreksiLaporanLewatCutoffApril2026() {
+function koreksiLaporanLewatCutoffApril2026_() {
   return koreksiLaporanLewatCutoffPeriode_("2026-04", "2026-04-01", "2026-04-27", "18:13:40");
 }
 /**
@@ -2871,7 +2871,7 @@ function koreksiLaporanLewatCutoffPeriode_(periode, tanggalMulai, tanggalAkhir, 
     var sample = [];
 
     for (var i = 1; i < data.length; i++) {
-      var tglLap = parseTanggal(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
+      var tglLap = parseTanggal_(data[i][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime()) || tglLap.getTime() === 0) continue;
       if (Utilities.formatDate(tglLap, "GMT+7", "yyyy-MM") !== p) continue;
       if (!isTanggalDalamJedaCutoff_(tglLap, meta)) continue;
@@ -2926,7 +2926,7 @@ function koreksiLaporanLewatCutoffPeriode_(periode, tanggalMulai, tanggalAkhir, 
     Logger.log(JSON.stringify(hasil, null, 2));
     return hasil;
   } catch (e) {
-    return handleError("koreksiLaporanLewatCutoffPeriode", e, { sukses: false, pesan: "" });
+    return handleError_("koreksiLaporanLewatCutoffPeriode", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -3068,7 +3068,7 @@ function fingerprintBatchConsistencyTunjangan_(batch) {
     meta: meta,
     rows: parts
   });
-  return sha256Hex(raw);
+  return sha256Hex_(raw);
 }
 
 function cekLaporanMenungguReviewPeriodeTunjangan_(periode, meta) {
@@ -3431,7 +3431,7 @@ function nonaktifkanBatchAktifTunjangan_(periode) {
 
 function buatBatchIdTunjangan_(periode) {
   // Helper pembuat ID batch untuk Rekap_Tunjangan_Bulanan.
-  // Dibutuhkan oleh generateDraftTunjanganBulanan().
+  // Dibutuhkan oleh generateDraftTunjanganBulanan_().
   var p = normalizePeriode_(periode);
   var timestamp = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMddHHmmss");
   var randomPart = Utilities.getUuid().split("-")[0].toUpperCase();
@@ -3484,7 +3484,7 @@ function hitungRekapTunjanganPeriode_(periode, tanggalMulai, tanggalAkhir, jamCu
     ? buatKonteksCutoff3B04C1c_()
     : null);
   for (var r = 1; r < data.length; r++) {
-    var tglLap = parseTanggal(data[r][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
+    var tglLap = parseTanggal_(data[r][SHEET_COLUMNS.REKAP_KINERJA.TANGGAL_LAPORAN]);
     if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
     if (tglLap < window.start || tglLap >= window.end) continue;
     // Pertahanan terakhir: walau status/poin lama belum tersinkron, laporan
@@ -3760,17 +3760,17 @@ function buatRowsDraftTunjangan_(p, hasil, pembuatNama, batchId, now, isActive) 
   });
 }
 
-function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamCutoff, token) {
+function generateDraftTunjanganBulanan_(periode, tanggalMulai, tanggalAkhir, jamCutoff, token) {
   try {
     var requestConfig = (tanggalMulai && typeof tanggalMulai === "object" && !(tanggalMulai instanceof Date)) ? tanggalMulai : null;
     var modeKoreksi = !!(requestConfig && String(requestConfig.mode || "").toUpperCase() === "KOREKSI_BATCH");
 
-    // Kompatibilitas versi lama: generateDraftTunjanganBulanan(periode, mulai, akhir, token)
+    // Kompatibilitas versi lama: generateDraftTunjanganBulanan_(periode, mulai, akhir, token)
     if (typeof token === "undefined") {
       token = jamCutoff;
       jamCutoff = "";
     }
-    // Kompatibilitas versi sangat lama: generateDraftTunjanganBulanan(periode, akhir, token)
+    // Kompatibilitas versi sangat lama: generateDraftTunjanganBulanan_(periode, akhir, token)
     if (typeof token === "undefined") {
       token = tanggalAkhir;
       tanggalAkhir = tanggalMulai;
@@ -3780,9 +3780,9 @@ function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamC
       modeKoreksi = false;
     }
 
-    var idUser = validasiSession(token);
+    var idUser = validasiSession_(token);
     if (!idUser) return { sukses: false, pesan: "Sesi habis, silakan login ulang." };
-    if (!cekHakAksesCarikTunjangan(idUser)) return { sukses: false, pesan: "Akses ditolak. Hanya Carik yang dapat membuat draft." };
+    if (!cekHakAksesCarikTunjangan_(idUser)) return { sukses: false, pesan: "Akses ditolak. Hanya Carik yang dapat membuat draft." };
 
     var p = normalizePeriode_(periode);
     var batchAktif = getBatchAktifTunjangan_(p);
@@ -3872,7 +3872,7 @@ function generateDraftTunjanganBulanan(periode, tanggalMulai, tanggalAkhir, jamC
     logAuditTunjangan_(idUser, "GENERATE_DRAFT_TUNJANGAN", p, "", "", batchAktif ? batchAktif.status : "", TUNJANGAN_STATUS.DRAFT, "Batch: " + batchId + " | Pegawai: " + rows.length + " | Rentang: " + metaPeriode.tanggalMulaiPeriode + " s.d. " + metaPeriode.tanggalCutoff);
     return { sukses: true, pesan: "Draft tunjangan berhasil dibuat untuk periode pembayaran " + metaPeriode.labelPembayaran + " (" + metaPeriode.tanggalMulaiPeriode + " s.d. " + metaPeriode.tanggalCutoff + ").", jumlahPegawai: rows.length, batchId: batchId };
   } catch (e) {
-    return handleError("generateDraftTunjangan", e, { sukses: false, pesan: "" });
+    return handleError_("generateDraftTunjangan", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -3909,11 +3909,11 @@ function bangunPenandatanganTunjangan_() {
   return hasil;
 }
 
-function ambilRekapTunjanganBulanan(periode, token) {
+function ambilRekapTunjanganBulanan_(periode, token) {
   try {
-    var idUser = validasiSession(token);
+    var idUser = validasiSession_(token);
     if (!idUser) return { sukses: false, pesan: "Sesi habis, silakan login ulang.", rows: [] };
-    if (!cekHakAksesTunjangan(idUser)) return { sukses: false, pesan: "Akses ditolak.", rows: [] };
+    if (!cekHakAksesTunjangan_(idUser)) return { sukses: false, pesan: "Akses ditolak.", rows: [] };
 
     var p = normalizePeriode_(periode);
     var rows = getRowsBatchAktifTunjangan_(p);
@@ -3923,10 +3923,10 @@ function ambilRekapTunjanganBulanan(periode, token) {
         rows: [],
         summary: null,
         role: {
-          carik: cekHakAksesCarikTunjangan(idUser),
-          lurah: cekHakAksesLurahTunjangan(idUser),
-          bendahara: cekHakAksesBendaharaTunjangan(idUser),
-          admin: cekHakAksesAdmin(idUser)
+          carik: cekHakAksesCarikTunjangan_(idUser),
+          lurah: cekHakAksesLurahTunjangan_(idUser),
+          bendahara: cekHakAksesBendaharaTunjangan_(idUser),
+          admin: cekHakAksesAdmin_(idUser)
         }
       };
     }
@@ -4034,19 +4034,19 @@ function ambilRekapTunjanganBulanan(periode, token) {
       summary: summary,
       correction: correction,
       role: {
-        carik: cekHakAksesCarikTunjangan(idUser),
-        lurah: cekHakAksesLurahTunjangan(idUser),
-        bendahara: cekHakAksesBendaharaTunjangan(idUser),
-        admin: cekHakAksesAdmin(idUser)
+        carik: cekHakAksesCarikTunjangan_(idUser),
+        lurah: cekHakAksesLurahTunjangan_(idUser),
+        bendahara: cekHakAksesBendaharaTunjangan_(idUser),
+        admin: cekHakAksesAdmin_(idUser)
       }
     };
   } catch (e) {
-    return handleError("ambilRekapTunjanganBulanan", e, { sukses: false, pesan: "", rows: [] });
+    return handleError_("ambilRekapTunjanganBulanan_", e, { sukses: false, pesan: "", rows: [] });
   }
 }
 
 function updateBatchTunjanganStatus_(periode, token, config) {
-  var idUser = validasiSession(token);
+  var idUser = validasiSession_(token);
   if (!idUser) return { sukses: false, pesan: "Sesi habis, silakan login ulang." };
   var p = normalizePeriode_(periode);
   var batch = getBatchAktifTunjangan_(p);
@@ -4107,7 +4107,7 @@ function updateBatchTunjanganStatus_(periode, token, config) {
   return response;
 }
 
-function kunciDraftTunjanganBulanan(periode, input, token) {
+function kunciDraftTunjanganBulanan_(periode, input, token) {
   return twdbV10RunTransition_(periode, input, token, {
     stage: "KUNCI_DRAFT",
     previousResolver: function (batch) {
@@ -4116,7 +4116,7 @@ function kunciDraftTunjanganBulanan(periode, input, token) {
         : { columnIndex:SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIBUAT_PADA, label:"pembuatan batch" };
     },
     updateConfig: {
-      validator: cekHakAksesCarikTunjangan,
+      validator: cekHakAksesCarikTunjangan_,
       accessDenied: "Akses ditolak. Hanya Carik yang dapat mengunci draft.",
       allowedFrom: [TUNJANGAN_STATUS.DRAFT, TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH],
       toStatus: TUNJANGAN_STATUS.DIKUNCI_CARIK,
@@ -4128,13 +4128,13 @@ function kunciDraftTunjanganBulanan(periode, input, token) {
   });
 }
 
-function ajukanTunjanganKeLurah(periode, input, token) {
+function ajukanTunjanganKeLurah_(periode, input, token) {
   return twdbV10RunTransition_(periode, input, token, {
     stage: "AJUKAN_KE_LURAH",
     previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIKUNCI_PADA,
     previousLabel: "penguncian Carik",
     updateConfig: {
-      validator: cekHakAksesCarikTunjangan,
+      validator: cekHakAksesCarikTunjangan_,
       accessDenied: "Akses ditolak. Hanya Carik yang dapat mengajukan ke Lurah.",
       allowedFrom: [TUNJANGAN_STATUS.DIKUNCI_CARIK],
       toStatus: TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH,
@@ -4146,13 +4146,13 @@ function ajukanTunjanganKeLurah(periode, input, token) {
   });
 }
 
-function setujuiRekapTunjangan(periode, input, token) {
+function setujuiRekapTunjangan_(periode, input, token) {
   return twdbV10RunTransition_(periode, input, token, {
     stage: "SETUJUI_LURAH",
     previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIAJUKAN_PADA,
     previousLabel: "pengajuan ke Lurah",
     updateConfig: {
-      validator: cekHakAksesLurahTunjangan,
+      validator: cekHakAksesLurahTunjangan_,
       accessDenied: "Akses ditolak. Hanya Lurah yang dapat menyetujui rekap.",
       allowedFrom: [TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH],
       toStatus: TUNJANGAN_STATUS.DISETUJUI_LURAH,
@@ -4164,13 +4164,13 @@ function setujuiRekapTunjangan(periode, input, token) {
   });
 }
 
-function kembalikanRekapTunjangan(periode, input, token) {
+function kembalikanRekapTunjangan_(periode, input, token) {
   return twdbV10RunTransition_(periode, input, token, {
     stage: "KEMBALIKAN_LURAH",
     previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DIAJUKAN_PADA,
     previousLabel: "pengajuan ke Lurah",
     updateConfig: {
-      validator: cekHakAksesLurahTunjangan,
+      validator: cekHakAksesLurahTunjangan_,
       accessDenied: "Akses ditolak. Hanya Lurah yang dapat mengembalikan rekap.",
       allowedFrom: [TUNJANGAN_STATUS.DIAJUKAN_KE_LURAH],
       toStatus: TUNJANGAN_STATUS.DIKEMBALIKAN_LURAH,
@@ -4182,13 +4182,13 @@ function kembalikanRekapTunjangan(periode, input, token) {
   });
 }
 
-function teruskanKeBendahara(periode, input, token) {
+function teruskanKeBendahara_(periode, input, token) {
   return twdbV10RunTransition_(periode, input, token, {
     stage: "TERUSKAN_KE_BENDAHARA",
     previousColumnIndex: SHEET_COLUMNS.REKAP_TUNJANGAN_BULANAN.DISETUJUI_PADA,
     previousLabel: "persetujuan Lurah",
     updateConfig: {
-      validator: cekHakAksesCarikTunjangan,
+      validator: cekHakAksesCarikTunjangan_,
       accessDenied: "Akses ditolak. Hanya Carik yang dapat meneruskan ke Bendahara.",
       allowedFrom: [TUNJANGAN_STATUS.DISETUJUI_LURAH],
       toStatus: TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA,
@@ -4354,11 +4354,11 @@ function validasiBatchSebelumPencairanTunjangan_(batch, input) {
   return out;
 }
 
-function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
+function tandaiSudahDicairkan_(periode, nomorBukti, catatan, token) {
   try {
-    var idUser = validasiSession(token);
+    var idUser = validasiSession_(token);
     if (!idUser) return { sukses: false, pesan: "Sesi habis, silakan login ulang." };
-    if (!cekHakAksesBendaharaTunjangan(idUser)) {
+    if (!cekHakAksesBendaharaTunjangan_(idUser)) {
       return { sukses: false, pesan: "Akses ditolak. Hanya Bendahara Danarta yang dapat menandai pencairan." };
     }
 
@@ -4411,7 +4411,7 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
     });
 
     var hasil = updateBatchTunjanganStatus_(p, token, {
-      validator: cekHakAksesBendaharaTunjangan,
+      validator: cekHakAksesBendaharaTunjangan_,
       accessDenied: "Akses ditolak. Hanya Bendahara Danarta yang dapat menandai pencairan.",
       allowedFrom: [TUNJANGAN_STATUS.DITERUSKAN_KE_BENDAHARA],
       toStatus: TUNJANGAN_STATUS.SUDAH_DICAIRKAN,
@@ -4446,7 +4446,7 @@ function tandaiSudahDicairkan(periode, nomorBukti, catatan, token) {
     }
     return hasil;
   } catch (e) {
-    return handleError("tandaiSudahDicairkan", e, { sukses: false, pesan: "" });
+    return handleError_("tandaiSudahDicairkan_", e, { sukses: false, pesan: "" });
   }
 }
 // ─── END MODUL REKAP TUNJANGAN ───────────────────────────────────────────────
@@ -4469,7 +4469,7 @@ function adaAPBKalTahapDisetujui_(sheetRekap, kodeRekTarget, terminTarget, tahap
   return false;
 }
 
-function sha256Hex(str) {
+function sha256Hex_(str) {
   var bytes = Utilities.computeDigest(
     Utilities.DigestAlgorithm[CONFIG.SECURITY.PASSWORD_HASH_ALGO],
     str,
@@ -4509,7 +4509,7 @@ function siapkanKolomKeamananPinPegawaiInternal3B0_() {
       pesan: "Kolom keamanan PIN siap: I pin_salt, J pin_hash_version, K pin_updated_at. PIN_PEPPER sudah tersedia di Script Properties."
     };
   } catch (e) {
-    return handleError("siapkanKolomKeamananPinPegawai", e, { sukses: false, pesan: "" });
+    return handleError_("siapkanKolomKeamananPinPegawai_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -4524,15 +4524,15 @@ function getPinPepper_() {
 }
 
 function buatPinSalt_() {
-  return Utilities.getUuid().replace(/-/g, "") + sha256Hex(String(new Date().getTime()) + String(Math.random())).substring(0, 16);
+  return Utilities.getUuid().replace(/-/g, "") + sha256Hex_(String(new Date().getTime()) + String(Math.random())).substring(0, 16);
 }
 
 function hashPinLegacy_(pin) {
-  return sha256Hex(String(pin || "")).toLowerCase();
+  return sha256Hex_(String(pin || "")).toLowerCase();
 }
 
 function hashPinV2_(pin, salt) {
-  return sha256Hex(
+  return sha256Hex_(
     String(salt || "").trim() + "|" +
     String(pin || "").trim() + "|" +
     String(getPinPepper_()).trim()
@@ -4618,11 +4618,11 @@ function sanitizeForSheet_(val) {
   return str;
 }
 
-function ambilDaftarPegawaiUntukAdmin(token) {
+function ambilDaftarPegawaiUntukAdmin_(token) {
   try {
-    var idUser = validasiSession(token);
+    var idUser = validasiSession_(token);
     if (!idUser) return { sukses: false, pesan: "Sesi habis, silakan login ulang.", data: [] };
-    if (!cekHakAksesAdmin(idUser)) return { sukses: false, pesan: "Akses ditolak.", data: [] };
+    if (!cekHakAksesAdmin_(idUser)) return { sukses: false, pesan: "Akses ditolak.", data: [] };
 
     var data = getPegawaiDataCached_() || [];
     var list = [];
@@ -4640,7 +4640,7 @@ function ambilDaftarPegawaiUntukAdmin(token) {
     });
     return { sukses: true, data: list };
   } catch (e) {
-    return handleError("ambilDaftarPegawaiPin", e, { sukses: false, pesan: "", data: [] });
+    return handleError_("ambilDaftarPegawaiPin", e, { sukses: false, pesan: "", data: [] });
   }
 }
 
@@ -4692,7 +4692,7 @@ function loginFailureTtl_() {
 }
 
 function hashKeyPendek_(value) {
-  return sha256Hex(String(value || 'unknown')).substring(0, 24);
+  return sha256Hex_(String(value || 'unknown')).substring(0, 24);
 }
 
 function loginFailKeyUser_(username) {
@@ -4750,11 +4750,11 @@ function clearLoginUserFailures_(username) {
   } catch (e) { }
 }
 
-function adminGantiPinPegawai(username, pinBaru6Digit, token) {
+function adminGantiPinPegawai_(username, pinBaru6Digit, token) {
   try {
-    var idUserAdmin = validasiSession(token);
+    var idUserAdmin = validasiSession_(token);
     if (!idUserAdmin) return { sukses: false, pesan: "Sesi habis, silakan login ulang." };
-    if (!cekHakAksesAdmin(idUserAdmin)) return { sukses: false, pesan: "Akses ditolak. Hanya admin yang dapat mengganti PIN." };
+    if (!cekHakAksesAdmin_(idUserAdmin)) return { sukses: false, pesan: "Akses ditolak. Hanya admin yang dapat mengganti PIN." };
 
     var user = (username || '').toString().trim().toLowerCase();
     var pin = (pinBaru6Digit || '').toString().trim();
@@ -4785,11 +4785,11 @@ function adminGantiPinPegawai(username, pinBaru6Digit, token) {
 
     return { sukses: true, pesan: "PIN berhasil diganti untuk " + (namaPegawai || user) + "." };
   } catch (e) {
-    return handleError("adminGantiPinPegawai_", e, { sukses: false, pesan: "" });
+    return handleError_("adminGantiPinPegawai_", e, { sukses: false, pesan: "" });
   }
 }
 
-function cekLogin(username, pin, clientId) {
+function cekLogin_(username, pin, clientId) {
   e2e10RequireWrites_();
   try {
     var inputUserBersih = String(username || '').trim().toLowerCase();
@@ -4859,7 +4859,7 @@ function cekLogin(username, pin, clientId) {
             migrasiPinPegawaiKeV2_(idUserLogin, inputPinMentah, inputUserBersih);
           }
 
-          var token = buatToken(idUserLogin);
+          var token = buatToken_(idUserLogin);
           daftarkanSessionV2_(token);
           simpanStatusSessionPegawaiCache_(idUserLogin, true);
 
@@ -4919,7 +4919,7 @@ function cekLogin(username, pin, clientId) {
       sisaPercobaan: Math.max(0, Math.min(maxUser - userAfter, maxClient - clientAfter, maxGlobal - globalAfter))
     };
   } catch (e) {
-    return handleError("cekLogin_", e, { sukses: false, pesan: "" });
+    return handleError_("cekLogin_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -5710,7 +5710,7 @@ function statusMaintenanceAksesBuktiLama3C3_() {
     Logger.log(JSON.stringify(result, null, 2));
     return result;
   } catch (e) {
-    return handleError_('statusMaintenanceAksesBuktiLama3C3', e, { sukses: false, pesan: '' });
+    return handleError_('statusMaintenanceAksesBuktiLama3C3_', e, { sukses: false, pesan: '' });
   }
 }
 
@@ -5845,7 +5845,7 @@ function maintenancePerbaikiAksesBuktiLama3C3_() {
     return result;
   } catch (e) {
     catatMaintenancePortal3B0_(ctx, 'FAILED', getInternalErrorMessage_(e));
-    return handleError_('maintenancePerbaikiAksesBuktiLama3C3', e, { sukses: false, pesan: '' });
+    return handleError_('maintenancePerbaikiAksesBuktiLama3C3_', e, { sukses: false, pesan: '' });
   } finally {
     if (locked) lock.releaseLock();
   }
@@ -6056,7 +6056,7 @@ function uploadBuktiKinerjaBlob_(formObj) {
     for (var c = 0; c < createdFileIds.length; c++) {
       try { e2e10GetAllowedFileById_(createdFileIds[c]).setTrashed(true); } catch (cleanupError) { }
     }
-    return handleError_('uploadBuktiKinerjaBlob', e, { sukses: false, pesan: 'Gagal mengunggah bukti. ' + (e && e.message ? e.message : e) });
+    return handleError_('uploadBuktiKinerjaBlob_', e, { sukses: false, pesan: 'Gagal mengunggah bukti. ' + (e && e.message ? e.message : e) });
   }
 }
 
@@ -6102,7 +6102,7 @@ function hapusUploadBuktiKinerjaSementara_(fileIds, token) {
     }
     return { sukses: true, dihapus: ok, gagal: gagal, ditolak: ditolak };
   } catch (e) {
-    return handleError_('hapusUploadBuktiKinerjaSementara', e, { sukses: false, pesan: 'Gagal membersihkan upload sementara.' });
+    return handleError_('hapusUploadBuktiKinerjaSementara_', e, { sukses: false, pesan: 'Gagal membersihkan upload sementara.' });
   }
 }
 
@@ -6214,7 +6214,7 @@ function simpanDataKinerja_(paket, token) {
     return "✅ Laporan terkirim! Data tersimpan dan menunggu review admin.";
 
   } catch (e) {
-    return pesanErrorStringAman_("simpanDataKinerja", e, "❌ ");
+    return pesanErrorStringAman_("simpanDataKinerja_", e, "❌ ");
   } finally {
     bersihkanUploadSubmitKinerja_(ctx);
     bersihkanNonceSubmitKinerja_(ctx);
@@ -6707,7 +6707,7 @@ function uploadDokumenDasarSubmitKinerja_(paket, ctx, draft, simpanKeDriveTerstr
 function batasiNarasiAISubmitKinerja_(narasiUntukAI) {
   // AI pola lama untuk otomatis merapikan/mengubah deskripsi saat submit sudah dinonaktifkan total.
   // Deskripsi yang tersimpan adalah teks final yang dipilih pegawai di form.
-  // Gunakan rapikanBahasaLaporanAI() secara eksplisit dari tombol preview bila diperlukan.
+  // Gunakan rapikanBahasaLaporanAI_() secara eksplisit dari tombol preview bila diperlukan.
 
   // TRUNCATE: Batasi narasiUntukAI agar tidak membuang token AI secara berlebihan.
   // Batas 6000 karakter sudah cukup untuk konteks penuh laporan harian.
@@ -6929,7 +6929,7 @@ function buildBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi) {
 function simpanBarisRekapKinerjaSubmit_(paket, ctx, draft, evaluasi, barisBaru) {
   // Fungsi ini memiliki binding cadangan historis tanpa suffix privat. Marker
   // berbasis identitas objek memastikan hanya konteks yang dibuat server dalam
-  // alur simpanDataKinerja() yang dapat mencapai operasi appendRow.
+  // alur simpanDataKinerja_() yang dapat mencapai operasi appendRow.
   if (!ctx || ctx.internalMarker !== INTERNAL_SUBMIT_CONTEXT_MARKER_ ||
       !ctx.submitCache || typeof ctx.submitCache.put !== 'function' ||
       !Array.isArray(barisBaru)) {
@@ -7474,15 +7474,15 @@ function rapikanBahasaLaporanAI_(teks, konteks, token) {
       pesan: "Hasil rapikan bahasa siap ditinjau. Gunakan hanya jika sudah sesuai fakta."
     };
   } catch (e) {
-    return handleError_("rapikanBahasaLaporanAI", e, { sukses: false, pesan: "Gagal merapikan bahasa dengan AI." });
+    return handleError_("rapikanBahasaLaporanAI_", e, { sukses: false, pesan: "Gagal merapikan bahasa dengan AI." });
   }
 }
 
 function prosesAntreanAI_() {
   // Dinonaktifkan sejak APP_VERSION 2026.05.05.18.
   // Alasan: AI tidak boleh lagi berjalan sebagai antrean otomatis yang memproses atau mengubah deskripsi laporan.
-  // Fitur AI yang tetap didukung hanya rapikanBahasaLaporanAI(), bersifat opsional, memakai preview, dan dipilih manual oleh pegawai.
-  Logger.log("prosesAntreanAI dinonaktifkan. Gunakan tombol Rapikan Bahasa dengan AI bila diperlukan.");
+  // Fitur AI yang tetap didukung hanya rapikanBahasaLaporanAI_(), bersifat opsional, memakai preview, dan dipilih manual oleh pegawai.
+  Logger.log("prosesAntreanAI_ dinonaktifkan. Gunakan tombol Rapikan Bahasa dengan AI bila diperlukan.");
   return;
 }
 
@@ -7630,7 +7630,7 @@ function getDashboardStats_(token) {
     };
   } catch (e) {
     var errorId = buatErrorIdAman_();
-    catatErrorInternal_("getDashboardStats", e, errorId);
+    catatErrorInternal_("getDashboardStats_", e, errorId);
     return {
       poinDisetujui: 0,
       menungguReview: 0,
@@ -7752,7 +7752,7 @@ function ambilRiwayatKuPaged_(params, token) {
       bulan: bulanMeta ? bulanMeta.label : ''
     };
   } catch (e) {
-    Logger.log('ambilRiwayatKuPaged ERROR: ' + (e && e.message ? e.message : e));
+    Logger.log('ambilRiwayatKuPaged_ ERROR: ' + (e && e.message ? e.message : e));
     return { sukses: false, pesan: 'Gagal memuat riwayat laporan.', items: [], total: 0, hasMore: false };
   }
 }
@@ -7815,7 +7815,7 @@ function ambilDetailRiwayatLaporan_(idLaporan, token) {
 
     return { sukses: false, pesan: 'Laporan tidak ditemukan.' };
   } catch (e) {
-    Logger.log('ambilDetailRiwayatLaporan ERROR: ' + (e && e.message ? e.message : e));
+    Logger.log('ambilDetailRiwayatLaporan_ ERROR: ' + (e && e.message ? e.message : e));
     return { sukses: false, pesan: 'Gagal memuat detail laporan.' };
   }
 }
@@ -8042,7 +8042,7 @@ function ambilLaporanDitolakUntukRevisi_(idLaporan, token) {
       }
     };
   } catch (e) {
-    return handleError_('ambilLaporanDitolakUntukRevisi', e, { sukses: false, pesan: '' });
+    return handleError_('ambilLaporanDitolakUntukRevisi_', e, { sukses: false, pesan: '' });
   }
 }
 
@@ -8399,7 +8399,7 @@ function simpanRevisiLaporanDitolakPegawai_(paket, token) {
     logAudit_(idUser, 'REVISI_LAPORAN_PEGAWAI', idLaporan + ' | Revisi ke-' + revisiKe);
     return '✅ Revisi laporan tersimpan. Status kembali menjadi Menunggu Review untuk diperiksa Admin.';
   } catch (e) {
-    return pesanErrorStringAman_('simpanRevisiLaporanDitolakPegawai', e, '❌ ');
+    return pesanErrorStringAman_('simpanRevisiLaporanDitolakPegawai_', e, '❌ ');
   } finally {
     if (nonceInFlightDitetapkan && nonceKey && !pertahankanNonce) {
       try {
@@ -8683,7 +8683,7 @@ function ambilMetadataLampiranAdminLazy_(fileId, label, token) {
     if (!meta) return { sukses: false, pesan: 'Lampiran tidak ditemukan atau tidak dapat diakses.' };
     return { sukses: true, meta: meta };
   } catch (e) {
-    return handleError_('ambilMetadataLampiranAdminLazy', e, { sukses: false, pesan: 'Gagal membaca metadata lampiran.' });
+    return handleError_('ambilMetadataLampiranAdminLazy_', e, { sukses: false, pesan: 'Gagal membaca metadata lampiran.' });
   }
 }
 // ===== END PATCH PERFORMA 2A-1C: LAZY METADATA DRIVE =====
@@ -9702,7 +9702,7 @@ function ambilDaftarPegawaiReviewAdmin_(token) {
 
     return { sukses: true, data: list, debug: "OK" };
   } catch (e) {
-    return handleError_("ambilDaftarPegawaiReviewAdmin", e, { sukses: false, pesan: "", data: [], debug: "" });
+    return handleError_("ambilDaftarPegawaiReviewAdmin_", e, { sukses: false, pesan: "", data: [], debug: "" });
   }
 }
 
@@ -9853,7 +9853,7 @@ function ambilLaporanAdminPerPegawai_(idPegawai, filterStatus, tanggalMulai, tan
       optimasi: 'admin-review-two-stage-v2a1c'
     };
   } catch (e) {
-    return handleError_('ambilLaporanAdminPerPegawai', e, { sukses: false, pesan: '', pegawai: null, summary: {}, items: [] });
+    return handleError_('ambilLaporanAdminPerPegawai_', e, { sukses: false, pesan: '', pegawai: null, summary: {}, items: [] });
   }
 }
 
@@ -10304,7 +10304,7 @@ function generateNarasiBulananAI_(bulanTahun, token, forceRegenerate) {
     };
 
   } catch (e) {
-    Logger.log('generateNarasiBulananAI ERROR: ' + ((e && e.stack) ? e.stack : e));
+    Logger.log('generateNarasiBulananAI_ ERROR: ' + ((e && e.stack) ? e.stack : e));
     // FIX: detail teknis tidak dikembalikan ke client untuk menghindari
     // ekspos struktur internal sistem via network inspector.
     return {
@@ -10892,7 +10892,7 @@ function ambilDashboardAdminKinerja_(periode, kelompok, keyword, token) {
       durasiServerMs: Date.now() - mulaiMs
     };
   } catch (e) {
-    return handleError_('ambilDashboardAdminKinerja', e, { sukses: false, pesan: '', summary: {}, rows: [] });
+    return handleError_('ambilDashboardAdminKinerja_', e, { sukses: false, pesan: '', summary: {}, rows: [] });
   }
 }
 
@@ -10975,7 +10975,7 @@ function ambilDetailPegawaiAdminKinerja_(idPegawai, periode, token) {
     PORTAL_RUNTIME_CACHE_.adminDashboardDetailByKeyV2A2[runtimeKey] = result;
     return result;
   } catch (e) {
-    return handleError_('ambilDetailPegawaiAdminKinerja', e, { sukses: false, pesan: '' });
+    return handleError_('ambilDetailPegawaiAdminKinerja_', e, { sukses: false, pesan: '' });
   }
 }
 
@@ -11178,7 +11178,7 @@ function uploadLampiranDisposisiBlob_(formObj) {
       isPdf: lampiran.isPdf
     };
   } catch (e) {
-    return handleError_('uploadLampiranDisposisiBlob', e, { sukses: false, pesan: 'Gagal mengunggah dokumen surat disposisi. ' + (e && e.message ? e.message : e) });
+    return handleError_('uploadLampiranDisposisiBlob_', e, { sukses: false, pesan: 'Gagal mengunggah dokumen surat disposisi. ' + (e && e.message ? e.message : e) });
   }
 }
 
@@ -11458,7 +11458,7 @@ function simpanPetugasDisposisi_(payload, token) {
       petugasAktif: petugasDisposisiToClient_(rowPetugasDisposisiToObject_(row, sh.getLastRow()))
     };
   } catch (e) {
-    return handleError_("simpanPetugasDisposisi", e, { sukses: false, pesan: "Gagal menyimpan petugas operator: " + (e && e.message ? e.message : e) });
+    return handleError_("simpanPetugasDisposisi_", e, { sukses: false, pesan: "Gagal menyimpan petugas operator: " + (e && e.message ? e.message : e) });
   } finally {
     try { lock.releaseLock(); } catch (ignore) {}
   }
@@ -11899,7 +11899,7 @@ function koreksiJenisDisposisi_(payload, token) {
     };
 
   } catch (e) {
-    return handleError_("koreksiJenisDisposisi", e, {
+    return handleError_("koreksiJenisDisposisi_", e, {
       sukses: false,
       pesan: "Gagal mengoreksi jenis disposisi."
     });
@@ -12026,7 +12026,7 @@ function tambahPenerimaDisposisi_(payload, token) {
       penerimaTanpaWa: targetWhatsApp.tanpaNomor
     };
   } catch (e) {
-    return handleError_("tambahPenerimaDisposisi", e, { sukses: false, pesan: "Gagal menambah penerima disposisi: " + (e && e.message ? e.message : e) });
+    return handleError_("tambahPenerimaDisposisi_", e, { sukses: false, pesan: "Gagal menambah penerima disposisi: " + (e && e.message ? e.message : e) });
   }
 }
 
@@ -12235,7 +12235,7 @@ function ambilRingkasanDisposisiBaru_(token) {
     var paket = ambilPaketDisposisiUserV2A1C2_(idUser);
     return (paket && paket.ringkasan) || bangunRingkasanDisposisiDariListV2A1C2_((paket && paket.disposisiSaya) || []);
   } catch (e) {
-    return handleError_('ambilRingkasanDisposisiBaru', e, ringkasanDisposisiKosongV2A1C2_('Gagal memuat ringkasan disposisi baru.'));
+    return handleError_('ambilRingkasanDisposisiBaru_', e, ringkasanDisposisiKosongV2A1C2_('Gagal memuat ringkasan disposisi baru.'));
   }
 }
 
@@ -12736,7 +12736,7 @@ function tandaiDisposisiSudahDibuka_(idDisposisi, token) {
     try { if (typeof invalidasiCacheDisposisiV38_ === 'function') invalidasiCacheDisposisiV38_(); } catch (e) {}
     return { sukses: true, pesan: "Status baca disposisi diperbarui." };
   } catch (e) {
-    return handleError_("tandaiDisposisiSudahDibuka", e, { sukses: false, pesan: "" });
+    return handleError_("tandaiDisposisiSudahDibuka_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -13034,7 +13034,7 @@ function getDisposisiShellBootstrap_(token) {
     if (!pegawai) return { sukses: false, pesan: 'Data pegawai tidak ditemukan.' };
     return buildDisposisiShellV2A1C1_(idUser, pegawai);
   } catch (e) {
-    return handleError_('getDisposisiShellBootstrap', e, { sukses: false, pesan: 'Gagal menyiapkan akses modul disposisi.' });
+    return handleError_('getDisposisiShellBootstrap_', e, { sukses: false, pesan: 'Gagal menyiapkan akses modul disposisi.' });
   }
 }
 
@@ -13052,7 +13052,7 @@ function getDisposisiInboxData_(token) {
       optimasiDisposisi: 'v2026.06.27.03'
     };
   } catch (e) {
-    return handleError_('getDisposisiInboxData', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
+    return handleError_('getDisposisiInboxData_', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
   }
 }
 
@@ -13072,7 +13072,7 @@ function getDisposisiInboxBootstrap_(token) {
     out.tahap = '2A-1C.3-inbox-kompatibilitas';
     return out;
   } catch (e) {
-    return handleError_('getDisposisiInboxBootstrap', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
+    return handleError_('getDisposisiInboxBootstrap_', e, { sukses: false, pesan: 'Gagal memuat inbox disposisi.' });
   }
 }
 
@@ -13256,7 +13256,7 @@ function getDisposisiManagementBootstrap_(token) {
 
     return ambilPaketManagementV2A1C3_(idUser, canManage, canOperate, petugasAktif);
   } catch (e) {
-    return handleError_('getDisposisiManagementBootstrap', e, { sukses: false, pesan: 'Gagal memuat panel pengelolaan disposisi.' });
+    return handleError_('getDisposisiManagementBootstrap_', e, { sukses: false, pesan: 'Gagal memuat panel pengelolaan disposisi.' });
   }
 }
 // ===== END HOTFIX PERFORMA 2A-1C.3: MANAGEMENT CACHE + SINGLE-FLIGHT =====
@@ -13328,7 +13328,7 @@ function getDisposisiBootstrap_(token) {
 // ===== END DISPOSISI SURAT TAHAP 1C =====
 
 // ===== PATCH UTILITAS TUNJANGAN APRIL 2026 =====
-// Jalankan maintenancePerbaikiPeriodeTunjangan3B0() satu kali setelah paste kode ini,
+// Jalankan maintenancePerbaikiPeriodeTunjangan3B0_() satu kali setelah paste kode ini,
 // terutama jika data draft sebelumnya sudah terlanjur tersimpan dengan kolom periode
 // yang dibaca sebagai Date oleh Google Sheets.
 function perbaikiKolomPeriodeTunjanganInternal3B0_() {
@@ -13461,7 +13461,7 @@ function aturCutoffTunjanganApril2026_() {
 /**
  * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
  * Tanggal: 2026-06-03
- * Fungsi lama: koreksiLaporanLewatCutoffApril2026
+ * Fungsi lama: koreksiLaporanLewatCutoffApril2026_
  * Digantikan oleh definisi final pada baris asli ±13894.
  * Catatan: Legacy koreksi massal cut-off April 2026; versi final menonaktifkan perubahan massal lama.
  * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
@@ -13510,7 +13510,7 @@ function koreksiLaporanBlackoutCutoffApril2026_() {
       var statusBaru = statusLama;
 
       // Semua laporan di jeda cut-off harus bernilai 0, termasuk yang masih Menunggu Review.
-      // Jika nanti Admin menekan Setuju, prosesReviewAdmin() tetap akan memaksa status
+      // Jika nanti Admin menekan Setuju, prosesReviewAdmin_() tetap akan memaksa status
       // menjadi "Disetujui - Lewat Cut-off" dan poin tetap 0.
       if (poinLama !== 0) {
         sh.getRange(i + 1, SHEET_COLUMNS.REKAP_KINERJA.POIN_FINAL + 1).setValue(0);
@@ -13573,7 +13573,7 @@ function koreksiLaporanBlackoutCutoffApril2026_() {
     Logger.log(JSON.stringify(hasil, null, 2));
     return hasil;
   } catch (e) {
-    return handleError_("koreksiLaporanBlackoutCutoffApril2026", e, { sukses: false, pesan: "" });
+    return handleError_("koreksiLaporanBlackoutCutoffApril2026_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -13684,13 +13684,13 @@ function ambilStatusInputLaporanCutoff_(token, opsi) {
     if (!idUser) return { sukses: false, sessionExpired: true, ditutup: false, pesan: "Sesi habis, silakan login ulang." };
     return statusInputLaporanCutoffSaatIni_(opsi);
   } catch (e) {
-    return handleError_("ambilStatusInputLaporanCutoff", e, { sukses: false, ditutup: false, pesan: "" });
+    return handleError_("ambilStatusInputLaporanCutoff_", e, { sukses: false, ditutup: false, pesan: "" });
   }
 }
 /**
  * DEPRECATED — CLEAN_PATCH_DEPRECATED_DUPLICATE_FUNCTIONS
  * Tanggal: 2026-06-03
- * Fungsi lama: simpanCutoffInputLaporanPeriode
+ * Fungsi lama: simpanCutoffInputLaporanPeriode_
  * Digantikan oleh definisi final pada baris asli ±10841.
  * Catatan: Versi lama belum menjadi sumber final; gunakan definisi terakhir yang aktif.
  * Jangan edit versi ini; pertahankan sementara untuk audit/rollback sampai tes stabil selesai.
@@ -13716,7 +13716,7 @@ function simpanCutoffInputLaporanPeriode_(periode, tanggalMulai, tanggalAkhir, j
       bukaKembali: formatTanggalJamClient_(buka)
     };
   } catch (e) {
-    return handleError_("simpanCutoffInputLaporanPeriode", e, { sukses: false, pesan: "" });
+    return handleError_("simpanCutoffInputLaporanPeriode_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -14290,7 +14290,7 @@ function gabungCatatanPeriodePelaksanaanDitutup_(catatanLama, hasilEvaluasi) {
 // 1) Berlaku untuk bulan Mei dan bulan-bulan berikutnya, tidak hanya April 2026.
 // 2) Setelah Admin/Carik menyimpan cut-off input laporan, form input dibekukan
 //    mulai setelah tanggal/jam cut-off sampai waktu buka kembali.
-// 3) Backend simpanDataKinerja() tetap memakai statusInputLaporanCutoffSaatIni_(),
+// 3) Backend simpanDataKinerja_() tetap memakai statusInputLaporanCutoffSaatIni_(),
 //    sehingga submit laporan tetap ditolak walaupun UI/cache lama mencoba mengirim request.
 // 4) Review Admin berdasarkan tanggal pelaksanaan tetap menjadi lapisan pengaman kedua.
 
@@ -14441,7 +14441,7 @@ function statusInputLaporanCutoffSaatIni_(opsi) {
   return { sukses: true, ditutup: false, pesan: 'Input laporan sedang dibuka.' };
 }
 
-// Override simpanCutoffInputLaporanPeriode agar saat Admin/Carik menyimpan cut-off,
+// Override simpanCutoffInputLaporanPeriode_ agar saat Admin/Carik menyimpan cut-off,
 // sistem juga mencatat lock input laporan. UI dan backend akan membaca lock ini.
 function simpanCutoffInputLaporanPeriode_(periode, tanggalMulai, tanggalAkhir, jamCutoff, token) {
   try {
@@ -14489,7 +14489,7 @@ function simpanCutoffInputLaporanPeriode_(periode, tanggalMulai, tanggalAkhir, j
       pengingatTutupPeriode: pengingatTutupPeriode
     };
   } catch (e) {
-    return handleError_('simpanCutoffInputLaporanPeriode', e, { sukses: false, pesan: '' });
+    return handleError_('simpanCutoffInputLaporanPeriode_', e, { sukses: false, pesan: '' });
   }
 }
 
@@ -14635,7 +14635,7 @@ function simpanTutupPeriodeLaporan_(payload, token) {
       status: 'DITUTUP'
     };
   } catch (e) {
-    return handleError_('simpanTutupPeriodeLaporan', e, { sukses: false, pesan: 'Gagal menutup periode laporan.' });
+    return handleError_('simpanTutupPeriodeLaporan_', e, { sukses: false, pesan: 'Gagal menutup periode laporan.' });
   }
 }
 
@@ -14672,7 +14672,7 @@ function bukaPeriodeLaporan_(payload, token) {
       status: 'TERBUKA'
     };
   } catch (e) {
-    return handleError_('bukaPeriodeLaporan', e, { sukses: false, pesan: 'Gagal membuka periode laporan.' });
+    return handleError_('bukaPeriodeLaporan_', e, { sukses: false, pesan: 'Gagal membuka periode laporan.' });
   }
 }
 
@@ -14716,7 +14716,7 @@ function ambilStatusTutupPeriodeLaporan_(periode, token) {
         : ('Periode ' + lock.labelPeriode + ' dijadwalkan tertutup untuk input laporan baru pada ' + formatTutupPeriodeClient_(lock.cutoffDate) + '.')
     };
   } catch (e) {
-    return handleError_('ambilStatusTutupPeriodeLaporan', e, { sukses: false, pesan: 'Gagal membaca status tutup periode laporan.' });
+    return handleError_('ambilStatusTutupPeriodeLaporan_', e, { sukses: false, pesan: 'Gagal membaca status tutup periode laporan.' });
   }
 }
 
@@ -15270,7 +15270,7 @@ function normalisasiStatusLewatCutoffLama_(token) {
       jumlah: updated
     };
   } catch (e) {
-    return handleError_("normalisasiStatusLewatCutoffLama", e, { sukses: false, pesan: "" });
+    return handleError_("normalisasiStatusLewatCutoffLama_", e, { sukses: false, pesan: "" });
   }
 }
 
@@ -15356,8 +15356,8 @@ function ambilDataRekapKlasemenCached_() {
   }
 }
 
-// ===== HOTFIX v2026.06.06: Klasemen cepat untuk menghindari ambilDataRekapPaged menggantung =====
-// Fungsi lama ambilDataRekapPaged memanggil ambilDataRekap(), yang membaca seluruh data Rekap_Kinerja
+// ===== HOTFIX v2026.06.06: Klasemen cepat untuk menghindari ambilDataRekapPaged_ menggantung =====
+// Fungsi lama ambilDataRekapPaged_ memanggil ambilDataRekap(), yang membaca seluruh data Rekap_Kinerja
 // lengkap dan bisa sangat lambat saat sheet membesar. Versi cepat ini hanya membaca kolom yang
 // dibutuhkan Klasemen: tanggal, status, id/nama/jabatan, kategori, dan poin final.
 // Logika ranking/predikat tidak diubah.
@@ -15610,7 +15610,7 @@ function ambilDataRekapPaged_(params, token) {
       sumber: 'fast_klasemen_2026060614'
     };
   } catch (e) {
-    return handleError_('ambilDataRekapPaged', e, {
+    return handleError_('ambilDataRekapPaged_', e, {
       sukses: false,
       pesan: '',
       rows: [],
@@ -15630,7 +15630,7 @@ function refreshKlasemenKinerjaCache_(token) {
     var rows = ambilDataRekapKlasemenCached_();
     return { sukses: true, pesan: 'Cache Klasemen Kinerja diperbarui.', jumlah: rows.length };
   } catch (e2) {
-    return handleError_('refreshKlasemenKinerjaCache', e2, { sukses: false, pesan: '' });
+    return handleError_('refreshKlasemenKinerjaCache_', e2, { sukses: false, pesan: '' });
   }
 }
 
@@ -16576,7 +16576,7 @@ validasiPayloadSubmitKinerja_ = function (paket, pegawaiUser) {
 
 
 // ===== PATCH v2026.05.12.22: Catatan admin opsional saat menyetujui =====
-// Backend prosesReviewAdmin(idLaporan, status, poinFinal, catatan, token) sudah mendukung catatan.
+// Backend prosesReviewAdmin_(idLaporan, status, poinFinal, catatan, token) sudah mendukung catatan.
 // Perubahan utama berada di Index.html: tombol Setuju memakai modal catatan, bukan confirm sederhana.
 
 
@@ -16639,9 +16639,9 @@ function statusTunjanganPegawaiPeriode_(periode, idUser) {
   return { ada: false, status: '', rpTotal: 0, sudahDicairkan: false };
 }
 
-function ambilAuditKoreksiCutoffLama(periode, token) {
+function ambilAuditKoreksiCutoffLama_(periode, token) {
   try {
-    var idAdmin = validasiSession(token);
+    var idAdmin = validasiSession_(token);
     if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', items: [] };
     if (!cekHakAksesLurahCarikAdmin_(idAdmin)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', items: [] };
 
@@ -16656,7 +16656,7 @@ function ambilAuditKoreksiCutoffLama(periode, token) {
       var status = String(row[C.STATUS_REVIEW] || '');
       if (!isStatusDisetujuiLewatCutoffLama_(status)) continue;
 
-      var tglLap = parseTanggal(row[C.TANGGAL_LAPORAN]);
+      var tglLap = parseTanggal_(row[C.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
 
       // Fokus audit: laporan yang waktu lapornya masih berada dalam rentang periode yang benar,
@@ -16697,13 +16697,13 @@ function ambilAuditKoreksiCutoffLama(periode, token) {
       items: items
     };
   } catch (e) {
-    return handleError('ambilAuditKoreksiCutoffLama_', e, { sukses: false, pesan: '', items: [] });
+    return handleError_('ambilAuditKoreksiCutoffLama_', e, { sukses: false, pesan: '', items: [] });
   }
 }
 
-function koreksiStatusCutoffLama(ids, catatanKoreksi, token) {
+function koreksiStatusCutoffLama_(ids, catatanKoreksi, token) {
   try {
-    var idAdmin = validasiSession(token);
+    var idAdmin = validasiSession_(token);
     if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', jumlah: 0 };
     if (!cekHakAksesLurahCarikAdmin_(idAdmin)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', jumlah: 0 };
 
@@ -16754,7 +16754,7 @@ function koreksiStatusCutoffLama(ids, catatanKoreksi, token) {
       pesan: 'Koreksi status selesai. Jumlah laporan dinormalisasi: ' + updated + '. Poin dan tunjangan tidak diubah otomatis; lakukan Revisi Nilai/penyesuaian tunjangan bila diperlukan.'
     };
   } catch (e) {
-    return handleError('koreksiStatusCutoffLama_', e, { sukses: false, pesan: '', jumlah: 0 });
+    return handleError_('koreksiStatusCutoffLama_', e, { sukses: false, pesan: '', jumlah: 0 });
   }
 }
 
@@ -16778,8 +16778,8 @@ function validasiPeriodeAuditCutoffLamaMei2026_(periode) {
   return { sukses: true, periode: p };
 }
 
-var ambilAuditKoreksiCutoffLama__SEBELUM_KUNCI_MEI_2026051225 = ambilAuditKoreksiCutoffLama;
-ambilAuditKoreksiCutoffLama = function (periode, token) {
+var ambilAuditKoreksiCutoffLama__SEBELUM_KUNCI_MEI_2026051225 = ambilAuditKoreksiCutoffLama_;
+ambilAuditKoreksiCutoffLama_ = function (periode, token) {
   var valid = validasiPeriodeAuditCutoffLamaMei2026_(periode);
   if (!valid.sukses) {
     return {
@@ -16794,10 +16794,10 @@ ambilAuditKoreksiCutoffLama = function (periode, token) {
   return ambilAuditKoreksiCutoffLama__SEBELUM_KUNCI_MEI_2026051225(valid.periode, token);
 };
 
-var koreksiStatusCutoffLama__SEBELUM_KUNCI_MEI_2026051225 = koreksiStatusCutoffLama;
-koreksiStatusCutoffLama = function (ids, catatanKoreksi, token) {
+var koreksiStatusCutoffLama__SEBELUM_KUNCI_MEI_2026051225 = koreksiStatusCutoffLama_;
+koreksiStatusCutoffLama_ = function (ids, catatanKoreksi, token) {
   try {
-    var idAdmin = validasiSession(token);
+    var idAdmin = validasiSession_(token);
     if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', jumlah: 0 };
     if (!cekHakAksesLurahCarikAdmin_(idAdmin)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', jumlah: 0 };
 
@@ -16816,7 +16816,7 @@ koreksiStatusCutoffLama = function (ids, catatanKoreksi, token) {
       var idLap = normalizeId_(row[C.ID_LAPORAN]);
       if (!idSet[idLap]) continue;
 
-      var tglLap = parseTanggal(row[C.TANGGAL_LAPORAN]);
+      var tglLap = parseTanggal_(row[C.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) {
         return { sukses: false, pesan: 'Ada laporan terpilih dengan waktu lapor tidak valid. Koreksi dibatalkan.', jumlah: 0 };
       }
@@ -16832,7 +16832,7 @@ koreksiStatusCutoffLama = function (ids, catatanKoreksi, token) {
 
     return koreksiStatusCutoffLama__SEBELUM_KUNCI_MEI_2026051225(ids, catatanKoreksi, token);
   } catch (e) {
-    return handleError('koreksiStatusCutoffLama_v25', e, { sukses: false, pesan: '', jumlah: 0 });
+    return handleError_('koreksiStatusCutoffLama_v25', e, { sukses: false, pesan: '', jumlah: 0 });
   }
 };
 
@@ -16860,7 +16860,7 @@ function tanggalPelaksanaanAuditDariRow_(row) {
   try {
     var C = SHEET_COLUMNS.REKAP_KINERJA;
     var v = row[C.TANGGAL_KEGIATAN];
-    var d = parseTanggal(v);
+    var d = parseTanggal_(v);
     if (d instanceof Date && !isNaN(d.getTime()) && d.getTime() !== 0) return d;
 
     // Fallback ke payload JSON lama bila kolom TANGGAL_KEGIATAN kosong.
@@ -16883,7 +16883,7 @@ function tanggalPelaksanaanAuditDariRow_(row) {
       if (!tgl && payload && payload.detailStafReguler) tgl = payload.detailStafReguler.tanggal;
       if (!tgl && payload && payload.detailAPBKal) tgl = payload.detailAPBKal.tanggal;
       if (!tgl && payload && payload.detailAPBKalCarik) tgl = payload.detailAPBKalCarik.tanggal;
-      var dp = parseTanggal(tgl);
+      var dp = parseTanggal_(tgl);
       if (dp instanceof Date && !isNaN(dp.getTime()) && dp.getTime() !== 0) return dp;
     }
   } catch (e) { }
@@ -16919,8 +16919,8 @@ function isTanggalPelaksanaanMasukAuditMei2026_(row) {
 }
 
 // Override audit v25: tetap Mei saja, ditambah filter tanggal pelaksanaan kegiatan.
-var ambilAuditKoreksiCutoffLama__SEBELUM_TGL_PELAKSANAAN_2026051226 = ambilAuditKoreksiCutoffLama;
-ambilAuditKoreksiCutoffLama = function (periode, token) {
+var ambilAuditKoreksiCutoffLama__SEBELUM_TGL_PELAKSANAAN_2026051226 = ambilAuditKoreksiCutoffLama_;
+ambilAuditKoreksiCutoffLama_ = function (periode, token) {
   try {
     var valid = validasiPeriodeAuditCutoffLamaMei2026_(periode);
     if (!valid.sukses) {
@@ -16934,7 +16934,7 @@ ambilAuditKoreksiCutoffLama = function (periode, token) {
       };
     }
 
-    var idAdmin = validasiSession(token);
+    var idAdmin = validasiSession_(token);
     if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', items: [] };
     if (!cekHakAksesLurahCarikAdmin_(idAdmin)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', items: [] };
 
@@ -16958,7 +16958,7 @@ ambilAuditKoreksiCutoffLama = function (periode, token) {
         continue;
       }
 
-      var tglLap = parseTanggal(row[C.TANGGAL_LAPORAN]);
+      var tglLap = parseTanggal_(row[C.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
 
       // Waktu lapor tetap harus sebelum/tepat cut-off final Mei.
@@ -17002,14 +17002,14 @@ ambilAuditKoreksiCutoffLama = function (periode, token) {
       items: items
     };
   } catch (e) {
-    return handleError('ambilAuditKoreksiCutoffLama_v26', e, { sukses: false, pesan: '', items: [] });
+    return handleError_('ambilAuditKoreksiCutoffLama_v26', e, { sukses: false, pesan: '', items: [] });
   }
 };
 
-var koreksiStatusCutoffLama__SEBELUM_TGL_PELAKSANAAN_2026051226 = koreksiStatusCutoffLama;
-koreksiStatusCutoffLama = function (ids, catatanKoreksi, token) {
+var koreksiStatusCutoffLama__SEBELUM_TGL_PELAKSANAAN_2026051226 = koreksiStatusCutoffLama_;
+koreksiStatusCutoffLama_ = function (ids, catatanKoreksi, token) {
   try {
-    var idAdmin = validasiSession(token);
+    var idAdmin = validasiSession_(token);
     if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', jumlah: 0 };
     if (!cekHakAksesLurahCarikAdmin_(idAdmin)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', jumlah: 0 };
 
@@ -17039,7 +17039,7 @@ koreksiStatusCutoffLama = function (ids, catatanKoreksi, token) {
 
     return koreksiStatusCutoffLama__SEBELUM_TGL_PELAKSANAAN_2026051226(ids, catatanKoreksi, token);
   } catch (e) {
-    return handleError('koreksiStatusCutoffLama_v26', e, { sukses: false, pesan: '', jumlah: 0 });
+    return handleError_('koreksiStatusCutoffLama_v26', e, { sukses: false, pesan: '', jumlah: 0 });
   }
 };
 
@@ -17151,7 +17151,7 @@ function kumpulkanPoinPegawaiPeriodeKoreksi_(periode, idUser, kecualiIdLaporan) 
     var status = String(row[C.STATUS_REVIEW] || '');
     if (!isStatusApproved_(status)) continue;
 
-    var tglLap = parseTanggal(row[C.TANGGAL_LAPORAN]);
+    var tglLap = parseTanggal_(row[C.TANGGAL_LAPORAN]);
     var p = periodeDariTanggalLaporan_(tglLap);
     if (p !== periode) continue;
 
@@ -17210,9 +17210,9 @@ function isRowTindakLanjutKoreksiCutoff_(row) {
   return false;
 }
 
-function ambilTindakLanjutKoreksiCutoffLama(token) {
+function ambilTindakLanjutKoreksiCutoffLama_(token) {
   try {
-    var idAdmin = validasiSession(token);
+    var idAdmin = validasiSession_(token);
     if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', items: [] };
     if (!cekHakAksesLurahCarikAdmin_(idAdmin)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', items: [] };
 
@@ -17228,7 +17228,7 @@ function ambilTindakLanjutKoreksiCutoffLama(token) {
       var cekTglPel = isTanggalPelaksanaanMasukAuditMei2026_(row);
       if (!cekTglPel.masuk) continue;
 
-      var tglLap = parseTanggal(row[C.TANGGAL_LAPORAN]);
+      var tglLap = parseTanggal_(row[C.TANGGAL_LAPORAN]);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
       if (!(tglLap >= meta.start && tglLap <= meta.endInclusive)) continue;
 
@@ -17269,13 +17269,13 @@ function ambilTindakLanjutKoreksiCutoffLama(token) {
       items: items
     };
   } catch (e) {
-    return handleError('ambilTindakLanjutKoreksiCutoffLama_', e, { sukses: false, pesan: '', items: [] });
+    return handleError_('ambilTindakLanjutKoreksiCutoffLama_', e, { sukses: false, pesan: '', items: [] });
   }
 }
 
-function terapkanPoinKoreksiCutoffLama(ids, token) {
+function terapkanPoinKoreksiCutoffLama_(ids, token) {
   try {
-    var idAdmin = validasiSession(token);
+    var idAdmin = validasiSession_(token);
     if (!idAdmin) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.', jumlah: 0 };
     if (!cekHakAksesLurahCarikAdmin_(idAdmin)) return { sukses: false, pesan: 'Akses ditolak. Hanya Lurah/Carik.', jumlah: 0 };
 
@@ -17352,7 +17352,7 @@ function terapkanPoinKoreksiCutoffLama(ids, token) {
       pesan: 'Poin koreksi diterapkan untuk ' + updated + ' laporan. Estimasi total dampak tunjangan: Rp ' + Math.round(totalDeltaRp).toLocaleString('id-ID') + '. Rekap tunjangan/pencairan tidak diubah otomatis.'
     };
   } catch (e) {
-    return handleError('terapkanPoinKoreksiCutoffLama_', e, { sukses: false, pesan: '', jumlah: 0 });
+    return handleError_('terapkanPoinKoreksiCutoffLama_', e, { sukses: false, pesan: '', jumlah: 0 });
   }
 }
 
@@ -17930,7 +17930,7 @@ function cekCutoffDefaultLamaDinonaktifkan_(token) {
       koreksiMassalLamaDinonaktifkan: true
     };
   } catch (e) {
-    return handleError_('cekCutoffDefaultLamaDinonaktifkan', e, { sukses: false, pesan: '' });
+    return handleError_('cekCutoffDefaultLamaDinonaktifkan_', e, { sukses: false, pesan: '' });
   }
 }
 
@@ -18335,7 +18335,7 @@ function debugPeriodeTutupDariTanggalPelaksanaanV31_(tanggalPelaksanaan, token) 
         : 'Tanggal pelaksanaan tidak masuk rentang periode tertutup mana pun.'
     };
   } catch (e) {
-    return handleError_('debugPeriodeTutupDariTanggalPelaksanaanV31', e, { sukses: false, pesan: '' });
+    return handleError_('debugPeriodeTutupDariTanggalPelaksanaanV31_', e, { sukses: false, pesan: '' });
   }
 }
 
@@ -18439,12 +18439,12 @@ function pesanErrorSubmitKinerjaLebihJelasV33_(functionName, error, prefix) {
     'Saran: ' + info.saran;
 }
 
-// Override aman: hanya simpanDataKinerja / simpanRevisi dibuat lebih informatif.
+// Override aman: hanya simpanDataKinerja_ / simpanRevisi dibuat lebih informatif.
 // Fungsi lain tetap memakai mekanisme sanitasi lama.
 var pesanErrorStringAman__SEBELUM_DETAIL_SUBMIT_2026051233 = pesanErrorStringAman_;
 pesanErrorStringAman_ = function (functionName, error, prefix) {
   var fn = String(functionName || '');
-  if (fn === 'simpanDataKinerja' || fn === 'simpanRevisiLaporanDitolakPegawai') {
+  if (fn === 'simpanDataKinerja_' || fn === 'simpanRevisiLaporanDitolakPegawai_') {
     return pesanErrorSubmitKinerjaLebihJelasV33_(fn, error, prefix || '');
   }
   return pesanErrorStringAman__SEBELUM_DETAIL_SUBMIT_2026051233(functionName, error, prefix);
@@ -18483,7 +18483,7 @@ function cariLogErrorSubmitKinerjaV33_(errorId, token) {
       pesan: items.length ? 'Log error ditemukan.' : 'Log error tidak ditemukan di Audit_Log. Coba cek Apps Script → Executions.'
     };
   } catch (e) {
-    return handleError_('cariLogErrorSubmitKinerjaV33', e, { sukses: false, pesan: '', items: [] });
+    return handleError_('cariLogErrorSubmitKinerjaV33_', e, { sukses: false, pesan: '', items: [] });
   }
 }
 
@@ -18568,7 +18568,7 @@ function cekHakAksesDisposisiInbox_(idUser) {
 // Koreksi lanjutan v35:
 // - Menu Disposisi boleh tampil untuk semua pegawai.
 // - Namun panel hasil penerbitan/WhatsApp hanya boleh tampil untuk Lurah/operator aktif.
-// - Backend menandai setiap response simpanDisposisiSurat dengan canPublishDisposisi.
+// - Backend menandai setiap response simpanDisposisiSurat_ dengan canPublishDisposisi.
 // - Data pending WhatsApp lama di browser non-penerbit harus dibersihkan oleh frontend.
 
 
@@ -19418,7 +19418,7 @@ function batalkanDisposisiSurat_(payload, token) {
       totalSudahLapor: totalSudahLapor
     };
   } catch (e) {
-    return handleError_("batalkanDisposisiSurat", e, { sukses: false, pesan: "Gagal membatalkan disposisi." });
+    return handleError_("batalkanDisposisiSurat_", e, { sukses: false, pesan: "Gagal membatalkan disposisi." });
   }
 }
 
@@ -20177,7 +20177,7 @@ function pastikanHeaderIndexLaporan2B1_(sh) {
   if (!sh) throw new Error('Sheet Index_Laporan belum tersedia.');
   var headers = INDEX_LAPORAN_2B0_CONFIG.HEADERS;
   if (sh.getLastRow() < 1 || sh.getLastColumn() < headers.length) {
-    throw new Error('Struktur Index_Laporan belum lengkap. Jalankan bangunUlangIndexLaporan2B0().');
+    throw new Error('Struktur Index_Laporan belum lengkap. Jalankan bangunUlangIndexLaporan2B0_().');
   }
   var actual = sh.getRange(1, 1, 1, headers.length).getValues()[0];
   for (var i = 0; i < headers.length; i++) {
