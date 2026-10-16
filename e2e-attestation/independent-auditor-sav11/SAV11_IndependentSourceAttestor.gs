@@ -5,7 +5,7 @@
  * Only permitted write: versioned SAV11 JSON attestation in private evidence Drive folder. This attests installed HEAD, NOT deployment metadata nor E0/E1.
  */
 var SAV11_POLICY_ = Object.freeze({
-  VERSION: 'PHA07B2-B2-SAV11-2026.10.16.1',
+  VERSION: 'PHA07B2-B2-SAV11-2026.10.16.2',
   REFERENCE_COMMIT: 'b865d6c830e215cc062e553b33db5bb866db95dc',
   TARGET_SPREADSHEET_ID: '1A4lzft_uV0hwCYroJnyNFIwx-WBzuQyvoIpFtKfDkic',
   FROZEN_RC82_ID: '1mpk7JAZo1fqUV7bYfJIYoYKHIoJTD_tGumtFQnQyagU',
@@ -148,19 +148,41 @@ function sav11PrivateEvidenceFolder_() {
   return folder;
 }
 
-function sav11SavePrivateJson_(prefix, document) {
-  var name=prefix + '_' + Utilities.formatDate(new Date(),'Asia/Jakarta','yyyyMMdd_HHmmss') + '.json';
-  var payload=JSON.stringify(document);
-  var expectedHash=sav11HexDigest_(payload);
-  var evidenceFolder=sav11PrivateEvidenceFolder_();
-  var created=evidenceFolder.createFile(name,payload,'application/json');
-  if (created.getSharingAccess() !== DriveApp.Access.PRIVATE) {
-    // Do not publish an unsafe URL in the execution log.
-    throw new Error('SAV11_EVIDENCE_FILE_NOT_PRIVATE');
+function sav11SameObserved_(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+  for (var i = 0; i < left.length; i++) {
+    if (left[i].name !== right[i].name || left[i].type !== right[i].type ||
+        left[i].actualSha256 !== right[i].actualSha256 || left[i].same !== right[i].same) {
+      return false;
+    }
   }
-  var roundTrip=sav11HexDigest_(created.getBlob().getDataAsString('UTF-8'));
-  if (roundTrip !== expectedHash) throw new Error('SAV11_EVIDENCE_WRITE_VERIFY_FAILED');
-  return {fileId:created.getId(), fileName:name, sha256:expectedHash};
+  return true;
+}
+
+function sav11SavePrivateJson_(prefix, document) {
+  var uniqueSuffix = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+  var name = prefix + '_' + Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyyMMdd_HHmmss') +
+    '_' + uniqueSuffix + '.json';
+  var payload = JSON.stringify(document);
+  var expectedHash = sav11HexDigest_(payload);
+  var evidenceFolder = sav11PrivateEvidenceFolder_();
+  var created = null;
+  try {
+    created = evidenceFolder.createFile(name, payload, 'application/json');
+    if (created.getSharingAccess() !== DriveApp.Access.PRIVATE) {
+      throw new Error('SAV11_EVIDENCE_FILE_NOT_PRIVATE');
+    }
+    var roundTrip = sav11HexDigest_(created.getBlob().getDataAsString('UTF-8'));
+    if (roundTrip !== expectedHash) throw new Error('SAV11_EVIDENCE_WRITE_VERIFY_FAILED');
+    return {fileId: created.getId(), fileName: name, sha256: expectedHash};
+  } catch (error) {
+    // Only the newly-created evidence file (never E0, target or RC8.2) may be removed.
+    if (created) {
+      try { created.setTrashed(true); }
+      catch (cleanupError) { throw new Error('SAV11_EVIDENCE_ROLLBACK_FAILED'); }
+    }
+    throw error;
+  }
 }
 
 function sav11GetAuditorScriptIdV1() {
@@ -169,19 +191,39 @@ function sav11GetAuditorScriptIdV1() {
   return {auditorScriptId:id, productionReady:false};
 }
 
-function sav11IndependentSourceAttestationV1() {
+function sav11IndependentSourceAttestationV12() {
   var r;
   try {
-    r=sav11CompareSourceCore_();
+    r = sav11CompareSourceCore_();
     if (r.status === 'SAV11_SOURCE_MATCH_PASS') {
-      r.evidence=sav11SavePrivateJson_('SAV11_SOURCE_ATTESTATION',r);
-      r.evidenceWrites=1;
-    } else r.evidenceWrites=0;
-  } catch(e) {
-    r={version:SAV11_POLICY_.VERSION,status:'SAV11_SOURCE_ATTESTATION_BLOCKED',
-      issues:[String(e && e.message || 'UNKNOWN').slice(0,160)],
-      targetWrites:0,evidenceWrites:0,productionReady:false};
+      // Re-read TARGET HEAD independently before committing evidence, so a
+      // concurrent source change is never silently recorded as stable PASS.
+      var recheck = sav11CompareSourceCore_();
+      var stable = recheck.status === 'SAV11_SOURCE_MATCH_PASS' &&
+        sav11SameObserved_(r.observed, recheck.observed);
+      if (!stable) {
+        r.status = 'SAV11_SOURCE_ATTESTATION_BLOCKED';
+        r.issues.push('SAV11_PRE_SAVE_SOURCE_RECHECK_FAILED');
+        r.evidenceWrites = 0;
+      } else {
+        r.sourceStablePreSave = true;
+        r.sourceRecheckAt = recheck.verifiedAt;
+        r.evidence = sav11SavePrivateJson_('SAV11_SOURCE_ATTESTATION_V12', r);
+        r.evidenceWrites = 1;
+      }
+    } else {
+      r.evidenceWrites = 0;
+    }
+  } catch (e) {
+    r = {
+      version: SAV11_POLICY_.VERSION,
+      status: 'SAV11_SOURCE_ATTESTATION_BLOCKED',
+      issues: [String(e && e.message || 'UNKNOWN').slice(0, 160)],
+      targetWrites: 0,
+      evidenceWrites: 0,
+      productionReady: false
+    };
   }
-  console.log('SAV11_RESULT:\n'+JSON.stringify(r,null,2));
+  console.log('SAV11_V12_RESULT:\n' + JSON.stringify(r, null, 2));
   return r;
 }
