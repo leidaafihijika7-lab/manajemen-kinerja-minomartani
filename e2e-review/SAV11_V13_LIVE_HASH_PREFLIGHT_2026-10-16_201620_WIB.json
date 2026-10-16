@@ -1,0 +1,75 @@
+{
+  "schema": "PHA07B2_B2_SAV11_DRIVE_V13_INSTALLED_SOURCE_HASH_PREFLIGHT_RECEIPT",
+  "observationSource": "USER_SUPPLIED_GOOGLE_APPS_SCRIPT_EXECUTION_LOG_NOT_INDEPENDENTLY_REPLAYED",
+  "dateTimeWIB": "2026-10-16 20:16:20",
+  "verifiedAtUTC": "2026-10-16T13:16:20.213Z",
+  "result": "SAV11_DRIVE_HASH_PREFLIGHT_PASS",
+  "version": "PHA07B2-B2-SAV11-DRIVE-2026.10.16.1",
+  "transport": "DRIVE_V3_FILES_EXPORT_GET_ONLY",
+  "referenceCommit": "b865d6c830e215cc062e553b33db5bb866db95dc",
+  "auditorScriptId": "12boLVqDc7b3cY7UGE-vCFU5Vu6IRlrvN0JEB8ZWJw8VuSxJwuE96uPiV",
+  "targetScriptId": "1pCDLts5skUoo4GFE5ScNs5ozoh2diIalcFZot-XB5D21zdaM96kINeMt",
+  "titleClaimed": "PKM PHA07B2 B2 E2E11 SYNTHETIC TARGET",
+  "titleVerifiedIndependently": false,
+  "metadataModifiedTime": null,
+  "expectedFiles": 8,
+  "observedFileHashes": [
+    {
+      "name": "appsscript",
+      "type": "JSON",
+      "sha256": "04bd6d2a0d756fab43bccb2237584f9c9c53046487ff4256db4aa72c79fff86d",
+      "same": true
+    },
+    {
+      "name": "E2E10_IsolatedReadOnlyPreflight",
+      "type": "SERVER_JS",
+      "sha256": "7ac3aa3a928b4c392e8a698c90074b7f8e867d577ea94b55905417f7ae77e8bb",
+      "same": true
+    },
+    {
+      "name": "E2E10_RuntimeGuard",
+      "type": "SERVER_JS",
+      "sha256": "3b555171c1192964bc4107e6d06c3e1d510cd117bafe5196830f059413777a02",
+      "same": true
+    },
+    {
+      "name": "E2E11_RestrictedRpcFacade",
+      "type": "SERVER_JS",
+      "sha256": "ded9b238d37b6d2f6dcf7af8331c80f1c3bb6ff05ec5fc1679139b8b3c0471da",
+      "same": true
+    },
+    {
+      "name": "IndexE2E11",
+      "type": "HTML",
+      "sha256": "432be7b72cf0eaabb772cc78f6ef108e2200696a7107af974a1ce408c97d555c",
+      "same": true
+    },
+    {
+      "name": "IndexQueueGuardRC7",
+      "type": "SERVER_JS",
+      "sha256": "b7c1b23060390d1397927a2f75b81a5060b1976149a4695b7ec9bc3823ea0ef4",
+      "same": true
+    },
+    {
+      "name": "Kode",
+      "type": "SERVER_JS",
+      "sha256": "4011e87f26d283f8d85d66e9008ad00fa9346446984a754c45c9adb75ae27ae5",
+      "same": true
+    },
+    {
+      "name": "SheetSchema",
+      "type": "SERVER_JS",
+      "sha256": "3f76d416a8e5f1b2d495a7e38b89f539ada19c7027cef64a2a30abd9d86e5c10",
+      "same": true
+    }
+  ],
+  "all8ObservedHashesMatchManifest": true,
+  "issues": [],
+  "targetWrites": 0,
+  "evidenceWrites": 0,
+  "fullIndependentAttestationStatus": "PENDING_METADATA_AND_STABLE_DOUBLE_READ",
+  "evidenceFileId": null,
+  "stagingWebApp": "NO_GO",
+  "production": "NO_GO",
+  "nextStep": "Use installed Project B to run read-only sav11DriveIdentityPreflightV13(), verify Drive files.get ID/title/MIME. Do not write evidence before that succeeds."
+}
