@@ -1,0 +1,83 @@
+{
+  "schema": "PHA07B2_B2_E2E11_DIRECT_STATIC_QA_OBSERVATIONS_V11",
+  "observedDateWIB": "2026-10-16",
+  "sourceCommit": "b865d6c830e215cc062e553b33db5bb866db95dc",
+  "sourceScope": "8-file focused runtime from GitHub connector; no installed Google Apps Script execution",
+  "status": "DIRECT_STATIC_QA_PASS_LIMITED_SCOPE",
+  "checks": {
+    "runtimeGsSyntaxParsedV8": {
+      "pass": 6,
+      "total": 6
+    },
+    "runtimeManifestJsonValid": true,
+    "sourceFileCanonicalHashesPinned": 8,
+    "sourceGitBlobsRereadMatched": 8,
+    "publicFunctions": {
+      "total": 13,
+      "doGet": 1,
+      "restrictedFacade": 12,
+      "extra": 0
+    },
+    "focusedUiMethodCoverage": {
+      "resolved": 4,
+      "total": 4,
+      "missing": 0
+    },
+    "publicAssignOverrideDetected": 0,
+    "privatizationNamingCollisionsRemediated": 5,
+    "unexpectedTopLevelArrowFunctionGlobals": 0,
+    "globalThisDynamicAliases": 0,
+    "tokenMintPublic": false
+  },
+  "mockGateTests": [
+    {
+      "case": "WEB_DISABLED",
+      "attempts": 11,
+      "denied": 11,
+      "backendStubInvocations": 0
+    },
+    {
+      "case": "AUDIT_APPROVAL_DISABLED",
+      "attempts": 11,
+      "denied": 11,
+      "backendStubInvocations": 0
+    },
+    {
+      "case": "WRITE_DISABLED",
+      "attempts": 11,
+      "denied": 11,
+      "backendStubInvocations": 0
+    },
+    {
+      "case": "UPLOAD_DISABLED",
+      "attempts": 1,
+      "denied": 1,
+      "backendStubInvocations": 0
+    },
+    {
+      "case": "ALL_MOCK_GATES_PASS",
+      "attempts": 11,
+      "dispatched": 11,
+      "backendStubInvocations": 11
+    }
+  ],
+  "hashAlgorithmControl": {
+    "sha256AbcVectorMatched": true,
+    "priorSAV10KodeCanonicalHashMatched": true
+  },
+  "notExecuted": [
+    "local Node filesystem runner",
+    "Apps Script compile or installed HEAD getContent",
+    "independent SAV11 attestor",
+    "Drive evidence readback and ACL",
+    "deployment metadata",
+    "26 live negative RPC scenarios",
+    "synthetic state mutation",
+    "E0/E1 integrity regression"
+  ],
+  "noDriveOrSpreadsheetWritesExecuted": true,
+  "oldE0Untouched": true,
+  "webAppDeploymentStatus": "NO_GO",
+  "productionStatus": "NO_GO",
+  "signoff": "NOT_APPROVED"
+}
