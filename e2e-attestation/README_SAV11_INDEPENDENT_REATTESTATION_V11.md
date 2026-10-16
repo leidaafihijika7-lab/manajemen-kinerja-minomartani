@@ -74,11 +74,11 @@ Do not accept a printed PASS without privately saved evidence and independent Dr
 
 ## 5. Current verified admission observations (16 October 2026)
 
-- GitHub source reference matches **8/8 canonical SHA-256 and 8/8 pinned Git blob IDs** at \`b865d6c830e215cc062e553b33db5bb866db95dc\`. This is GitHub-side validation only, NOT an installed Apps Script result.
+- GitHub source reference matches **8/8 canonical SHA-256 and 8/8 pinned Git blob IDs** at `b865d6c830e215cc062e553b33db5bb866db95dc`. This is GitHub-side validation only, NOT an installed Apps Script result.
 - Mock regression tests for V12: **15/15 as expected** (positive, tampering, ACL rejection, second HEAD read, evidence rollback).
 - Independent Drive folder currently contains **only two old E0V10 files**, both owner-only per returned permissions and their byte SHA-256 digests match the frozen acceptance record. No SAV11 evidence exists there as of this check.
-- Matching SAV11 target and auditor Apps Script projects **were not identified** in the connected Drive results; the Drive connector does not expose Apps Script \`projects.getContent\` execution. Therefore this step cannot claim \`SAV11_SOURCE_MATCH_PASS\` yet.
-- The exact machine-readable BLOCKED verdict is recorded in \`e2e-attestation/SAV11_V12_EXECUTION_GATE_AND_EVIDENCE_READBACK_2026-10-16.json\`. No stage Drive file, Sheet row or Web App was modified.
+- Matching SAV11 target and auditor Apps Script projects **were not identified** in the connected Drive results; the Drive connector does not expose Apps Script `projects.getContent` execution. Therefore this step cannot claim `SAV11_SOURCE_MATCH_PASS` yet.
+- The exact machine-readable BLOCKED verdict is recorded in `e2e-attestation/SAV11_V12_EXECUTION_GATE_AND_EVIDENCE_READBACK_2026-10-16.json`. No stage Drive file, Sheet row or Web App was modified.
 
 ## 6. Acceptance and next phase
 
