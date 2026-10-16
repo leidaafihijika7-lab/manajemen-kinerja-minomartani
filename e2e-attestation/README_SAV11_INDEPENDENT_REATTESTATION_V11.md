@@ -1,6 +1,6 @@
-# PHA-07B B2 — SAV11 Independent Re-Attestation Runbook v1.2
+# PHA-07B B2 — SAV11 Independent Re-Attestation Runbook v1.1
 
-**Updated 16 October 2026 — LIVE TARGET ATTESTATION NOT EXECUTED.** This is a controlled *independent installed source HEAD* check for the **new** eight-file focused E2E candidate only. It does not approve any deployment, E2E mutation, staff account, payroll, archive or production data.
+**Prepared 16 October 2026 — NOT EXECUTED.** This is a controlled *independent installed source HEAD* check for the **new** eight-file focused E2E candidate only. It does not approve any deployment, E2E mutation, staff account, payroll, archive or production data.
 
 ## 0. Safety boundaries
 
@@ -65,23 +65,15 @@ Read the auditor source first and ensure target is an explicit synthetic Apps Sc
 In the separate auditor editor, run:
 
 ```javascript
-sav11IndependentSourceAttestationV12()
+sav11IndependentSourceAttestationV1()
 ```
 
-The function checks the pinned target Script ID/title using the Google Apps Script API, exact file count=8, exact name/type allowlist, normalized source SHA-256 for all eight files, and absence of any extra source. v1.2 re-reads HEAD before saving the evidence to reject concurrent source changes; the file name contains a UUID suffix. Failed save/readback attempts trigger targeted cleanup of **only the just-created SAV11 evidence file**, never the frozen E0. A matching result has `SAV11_SOURCE_MATCH_PASS`; a mismatch or unavailable API returns `SAV11_SOURCE_ATTESTATION_BLOCKED`. A pass saves an evidence JSON **only in the private evidence Drive folder**, then computes its SHA-256 readback. It does **not** read or write staging workbook rows.
+The function checks the pinned target Script ID/title using the Google Apps Script API, exact file count=8, exact name/type allowlist, normalized source SHA-256 for all eight files, and absence of any extra source. A matching result has `SAV11_SOURCE_MATCH_PASS`; a mismatch or unavailable API returns `SAV11_SOURCE_ATTESTATION_BLOCKED`. A pass saves an evidence JSON **only in the private evidence Drive folder**, then computes its SHA-256 readback. It does **not** read or write staging workbook rows.
 
 Do not accept a printed PASS without privately saved evidence and independent Drive file/ACL readback; retain source commit, project Script IDs/title, file digest table, evidence file ID/hash and exact timestamp (without secrets). Never paste PIN, session token, OAuth token, raw source or keyed HMAC material into an audit log or chat.
 
-## 5. Current verified admission observations (16 October 2026)
-
-- GitHub source reference matches **8/8 canonical SHA-256 and 8/8 pinned Git blob IDs** at `b865d6c830e215cc062e553b33db5bb866db95dc`. This is GitHub-side validation only, NOT an installed Apps Script result.
-- Mock regression tests for V12: **15/15 as expected** (positive, tampering, ACL rejection, second HEAD read, evidence rollback).
-- Independent Drive folder currently contains **only two old E0V10 files**, both owner-only per returned permissions and their byte SHA-256 digests match the frozen acceptance record. No SAV11 evidence exists there as of this check.
-- Matching SAV11 target and auditor Apps Script projects **were not identified** in the connected Drive results; the Drive connector does not expose Apps Script `projects.getContent` execution. Therefore this step cannot claim `SAV11_SOURCE_MATCH_PASS` yet.
-- The exact machine-readable BLOCKED verdict is recorded in `e2e-attestation/SAV11_V12_EXECUTION_GATE_AND_EVIDENCE_READBACK_2026-10-16.json`. No stage Drive file, Sheet row or Web App was modified.
-
-## 6. Acceptance and next phase
+## 5. Acceptance and next phase
 
 Only after (a) local Node QA PASS, (b) separate auditor `SAV11_SOURCE_MATCH_PASS`, (c) saved private evidence and external readback, and (d) identity/deployment configuration review, can we request authorization for **new synthetic baseline E0 v1.1 and 26 negative tests**. New E0 requires new session ID and E0/E1 lineage, not a rewrite of the prior E0. No live writes until independent pre-write admission; no production approval is implied.
 
-**As of the v1.2 update:** local Node execution NOT DONE; auditor installation NOT DONE; installed-source re-attestation NOT DONE; previous E0 preserved; Web App staging NO-GO; production NO-GO.
+**At authorship:** local Node execution NOT DONE; auditor installation NOT DONE; installed-source re-attestation NOT DONE; previous E0 preserved; Web App staging NO-GO; production NO-GO.
