@@ -57,3 +57,19 @@ If the probe reports 403 `insufficientPermissions`, Google Apps Script's import/
 Other options: request increased Cloud project quota, or reuse an existing safe Standard Cloud project only after strict review of IAM/OAuth/other app dependencies. Never repurpose production Cloud project without authorization.
 
 **Hard status:** all live SAV11 source attestation and private evidence verification still NOT PASSED; RC8.2/S0/S1/SAV10/E0 frozen, staging Web App NO-GO and production NO-GO.
+
+
+## Observed live probe (2026-10-16 19:43 WIB)
+
+The separate SAV11 auditor's function `sav11DriveExportProbeV12()` **actually executed** and returned:
+
+- `method=DRIVE_V3_FILES_EXPORT_READONLY`, `httpStatus=403`, `errorStatus=PERMISSION_DENIED`.
+- Exact error category: `Google Drive API has not been used in project 921073186167 before or it is disabled`.
+- `fileCount=0`, `targetWrites=0`, `evidenceWrites=0`; no source hash comparison or private attestation file was produced.
+- This is a **Drive API activation block on the auditor's Default Cloud Project**, *not* a source/hash mismatch, and unrelated to Cloud Standard Project creation quota.
+
+**Verified vendor procedure:** in the auditor Apps Script editor only (Project B), click **Services (+) → Drive API → v3 → Add** and save. Google's Advanced Services documentation states adding an advanced service in a *Default* Cloud Project automatically enables the backing API; no Standard project creation needed. Also, Google's Apps Script source import/export guide requires OAuth scope `https://www.googleapis.com/auth/drive.scripts` alongside Drive access for import/export. After reviewing the increased permission surface, add that scope to **Project B's** explicit `appsscript.json` `oauthScopes` and re-authorize the auditor, then rerun `sav11DriveExportProbeV12()`. The selected advanced service will add `dependencies.enabledAdvancedServices` to **Project B's manifest only**. This locally installed auditor manifest now differs from the GitHub auditor baseline and must be recorded/reviewed before accepting any new formal SAV11 evidence; the eight-file target stays unchanged.
+
+Official references: https://developers.google.com/apps-script/guides/services/advanced ; https://developers.google.com/apps-script/guides/import-export ; https://developers.google.com/workspace/drive/api/guides/ref-export-formats .
+
+**Do not activate Drive on target A**, run `Drive.Files.update`, enable Web/Write/Upload flags, create triggers or publish a Web App. A later HTTP 200 with eight expected names is *probe-only*; full independent attestation will require source/type normalization, pinned 8/8 SHA-256, repeat stable reads, private evidence SHA/ACL readback and new evidence lineage. If 403 persists after service enablement, inspect the new error instead of changing production security settings.
