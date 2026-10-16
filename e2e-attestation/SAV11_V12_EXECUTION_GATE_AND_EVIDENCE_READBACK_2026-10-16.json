@@ -1,0 +1,101 @@
+{
+  "schema": "PHA07B2_B2_SAV11_V12_EXECUTION_AND_EVIDENCE_VERIFICATION",
+  "date": "2026-10-16",
+  "timezone": "Asia/Jakarta",
+  "stage": "SAV11_INDEPENDENT_SOURCE_ATTESTATION_EXECUTION_V12",
+  "status": "BLOCKED_NOT_EXECUTED_ON_INSTALLED_APPS_SCRIPT",
+  "decision": "NO_GO",
+  "scopedFindings": {
+    "githubCandidateSource": {
+      "commit": "b865d6c830e215cc062e553b33db5bb866db95dc",
+      "expectedFiles": 8,
+      "canonicalSha256Matches": 8,
+      "gitBlobMatches": 8,
+      "scope": "GitHub source against pinned 8-file SAV11 reference only"
+    },
+    "independentAuditor": {
+      "version": "PHA07B2-B2-SAV11-2026.10.16.2",
+      "sourceFile": "e2e-attestation/independent-auditor-sav11/SAV11_IndependentSourceAttestor.gs",
+      "mockScenarios": 15,
+      "mockPass": 15,
+      "installedProjectExecution": "NOT_PERFORMED",
+      "sourceRecheckBeforeEvidence": true,
+      "invalidEvidenceRollbackGuard": true
+    },
+    "evidenceFolder": {
+      "id": "1x0CKHFGQ9rEXWTb_2BMtnqp7bO--pnrG",
+      "totalObservedItems": 2,
+      "newSav11EvidenceFound": false,
+      "shared": false,
+      "returnedPermissions": [
+        {
+          "type": "user",
+          "role": "owner"
+        }
+      ],
+      "permissionMetadata": "available"
+    },
+    "historicalEvidence": [
+      {
+        "kind": "E0V10_E0",
+        "fileId": "1taX1OXKmLBYOwa_kH3DAcjPzD08rbYY9",
+        "bytes": 580493,
+        "expectedSha256": "28312275c074a44359cfa9c8304f1719f2b37039c4768710e25c012800bdff25",
+        "computedSha256": "28312275c074a44359cfa9c8304f1719f2b37039c4768710e25c012800bdff25",
+        "verified": true,
+        "shared": false,
+        "returnedPermissions": [
+          {
+            "type": "user",
+            "role": "owner"
+          }
+        ]
+      },
+      {
+        "kind": "E0V10_SOURCE_ATTESTATION",
+        "fileId": "1ZZiFR4H6OVNmy8p-DS3fT8tl_ZoTCkFS",
+        "bytes": 3026,
+        "expectedSha256": "ba0f89fd0eddedee9494e231c34962ac8b80e115185615b2a7505935eace979a",
+        "computedSha256": "ba0f89fd0eddedee9494e231c34962ac8b80e115185615b2a7505935eace979a",
+        "verified": true,
+        "shared": false,
+        "returnedPermissions": [
+          {
+            "type": "user",
+            "role": "owner"
+          }
+        ]
+      }
+    ],
+    "evidenceHashMethod": "Google Drive fetched raw JSON bytes to transient local audit filesystem; OS sha256sum matched previously recorded expected digests.",
+    "appsScriptInventoryObservation": "Connected Google Drive search returned no matching SAV11/E2E11 script project. This does not prove that no Apps Script project exists; Apps Script API project-level access is unavailable here.",
+    "newSav11PrivateEvidenceFileId": null,
+    "independentlyReadBackNewSav11Evidence": false,
+    "appsScriptTargetScriptIdVerified": false,
+    "appsScriptAuditorScriptIdVerified": false,
+    "getContentExecutedAgainstInstalledTarget": false,
+    "actualTargetFileListObserved": false
+  },
+  "guardrails": {
+    "gitDraftPr": 3,
+    "gitBranch": "security/pha07b2-rpc-universal-guard-v1-20261016",
+    "priorSAV10Frozen": true,
+    "priorE0Frozen": true,
+    "appScriptCodeWritesThisAudit": 0,
+    "driveEvidenceWritesThisAudit": 0,
+    "syntheticStateWritesThisAudit": 0,
+    "webAppDeploymentCreated": false,
+    "triggerInstalled": false,
+    "productionDeploymentTouched": false,
+    "flagsChanged": false
+  },
+  "nextPrerequisites": [
+    "Identify a separately-created synthetic target Apps Script project with eight source files matching SAV11, and a separate auditor project with only the SAV11 v1.2 auditor plus its manifest.",
+    "Pin distinct script IDs and exact title in the auditor properties; leave target Web/Write/Upload/Audit Approval flags false.",
+    "Execute sav11IndependentSourceAttestationV12() manually from the auditor Apps Script editor, with authorized official Google API read-only scope.",
+    "Verify the SAV11 result and new private Drive JSON evidence through independent metadata, byte-level sha256sum readback and eight file hash matches.",
+    "Only after independent PASS, plan separately versioned new E0/E1 and 26 negative tests; do not reuse old E0 as a live execution baseline."
+  ],
+  "finalGate": "STAGING_WEBAPP_NO_GO_PRODUCTION_NO_GO",
+  "productionReady": false
+}

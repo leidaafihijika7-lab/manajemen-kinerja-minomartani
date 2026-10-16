@@ -1,0 +1,143 @@
+{
+  "schema": "PHA07B2_B2_SAV11_DRIVE_EXPORT_V13_MOCK_REGRESSION",
+  "testedAt": "2026-10-16 Asia/Jakarta",
+  "version": "PHA07B2-B2-SAV11-DRIVE-2026.10.16.1",
+  "sourceCommitPinned": "b865d6c830e215cc062e553b33db5bb866db95dc",
+  "executionType": "IN_MEMORY_STUBS_WITH_GITHUB_SOURCE_AS_EXPECTED_NOT_REAL_DRIVE",
+  "mockResultsSummary": {
+    "cases": 18,
+    "expectedDecisions": 18,
+    "failedCases": 0
+  },
+  "outcomes": {
+    "expectedPass": [
+      "preflight",
+      "full_pass"
+    ],
+    "expectedBlock": [
+      "metadata_403",
+      "metadata_404",
+      "title_mismatch",
+      "id_mismatch",
+      "mime_mismatch",
+      "extra_file",
+      "missing_file",
+      "changed_Kode",
+      "wrong_type",
+      "duplicate_file",
+      "unstable_second_read",
+      "export_403",
+      "evidence_folder_nonprivate",
+      "evidence_file_nonprivate",
+      "evidence_readback_bad",
+      "evidence_rollback_fail"
+    ]
+  },
+  "details": [
+    {
+      "scenario": "preflight",
+      "observedStatus": "SAV11_DRIVE_HASH_PREFLIGHT_PASS",
+      "sourceChecks": 8,
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "full_pass",
+      "observedStatus": "SAV11_DRIVE_SOURCE_MATCH_PASS",
+      "sourceChecks": 8,
+      "mockEvidenceFileWrites": 1
+    },
+    {
+      "scenario": "metadata_403",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "metadata_404",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "title_mismatch",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "id_mismatch",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "mime_mismatch",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "extra_file",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "missing_file",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "changed_Kode",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "wrong_type",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "duplicate_file",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "unstable_second_read",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "export_403",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "evidence_folder_nonprivate",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 0
+    },
+    {
+      "scenario": "evidence_file_nonprivate",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 1,
+      "mockRollback": 1
+    },
+    {
+      "scenario": "evidence_readback_bad",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 1,
+      "mockRollback": 1
+    },
+    {
+      "scenario": "evidence_rollback_fail",
+      "observedStatus": "SAV11_SOURCE_ATTESTATION_BLOCKED",
+      "mockEvidenceFileWrites": 1,
+      "mockRollback": 0
+    }
+  ],
+  "caveats": [
+    "Expected source digests supplied from pinned SAV11 manifest and actual GitHub code, using stubbed SHA256 for deterministic scenarios.",
+    "No installed source GET, Drive file metadata, OAuth, or evidence file actions performed by mocks.",
+    "The live user-provided probe at 20:02 WIB observed HTTP 200/8 expected names/zero writes, but actual source SHA256 values were not yet provided.",
+    "Project A, production, RC8.2, seven-file E0, and GitHub source pin remain untouched.",
+    "No production/staging approval implied."
+  ],
+  "realInstalledSourceAttestation": "NOT_EXECUTED",
+  "realEvidenceCreated": 0,
+  "productionReady": false
+}

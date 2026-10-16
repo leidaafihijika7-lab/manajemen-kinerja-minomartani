@@ -13,13 +13,13 @@ var E2E10_CONFIG_ = Object.freeze({
   AUTH: 'E2E_PRIVATE_WEBAPP_WRITES_OPTIN_ONLY'
 });
 
-function e2e10GetScriptIdReadOnlyV1() {
+function e2e10GetScriptIdReadOnlyV1_() {
   var id = ScriptApp.getScriptId();
   console.log('PHA07B2_E2E_SCRIPT_ID: ' + id);
   return {scriptId: id, writes: 0, productionReady: false};
 }
 
-function e2e10ReadOnlyPreflightV1() {
+function e2e10ReadOnlyPreflightV1_() {
   var c = E2E10_CONFIG_, issues = [], p = PropertiesService.getScriptProperties();
   var inventory = {sheetCount: null, sourceRows: null, indexRows: null,
     employeeRows: null, queueRows: null, triggerCount: null,

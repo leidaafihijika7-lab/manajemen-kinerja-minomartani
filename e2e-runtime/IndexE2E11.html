@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><head><base target="_top"><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal Kinerja — E2E Security Harness</title>
+<style>
+body{font:15px/1.6 system-ui,Arial,sans-serif;background:#f2f5f8;color:#172738;margin:0;padding:26px}
+main{background:#fff;max-width:700px;margin:auto;padding:27px;border:1px solid #dce5ee;border-radius:14px}
+h1{font-size:23px;margin:0 0 6px}p{color:#44566a}label{display:block;margin:14px 0 4px;font-weight:600}
+input,button{font:inherit;padding:10px 12px;border-radius:7px;border:1px solid #bac9d6}
+input{width:calc(100% - 26px)}button{background:#103a56;color:#fff;cursor:pointer;margin:10px 6px 5px 0}
+button:disabled{background:#9da8b3;cursor:not-allowed}
+pre{background:#edf3f7;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:70px}
+.small{font-size:12px;color:#61748a}.warning{color:#a23e21}
+</style></head><body><main>
+<h1>PHA-07B B2 — Restricted E2E Harness</h1>
+<p><strong>Synthetic staging only.</strong> No payroll, uploads, triggers, external API, or production accounts.</p>
+<p class="warning">The panel is NOT an approval to turn on staging flags. Every server endpoint enforces identity and required gates.</p>
+<button id="status" type="button">Read security status</button>
+<hr>
+<label for="user">Synthetic username</label><input id="user" autocomplete="off" maxlength="160">
+<label for="pin">Synthetic PIN</label><input id="pin" type="password" autocomplete="off" maxlength="160">
+<button id="login" type="button" disabled>Login (review-gated)</button>
+<button id="history" type="button" disabled>Own history</button>
+<button id="logout" type="button" disabled>Logout</button>
+<p class="small">Mutation tests (submit, revise, review, upload) are intentionally NOT connected to buttons. Run them only in controlled negative-test harness after independent authorization.</p>
+<pre id="result" aria-live="polite">Security status not checked.</pre>
+</main><script>
+(function(){
+'use strict';
+var token='';
+var ready=false;
+var result=document.getElementById('result');
+function display(o){var copy=JSON.parse(JSON.stringify(o||{})); if(copy.token)copy.token='[REDACTED]';if(copy.sessionToken)copy.sessionToken='[REDACTED]';result.textContent=JSON.stringify(copy,null,2)}
+function failure(e){display({sukses:false,error:String(e&&e.message||'RPC denied')})}
+function run(name,args,success){var api=google.script.run.withSuccessHandler(success).withFailureHandler(failure);api[name].apply(api,args)}
+document.getElementById('status').onclick=function(){
+ run('e2e11RpcStatus',[],function(x){display(x);ready=!!(x&&x.sukses&&x.auditApproved&&x.writesFlag);document.getElementById('login').disabled=!ready});
+};
+document.getElementById('login').onclick=function(){
+ if(!ready)return;
+ run('e2e11RpcLogin',[document.getElementById('user').value,document.getElementById('pin').value,'E2E-FOCUSED-UI'],function(x){
+ token=(x&&(x.token||x.sessionToken))||'';display(x);document.getElementById('history').disabled=!token;document.getElementById('logout').disabled=!token;
+ });
+};
+document.getElementById('history').onclick=function(){
+ if(token)run('e2e11RpcHistory',[{offset:0,limit:10},token],display);
+};
+document.getElementById('logout').onclick=function(){
+ if(!token)return;
+ var t=token;token='';document.getElementById('history').disabled=true;document.getElementById('logout').disabled=true;
+ run('e2e11RpcLogout',[t],display);
+};
+})();
+</script></body></html>

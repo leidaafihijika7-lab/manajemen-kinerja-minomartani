@@ -1,0 +1,79 @@
+{
+  "schema": "PHA07B2_B2_SAV11_SOURCE_REFERENCE_V1",
+  "kind": "independent-installed-source-attestation-allowlist",
+  "referenceCommit": "b865d6c830e215cc062e553b33db5bb866db95dc",
+  "referencePath": "e2e-runtime/",
+  "baselinePrior": "51fb7a0cd68927eb1a263f1edb8c421d40defd83",
+  "canonicalization": {
+    "sourceFiles": "replace CRLF/CR with LF; remove terminal LF characters only",
+    "manifest": "parse JSON and recursively serialize sorted object keys; preserve array ordering"
+  },
+  "expected": [
+    {
+      "name": "Kode",
+      "type": "SERVER_JS",
+      "githubName": "Kode.gs",
+      "sha256": "4011e87f26d283f8d85d66e9008ad00fa9346446984a754c45c9adb75ae27ae5",
+      "gitBlob": "53ac979d70813366dbc65a0483c3bb4c70c9c2ef"
+    },
+    {
+      "name": "IndexE2E11",
+      "type": "HTML",
+      "githubName": "IndexE2E11.html",
+      "sha256": "432be7b72cf0eaabb772cc78f6ef108e2200696a7107af974a1ce408c97d555c",
+      "gitBlob": "9da00b1ec094de642c81af6d2be4d97923124cb6"
+    },
+    {
+      "name": "E2E11_RestrictedRpcFacade",
+      "type": "SERVER_JS",
+      "githubName": "E2E11_RestrictedRpcFacade.gs",
+      "sha256": "ded9b238d37b6d2f6dcf7af8331c80f1c3bb6ff05ec5fc1679139b8b3c0471da",
+      "gitBlob": "19a85224f897c1a4b9fd8b60a4585eda0327ebc0"
+    },
+    {
+      "name": "SheetSchema",
+      "type": "SERVER_JS",
+      "githubName": "SheetSchema.gs",
+      "sha256": "3f76d416a8e5f1b2d495a7e38b89f539ada19c7027cef64a2a30abd9d86e5c10",
+      "gitBlob": "93ce60fd9fe7869b7d5fdfc7adb8a3f45fc5a690"
+    },
+    {
+      "name": "IndexQueueGuardRC7",
+      "type": "SERVER_JS",
+      "githubName": "IndexQueueGuardRC7.gs",
+      "sha256": "b7c1b23060390d1397927a2f75b81a5060b1976149a4695b7ec9bc3823ea0ef4",
+      "gitBlob": "f709e9f4692aec28efc7f4bf6e0c2d04e909ef12"
+    },
+    {
+      "name": "E2E10_RuntimeGuard",
+      "type": "SERVER_JS",
+      "githubName": "E2E10_RuntimeGuard.gs",
+      "sha256": "3b555171c1192964bc4107e6d06c3e1d510cd117bafe5196830f059413777a02",
+      "gitBlob": "8f131846206750845014324d47a028915e63b742"
+    },
+    {
+      "name": "E2E10_IsolatedReadOnlyPreflight",
+      "type": "SERVER_JS",
+      "githubName": "E2E10_IsolatedReadOnlyPreflight.gs",
+      "sha256": "7ac3aa3a928b4c392e8a698c90074b7f8e867d577ea94b55905417f7ae77e8bb",
+      "gitBlob": "f784942441a9379c4903e242a23b18256fe20834"
+    },
+    {
+      "name": "appsscript",
+      "type": "JSON",
+      "githubName": "appsscript.json",
+      "sha256": "04bd6d2a0d756fab43bccb2237584f9c9c53046487ff4256db4aa72c79fff86d",
+      "gitBlob": "cb364d0824e204aa1deaeba186bb5a853834ae88"
+    }
+  ],
+  "expectedInstalledFileCount": 8,
+  "blockExtraFiles": true,
+  "editorOnlyDiagnosticPrivate": true,
+  "excludedFile": "Index.html",
+  "sourceHashVerification": "computed from connector source text; cross-checked SHA-256 abc vector and original 7-file Kode canonical reference",
+  "installedAttestationStatus": "NOT_EXECUTED",
+  "sourceCompileStatus": "V8_PARSE_PASS_NOT_APPS_SCRIPT_COMPILATION",
+  "sourceExposure": "Never log source, PIN, token or OAuth secret",
+  "priorE0MustRemainFrozen": true,
+  "productionReady": false
+}
