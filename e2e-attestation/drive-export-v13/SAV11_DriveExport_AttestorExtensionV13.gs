@@ -186,3 +186,35 @@ function sav11IndependentDriveAttestationV13() {
   console.log('SAV11_V13_RESULT:\n' + JSON.stringify(result, null, 2));
   return result;
 }
+/**
+ * Independent target ID/title/MIME preflight, source-only, zero evidence writes.
+ * This is a SINGLE read. It must NOT be mistaken for final two-read acceptance.
+ */
+function sav11DriveIdentityPreflightV13() {
+  var r;
+  try {
+    r = sav11DriveV13Read_(true);
+    if (r.status === 'SAV11_DRIVE_SOURCE_MATCH_PASS' &&
+        r.targetProjectTitleVerified === true &&
+        r.issues.length === 0 &&
+        r.observed.length === 8 &&
+        r.observed.every(function (x) { return x.same === true; })) {
+      r.status = 'SAV11_DRIVE_IDENTITY_PREFLIGHT_PASS';
+    } else {
+      r.status = 'SAV11_SOURCE_ATTESTATION_BLOCKED';
+    }
+    r.sourceStablePreSave = false; // final two-read check has NOT happened.
+    r.evidenceWrites = 0;
+  } catch (err) {
+    r = {
+      version: SAV11_DRIVE_V13_.VERSION,
+      status: 'SAV11_SOURCE_ATTESTATION_BLOCKED',
+      issues: [String(err && err.message || err).slice(0, 140)],
+      targetWrites: 0,
+      evidenceWrites: 0,
+      productionReady: false
+    };
+  }
+  console.log('SAV11_V13_IDENTITY_PREFLIGHT:\n' + JSON.stringify(r, null, 2));
+  return r;
+}
