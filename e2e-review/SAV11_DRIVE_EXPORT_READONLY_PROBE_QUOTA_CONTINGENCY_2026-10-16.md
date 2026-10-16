@@ -1,12 +1,12 @@
 # PHA-07B B2 — SAV11 Read-Only Drive Export Probe (Cloud Quota Contingency)
 
-**2026-10-16 WIB | NOT EXECUTED | NOT A SOURCE ATTESTATION.** Cloud Console reported maximum new-project quota and declined creating a new Standard Google Cloud project. User's SAV11 v1.2 real attestation remains \`SAV11_API_HTTP_403:PROJECT_META\` due to \`script.googleapis.com\` disabled in **auditor Default Cloud Project**. Do not remove existing Cloud projects or change production.
+**2026-10-16 WIB | NOT EXECUTED | NOT A SOURCE ATTESTATION.** Cloud Console reported maximum new-project quota and declined creating a new Standard Google Cloud project. User's SAV11 v1.2 real attestation remains `SAV11_API_HTTP_403:PROJECT_META` due to `script.googleapis.com` disabled in **auditor Default Cloud Project**. Do not remove existing Cloud projects or change production.
 
-Google officially supports standalone Apps Script project source export as \`application/vnd.google-apps.script+json\` from Drive API \`files.export\`. Source documentation: https://developers.google.com/apps-script/guides/import-export ; https://developers.google.com/workspace/drive/api/guides/ref-export-formats ; https://developers.google.com/apps-script/guides/services/advanced
+Google officially supports standalone Apps Script project source export as `application/vnd.google-apps.script+json` from Drive API `files.export`. Source documentation: https://developers.google.com/apps-script/guides/import-export ; https://developers.google.com/workspace/drive/api/guides/ref-export-formats ; https://developers.google.com/apps-script/guides/services/advanced
 
-The following is a **read-only test** to append temporarily to the existing **Project B auditor's existing one .gs file** (do not add extra files; Project A 8 files remain untouched). The probe does not save or log raw source. It validates auditor Script Properties with existing \`sav11CheckConfig_()\`; Drive \`GET\` fetches the target's source in-memory; only file names and types and HTTP errors are logged:
+The following is a **read-only test** to append temporarily to the existing **Project B auditor's existing one .gs file** (do not add extra files; Project A 8 files remain untouched). The probe does not save or log raw source. It validates auditor Script Properties with existing `sav11CheckConfig_()`; Drive `GET` fetches the target's source in-memory; only file names and types and HTTP errors are logged:
 
-\`\`\`javascript
+```javascript
 function sav11DriveExportProbeV12() {
   var c = sav11CheckConfig_();
   var url = 'https://www.googleapis.com/drive/v3/files/' +
@@ -48,11 +48,11 @@ function sav11DriveExportProbeV12() {
   console.log('SAV11_DRIVE_EXPORT_PROBE:\n' + JSON.stringify(result, null, 2));
   return result;
 }
-\`\`\`
+```
 
-If the method returns HTTP 200 with eight expected file names/types **including appsscript manifest**, the alternate read-only transport may be developed as a separately versioned SAV11 Drive-export auditor; it MUST still check pinned hashes for all eight files, exact name/type/target ID/title, two stable HEAD reads, and independent ACL/hash evidence readback. Do not treat the probe as attestation. Existing verified GitHub source commit remains \`b865d6c830e215cc062e553b33db5bb866db95dc\`.
+If the method returns HTTP 200 with eight expected file names/types **including appsscript manifest**, the alternate read-only transport may be developed as a separately versioned SAV11 Drive-export auditor; it MUST still check pinned hashes for all eight files, exact name/type/target ID/title, two stable HEAD reads, and independent ACL/hash evidence readback. Do not treat the probe as attestation. Existing verified GitHub source commit remains `b865d6c830e215cc062e553b33db5bb866db95dc`.
 
-If the probe reports 403 \`insufficientPermissions\`, Google Apps Script's import/export guide specifically calls for \`https://www.googleapis.com/auth/drive.scripts\` in addition to existing Drive scope. Review authorization risk before adding it **only to auditor** (never production or target). If the **Drive API** itself is disabled on the auditor default Cloud Project, enable advanced Drive API v3 via the auditor's **Services +** and save; Google states that adding an advanced service automatically enables its backing API on a new Default Cloud Project. If still blocked, stop and inspect logs. Do not create a deployment or permit target writes.
+If the probe reports 403 `insufficientPermissions`, Google Apps Script's import/export guide specifically calls for `https://www.googleapis.com/auth/drive.scripts` in addition to existing Drive scope. Review authorization risk before adding it **only to auditor** (never production or target). If the **Drive API** itself is disabled on the auditor default Cloud Project, enable advanced Drive API v3 via the auditor's **Services +** and save; Google states that adding an advanced service automatically enables its backing API on a new Default Cloud Project. If still blocked, stop and inspect logs. Do not create a deployment or permit target writes.
 
 Other options: request increased Cloud project quota, or reuse an existing safe Standard Cloud project only after strict review of IAM/OAuth/other app dependencies. Never repurpose production Cloud project without authorization.
 
