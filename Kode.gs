@@ -15333,6 +15333,12 @@ function ambilDataRekapKlasemenCached_() {
 
 var KLASMEN_FAST_CACHE_TTL_SECONDS_2026060614 = 600;
 
+// PATCH 3C-5: klasemen menggunakan periode resmi historis yang tersimpan pada indeks.
+// Namespace baru mencegah penggunaan cache 3C-4 sesudah deployment patch.
+function kunciCacheKlasemenFast3C5_(periodeAktif, lastRow) {
+  return "KLASEMEN_FAST_3C5_" + periodeAktif + "_R" + lastRow + "_G" + rekapDisposisiGenerationV2A1B_() + tandaCacheTurunanTarifV03_();
+}
+
 function kolomMaksRekapKlasemenCepat_() {
   var c = SHEET_COLUMNS.REKAP_KINERJA;
   return Math.max(
@@ -15350,7 +15356,7 @@ function ambilDataRekapKlasemenFastCached_() {
   var periodeAktif = periodeKinerjaAktifUntukLaporanWajibV34_(new Date());
   var sh = getSheet_("Rekap_Kinerja");
   var lastRow = sh.getLastRow();
-  var cacheKey = "KLASEMEN_FAST_3C4_" + periodeAktif + "_R" + lastRow + "_G" + rekapDisposisiGenerationV2A1B_() + tandaCacheTurunanTarifV03_();
+  var cacheKey = kunciCacheKlasemenFast3C5_(periodeAktif, lastRow);
 
   try {
     var cache = CacheService.getScriptCache();
@@ -15401,6 +15407,12 @@ function bacaProyeksiKlasemen3C4_(sh, lastRow, maxCol, pegawaiById) {
       row[C.STATUS_REVIEW] = ir[M.STATUS_REVIEW];
       row[C.POIN_FINAL] = ir[M.POIN_FINAL];
       row[C.ID_USER] = idUser;
+      // Periode administratif tersimpan; waktu asli tetap untuk jejak audit.
+      var periodeIndex = String(ir[M.PERIODE_RESMI] || "").trim();
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodeIndex)) {
+        throw new Error("PERIODE_INDEX_TIDAK_VALID_ROW_" + (i + 2));
+      }
+      row._periodeResmiIndex3C5 = periodeIndex;
       projected.push(row);
     }
     return { rows: projected, sumber: 'INDEX_LAPORAN_3C4', sourceRows: indexRows.length };
@@ -15448,7 +15460,9 @@ function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
       var rawTgl = row[c.TANGGAL_LAPORAN];
       var tglLap = rawTgl instanceof Date ? rawTgl : parseTanggal(rawTgl);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
-      var periodeEfektifLap = periodePelaporanResmiDariTanggalV36_(tglLap);
+      // Jalur indeks: periode resmi historis. Fallback Rekap_Kinerja: resolver lama.
+      // Jangan memindahkan laporan lintas triwulan hanya karena cut-off diedit.
+      var periodeEfektifLap = row._periodeResmiIndex3C5 || periodePelaporanResmiDariTanggalV36_(tglLap);
       if (triwulanPeriodeKeyV36_(periodeEfektifLap) !== triwulanAktif) continue;
       if (!isStatusApproved_(row[c.STATUS_REVIEW])) continue;
 
@@ -15595,8 +15609,10 @@ function refreshKlasemenKinerjaCache(token) {
   try {
     var idUser = validasiSession(token);
     if (!idUser) return { sukses: false, pesan: 'Sesi habis. Silakan login ulang.' };
-    try { CacheService.getScriptCache().remove(KLASMEN_REKAP_CACHE_KEY_2026051214 + tandaCacheTurunanTarifV03_()); } catch (e) { }
-    var rows = ambilDataRekapKlasemenCached_();
+    var periodeAktif = periodeKinerjaAktifUntukLaporanWajibV34_(new Date());
+    var lastRow = getSheet_("Rekap_Kinerja").getLastRow();
+    try { CacheService.getScriptCache().remove(kunciCacheKlasemenFast3C5_(periodeAktif, lastRow)); } catch (e) { }
+    var rows = ambilDataRekapKlasemenFastCached_();
     return { sukses: true, pesan: 'Cache Klasemen Kinerja diperbarui.', jumlah: rows.length };
   } catch (e2) {
     return handleError('refreshKlasemenKinerjaCache', e2, { sukses: false, pesan: '' });
