@@ -1,35 +1,38 @@
-# Patch 3C-5 — Koreksi Klasemen Periode Historis (25 Oktober 2026)
+# Laporan Validasi Staging Patch 3C-5 — 25 Oktober 2026
 
-Status: **BELUM DITERAPKAN KE PRODUKSI**. Cabang isolasi; tidak ada perubahan database.
+**Status:** LULUS uji terisolasi; **BELUM LULUS gerbang runtime Apps Script**; BELUM deploy ke produksi.
 
-## Sasaran
-- September 2026 tetap ditutup secara resmi pada **25 September 2026 16:00 WIB**.
-- Oktober 2026 ditutup sesuai ketetapan pejabat berwenang pada **26 Oktober 2026 23:00 WIB**. **Dokumen ini tidak mengubah Script Properties atau trigger.**
-- Arsip laporan September tidak bermigrasi ke Q4 hanya karena timestamp melampaui cut-off administratif atau konfigurasi tutup periode dimodifikasi kemudian.
-- Klasemen dan Dashboard Admin untuk Achmad Novrizal Hidayat pada Q4: **21 laporan disetujui; 125 poin**.
-- Riwayat September tetap ada: 65 laporan, 55 disetujui, 272 poin historis; data pembayaran September **Rp348.000 / Sudah Dicairkan** tidak disentuh.
+## Tujuan dan kebijakan
+- Penetapan periode laporan harus konsisten pada Klasemen dan Dashboard Admin Kinerja.
+- Laporan yang telah diarsipkan pada September 2026 tetap tercatat dalam periode administrasi September, tidak masuk klasemen triwulan IV.
+- Cut-off September sah 25 September 2026 16.00 WIB; kebijakan keterlambatan tidak berubah.
+- Cut-off Oktober berdasarkan ketetapan atasan: **26 Oktober 2026 23.00 WIB**. Patch ini **tidak membuat/mengubah** lock Oktober dalam Script Properties.
+- Pembayaran historis tidak dihitung ulang atau ditulis ulang oleh patch.
+- Data pribadi, identitas, dan dokumen bukti pegawai tidak dicantumkan dalam laporan uji publik ini.
 
-## Ruang lingkup patch di Kode.gs
-1. Membaca `Index_Laporan.PERIODE_RESMI` dan mengirimkannya sebagai metadata proyeksi ke agregator klasemen cepat.
-2. Menolak format periode indeks yang tidak sah; perilaku fallback ke `Rekap_Kinerja` tidak diubah. Fallback memerlukan pemantauan khusus.
-3. Namespace cache baru `KLASEMEN_FAST_3C5_` agar cache lama tidak dipakai.
-4. `refreshKlasemenKinerjaCache()` kini menyegarkan jalur klasemen aktif.
+## Perubahan pada Kode.gs
+1. Klasemen cepat menggunakan `PERIODE_RESMI` yang tervalidasi dari indeks; tidak menafsir ulang tanggal penyerahan.
+2. Cache klasemen menggunakan namespace versi 3C-5; fungsi refresh menghapus cache aktif.
+3. **Fail-closed:** indeks tidak sehat/fitur nonaktif/periode invalid menyebabkan `KLASEMEN_INDEX_UNAVAILABLE`, **tanpa fallback** ke perhitungan yang mungkin salah.
+4. **Tidak** mengubah `bangunBaseDashboardAdminV2A2_`, submit, penilaian/review, tunjangan, lock cut-off, atau proses indeks. Hindari rebuild indeks sampai prosedur preservasi timestamp asli tersedia.
 
-## Data real: pemeriksaan baca-saja
-- 173 entri indeks milik pegawai terkait.
-- Sebelum patch, resolver tanggal menempatkan 29 laporan September yang disetujui (145 poin) dalam Q4: 50/270.
-- Sesudah memakai kolom periode resmi indeks: 21/125.
-- Seluruh September dari indeks: 55 laporan disetujui / 272 poin; 65 total laporan.
-- Dari 4.413 baris indeks pada saat pemeriksaan, **248** memiliki perbedaan terhadap hasil klasifikasi ulang berdasarkan daftar batas penutupan yang direkonstruksi. Dari jumlah itu: 212 entri April dan 36 entri September. Perubahan April perlu audit sendiri; jangan otomatis migrasi.
+## Pengujian dijalankan
+- Pemeriksaan sintaks JavaScript: **PASS**, seluruh sumber `Kode.gs` cabang staging.
+- Eksekusi langsung fungsi klasemen yang diekstrak dari `Kode.gs` cabang staging dengan mock servis Apps Script + 4.413 baris `Index_Laporan` aktual dan 23 data master pegawai: **PASS**, target triwulan IV 21 laporan dan 125 poin bagi kasus yang diuji.
+- Rekonsiliasi seluruh 4.413 baris indeks: **PASS**, tidak ditemukan ID laporan/row indeks duplikat, format periode invalid, atau tanggal tidak dikenali pada pembacaan. **Hanya satu pegawai berubah** di agregasi triwulan IV; 36 baris arsip September (29 disetujui, 145 poin) tidak lagi masuk Q4.
+- Uji fungsi sintetis langsung dari kode cabang staging: **9/9 PASS**, mencakup ketepatan periode, pemisahan poin bulan, status ditolak, cache hit, refresh cache, namespace versi baru, indeks unhealthy, tidak menjalankan fallback, format periode invalid.
+- Review diff terhadap `main`: file produksi yang berubah hanya `Kode.gs`; satu dokumen validasi ditambahkan. **Tidak ada commit pada `main`.**
 
-## Gerbang penerapan wajib
-- Pastikan SHA sumber GitHub cocok dengan kode di deployment Apps Script aktif; jika berbeda, lakukan rebase manual.
-- Pastikan jalur `Index_Laporan` AKTIF dan sehat pada runtime; jika terpaksa fallback, verifikasi akumulasi dan log `fallbackReason`.
-- Snapshot + backup `Rekap_Kinerja`, `Index_Laporan`, Script Properties, dan deployment revision terlebih dahulu. Jangan membangun ulang index sebelum preservasi waktu pengiriman asli.
-- Uji staging: Achmad Oktober 21/125; September 65 total & 272 poin historis; tunjangan September Rp348.000 status tetap; semua pegawai lain disandingkan sebelum/sesudah; peringkat, pagination, predikat, cache miss, dan kegagalan indeks.
-- Perlu rancangan lanjutan untuk membuat periode historis tetap tahan `rebuild`: fungsi `buatBarisIndexLaporan2B0_` masih menghitung ulang `PERIODE_RESMI` dari waktu.
-- Jangan mengubah jam cutoff, pembayaran yang telah dicairkan, timestamp historis, atau kebijakan submit otomatis lewat patch ini.
+## Catatan penting / gerbang sebelum deployment
+1. **Runtime belum teruji**: hasil ini bukan hasil deployment aplikasi Google Apps Script staging; diperlukan akun/koneksi Apps Script yang dapat mengeksekusi salinan terisolasi tanpa akses tulis ke spreadsheet produksi.
+2. Pastikan kode pada deployment aktif identik dengan commit acuan `main`, atau integrasikan perubahan secara manual pada versi yang benar. `APP_VERSION` tidak membuktikan kesamaan seluruh kode.
+3. Baca status flag `readRiwayatIndexAktif2B2A_`, flag dual-write, kesehatan indeks, dan status antrean pada runtime sebenarnya. Karena patch fail-closed, indeks bermasalah membuat klasemen sementara tidak tersedia; itu lebih aman daripada angka keliru.
+4. Uji staging Apps Script dengan salinan database: hasil semua pegawai, ranking/paginasi, cold/warm cache, fallback error, dashboard, laporan/review, dan tanpa mutasi batch tunjangan.
+5. `buatBarisIndexLaporan2B0_` masih menghitung ulang periode dan timestamp dari sumber. Sebelum rebuild/sinkronisasi 53 baris historis yang waktu sumbernya pernah diubah, **amankan waktu asli dan audit perubahan**. Patch ini tidak mengatasi masalah durability tersebut.
+6. Sebanyak 248 baris menunjukkan perbedaan bulan historis versus resolver berbasis cut-off terkini (212 April, 36 September). Perbedaan April berada dalam triwulan II; jangan ubah arsip tersebut tanpa audit terpisah.
+7. **Cut-off Oktober belum dapat diverifikasi dari Script Properties** dengan koneksi yang tersedia; penelusuran Audit_Log tidak menemukan catatan penetapan baru untuk 26 Oktober 2026 pukul 23.00 WIB. Tidak adanya log belum membuktikan konfigurasinya belum disimpan. Pastikan admin menyimpan dan memverifikasi kedua kontrol cut-off/penutupan pada UI sesuai prosedur dan kewenangan.
+8. Lakukan backup pra-deploy termasuk Script Properties, bukti histori waktu, dan snapshot Sheet; tetapkan revisi deployment awal sebagai titik rollback.
+9. Setelah deployment sah: uji lagi klasemen, dashboard, status cut-off yang berlaku, dan batch pembayaran historis; lakukan rollback versi deployment jika regresi.
 
-## Rollback
-- Belum ada perubahan `main` atau deploy. Tidak perlu rollback produksi.
-- Bila kelak deploy dan terjadi regresi, kembalikan revisi deployment Apps Script sebelumnya; verifikasi Klasemen, Dashboard, dan status pembayaran.
+## Batas tindakan yang dilakukan
+Pengujian hanya melakukan pembacaan data produksi; tidak mengubah Sheet, Script Properties, deployment Apps Script, trigger, aturan cut-off, atau status pembayaran. Perubahan kode hanya berada pada cabang `fix/klasemen-periode-historis-20261025`.
