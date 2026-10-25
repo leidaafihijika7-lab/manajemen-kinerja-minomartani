@@ -15417,13 +15417,11 @@ function bacaProyeksiKlasemen3C4_(sh, lastRow, maxCol, pegawaiById) {
     }
     return { rows: projected, sumber: 'INDEX_LAPORAN_3C4', sourceRows: indexRows.length };
   } catch (e) {
-    var jumlah = Math.max(0, Number(lastRow || 0) - 1);
-    return {
-      rows: jumlah > 0 ? sh.getRange(2, 1, jumlah, maxCol).getValues() : [],
-      sumber: 'REKAP_KINERJA_FALLBACK',
-      sourceRows: jumlah,
-      fallbackReason: String(e && e.message ? e.message : e)
-    };
+    // Fail-closed: sumber Rekap_Kinerja belum menyimpan PERIODE_RESMI permanen.
+    // Fallback tanggal dapat memindahkan poin September ke triwulan IV.
+    // Lebih aman menampilkan kegagalan eksplisit daripada klasemen salah.
+    Logger.log('KLASEMEN_3C5_INDEX_UNAVAILABLE: ' + String(e && e.message ? e.message : e));
+    throw new Error('KLASEMEN_INDEX_UNAVAILABLE');
   }
 }
 
@@ -15451,8 +15449,8 @@ function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
   var proyeksiKlasemen = bacaProyeksiKlasemen3C4_(sh, lastRow, maxCol, pegawaiById);
   var jumlahBaris = proyeksiKlasemen.sourceRows;
   if (jumlahBaris > 0) {
-    // Jalur utama membaca proyeksi sempit Index_Laporan; Rekap_Kinerja tetap
-    // menjadi fallback otomatis bila index/circuit/health bermasalah.
+    // Jalur klasemen resmi mewajibkan Index_Laporan yang sehat.
+    // Tidak menggunakan fallback tanpa periode historis karena risiko salah triwulan.
     var data = proyeksiKlasemen.rows;
 
     for (var i = 0; i < data.length; i++) {
@@ -15460,9 +15458,9 @@ function ambilDataRekapKlasemenFast_(periodeAktif, sh, lastRow) {
       var rawTgl = row[c.TANGGAL_LAPORAN];
       var tglLap = rawTgl instanceof Date ? rawTgl : parseTanggal(rawTgl);
       if (!(tglLap instanceof Date) || isNaN(tglLap.getTime())) continue;
-      // Jalur indeks: periode resmi historis. Fallback Rekap_Kinerja: resolver lama.
-      // Jangan memindahkan laporan lintas triwulan hanya karena cut-off diedit.
-      var periodeEfektifLap = row._periodeResmiIndex3C5 || periodePelaporanResmiDariTanggalV36_(tglLap);
+      // Gunakan periode resmi historis, bukan waktu pengiriman atau cut-off terbaru.
+      // Jika indeks tidak sehat, proses dihentikan pada bacaProyeksiKlasemen3C4_.
+      var periodeEfektifLap = row._periodeResmiIndex3C5;
       if (triwulanPeriodeKeyV36_(periodeEfektifLap) !== triwulanAktif) continue;
       if (!isStatusApproved_(row[c.STATUS_REVIEW])) continue;
 
