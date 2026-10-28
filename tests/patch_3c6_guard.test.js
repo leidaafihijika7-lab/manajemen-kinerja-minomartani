@@ -14,7 +14,9 @@ function runTests(code) {
     'buatBarisIndexLaporan2B0_',
     'cekKonsistensiSumberIndexReadOnly3C6_',
     'cekKesehatanRinganReadRiwayatIndex2B2A_',
-    'ambilDataRekapKlasemenFastCached_'
+    'ambilDataRekapKlasemenFastCached_',
+    'sinkronkanSatuRowIndexLaporan2B1Internal_',
+    'auditRekapKinerjaUntukIndex_'
   ];
   function extract(name) {
     const a = code.indexOf('function ' + name + '(');
@@ -32,7 +34,7 @@ function runTests(code) {
   const C = {
     TANGGAL_LAPORAN: 0, KATEGORI: 3, STATUS_REVIEW: 8,
     POIN_FINAL: 9, ID_LAPORAN: 18, ID_USER: 19,
-    NONCE: 24, ID_DISPOSISI: 26
+    NONCE: 24, ID_DISPOSISI: 26, STAF_INSTRUKSI_LOKASI: 70
   };
   const state = {
     write: false, read: true, cutoff: true, queueDirty: false,
@@ -41,8 +43,15 @@ function runTests(code) {
   };
   const sheet = (which) => ({
     getLastRow: () => state[which].length + 1,
-    getRange: (row) => ({getValues: () =>
-      row === 1 ? [state.headers.slice()] : state[which].map(x => x.slice())})
+    getLastColumn: () => 71,
+    getRange: (row, col, height) => ({
+      getValues: () => row === 1 ? [state.headers.slice()] :
+        state[which].slice(row - 2, row - 2 + (height || 1)).map(x => x.slice()),
+      setValues: (value) => {
+        if (which !== 'idx') throw Error('WRITE_TO_SOURCE_PROHIBITED');
+        state.idx.splice(row - 2, value.length, ...value.map(x => x.slice()));
+      }
+    })
   });
   const ss = {
     getSheetByName: name => name === 'Rekap_Kinerja' ? sheet('src') :
@@ -79,7 +88,21 @@ function runTests(code) {
     CacheService:{getScriptCache:()=>cache},
     kunciCacheKlasemenFast3C5_:()=> 'cacheKey',
     periodeKinerjaAktifUntukLaporanWajibV34_:()=> '2026-10',
-    ambilDataRekapKlasemenFast_:()=>{state.actualCalls++;return [{nama:'COMPUTED'}]}
+    ambilDataRekapKlasemenFast_:()=>{state.actualCalls++;return [{nama:'COMPUTED'}]},
+    LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})},
+    SpreadsheetApp:{flush:()=>{}},
+    pastikanHeaderIndexLaporan2B1_:()=>true,
+    cariBarisIndexDenganRowRekap2B1_:(_,r)=>state.idx.length?Number(r):0,
+    formatSatuBarisIndexLaporan2B1_:()=>{},
+    bedaBarisIndexLaporan2B0_:()=>[],
+    updateMetadataDualWriteIndexLaporan2B1_:()=>{},
+    bacaSumberIndexLaporan2B0_:()=>({
+      values:state.src.map(x=>x.slice()),lastRow:state.src.length+1
+    }),
+    idPegawaiDikenalIndexLaporan2B0_:()=>({'employee-1':true}),
+    statusReviewDikenalIndexLaporan2B0_:()=>({'Disetujui':true,'Ditolak':true}),
+    tambahMasalahIndexLaporan2B0_:()=>{},
+    checksumRowsIndexLaporan2B0_:()=> 'test-checksum'
   };
   const keys=Object.keys(defs);
   const fns = new Function(...keys, body +
@@ -210,6 +233,36 @@ function runTests(code) {
     rejects(/READ_NONAKTIF/,()=>fns.ambilDataRekapKlasemenFastCached_());
     state.read=true
   });
+
+  test('actual sync function preserves historical period on review change',()=>{
+    reset();
+    state.src[0][0]=new Date('2026-10-02T20:00:00+07:00');
+    state.src[0][8]='Ditolak';
+    const result=fns.sinkronkanSatuRowIndexLaporan2B1Internal_(2,'MOCK_SYNC',true);
+    assert.equal(result.sukses,true);
+    assert.equal(state.idx[0][4],'2026-09');
+    assert.equal(state.idx[0][3].getTime(),historic()[3].getTime());
+    assert.equal(state.idx[0][6],'Ditolak');
+  });
+  test('actual sync refuses index identity mismatch without overwriting',()=>{
+    reset();
+    state.idx[0][0]='unrelated-report';
+    rejects(/IDENTITAS_BERUBAH/,()=>fns.sinkronkanSatuRowIndexLaporan2B1Internal_(2,'MOCK_SYNC',true));
+    assert.equal(state.idx[0][0],'unrelated-report');
+  });
+  test('actual rebuild audit derives expected rows from historical index',()=>{
+    reset();
+    state.src[0][0]=new Date('2026-10-01T12:00:00+07:00');
+    const result=fns.auditRekapKinerjaUntukIndex_();
+    assert.equal(result.expectedRows.length,1);
+    assert.equal(result.expectedRows[0][4],'2026-09');
+    assert.equal(result.expectedRows[0][3].getTime(),historic()[3].getTime());
+  });
+  test('actual rebuild audit refuses missing historical index',()=>{
+    reset();state.idx=[];
+    rejects(/REBUILD_DITOLAK/,()=>fns.auditRekapKinerjaUntukIndex_());
+  });
+  reset();
   const failed=tests.filter(t=>!t.pass);
   return {total:tests.length,passed:tests.length-failed.length,failed,tests};
 }
