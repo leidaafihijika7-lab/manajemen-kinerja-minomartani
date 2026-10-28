@@ -9526,6 +9526,7 @@
 
     function tanganiResponsSesiTidakValid_(res) {
       if (!responsSesiTidakValid_(res)) return false;
+      stgUploadDiagV1_('SESSION_RESTORE_INVALID', 'TOKEN_INVALID');
       prosesLogout({
         skipServer: true,
         pesan: 'Sesi Anda telah berakhir. Silakan login kembali.'
@@ -9562,6 +9563,7 @@
         .withSuccessHandler(function (res) {
           if (tokenSaatRequest !== sToken) return;
           sessionValidationAktif_ = false;
+          if (responsSesiTidakValid_(res)) stgUploadDiagV1_('SESSION_MONITOR_INVALID', 'TOKEN_INVALID');
           if (tanganiResponsSesiTidakValid_(res)) return;
           if (!res || !res.sukses) {
             console.warn('Sesi belum dapat diverifikasi:', res);
@@ -9587,6 +9589,7 @@
     function aktifkanPortalSetelahSesiValid_(token, dataSesi) {
       sToken = String((dataSesi && dataSesi.tokenBaru) || token || '');
       sData = buatDataSesiAman_(dataSesi);
+      stgUploadDiagV1_('LOGIN_OK', 'SESSION');
       resetPortalRequestState_();
       simpanMemori('kinerja_token', sToken);
       simpanMemori('kinerja_data', JSON.stringify(sData));
@@ -10968,6 +10971,7 @@
 
     function prosesLogout(options) {
       options = options && typeof options === 'object' ? options : {};
+      stgUploadDiagV1_('LOGOUT_CALLED', options.skipServer ? 'SKIP_SERVER' : (options.pesan ? 'MESSAGE' : 'NO_MESSAGE'));
       var tokenLogout = sToken || ambilMemori("kinerja_token");
       if (!options.skipServer && tokenLogout && window.google && google.script && google.script.run) {
         try {
@@ -18189,12 +18193,16 @@ function adminSpreadsheetFieldRawValue_(field) {
         tambahHiddenUploadBlob_(tempForm, 'uploadMetaJson', JSON.stringify(metaList));
         document.body.appendChild(tempForm);
 
+        stgUploadDiagV1_('UPLOAD_REQUEST', 'UPLOAD');
         google.script.run
           .withSuccessHandler(function (res) {
+            stgUploadDiagV1_(res && res.sukses === true ? 'UPLOAD_OK' : 'UPLOAD_REJECTED',
+              res && res.sessionExpired === true ? 'TOKEN_INVALID' : 'UPLOAD');
             if (tempForm && tempForm.parentNode) tempForm.parentNode.removeChild(tempForm);
             resolve(res || { sukses: false, pesan: 'Upload tidak mengembalikan respons.' });
           })
           .withFailureHandler(function (err) {
+            stgUploadDiagV1_('UPLOAD_TRANSPORT_FAIL', 'TRANSPORT');
             if (tempForm && tempForm.parentNode) tempForm.parentNode.removeChild(tempForm);
             reject(err);
           })
@@ -18966,6 +18974,10 @@ function adminSpreadsheetFieldRawValue_(field) {
           }
           function handlerSukses(r) {
             tandaiSelesai();
+            stgUploadDiagV1_(r === 'ERROR_SESSION_EXPIRED' ? 'SAVE_SESSION_EXPIRED' :
+              (typeof r !== 'string' ? 'SAVE_UNKNOWN_RESPONSE' :
+              (/^✅/.test(r) ? 'SAVE_OK' : 'SAVE_REJECTED')),
+              r === 'ERROR_SESSION_EXPIRED' ? 'TOKEN_INVALID' : 'SAVE');
 
             if (r === "ERROR_SESSION_EXPIRED") {
               prosesLogout();
@@ -19050,6 +19062,7 @@ function adminSpreadsheetFieldRawValue_(field) {
           }
 
           function handlerGagal(error) {
+            stgUploadDiagV1_('SAVE_TRANSPORT_FAIL', 'TRANSPORT');
             requestSedangBerjalan = false;
 
             var detailErr = (error && error.message) ? error.message : String(error || "");
@@ -19095,6 +19108,7 @@ function adminSpreadsheetFieldRawValue_(field) {
             }
 
             requestSedangBerjalan = true;
+            stgUploadDiagV1_('SAVE_REQUEST', 'SAVE');
             var runner = google.script.run
               .withSuccessHandler(handlerSukses)
               .withFailureHandler(handlerGagal);
@@ -23325,6 +23339,53 @@ function adminSpreadsheetFieldRawValue_(field) {
       }).ambilOperationalHealthCenterV10(sToken);
     }
     // ===== END Operational Health & Integrity Center v1.0.1 =====
+
+    // ===== STAGING ONLY: Galaxy A07 upload/session diagnostics =====
+    var STAGING_UPLOAD_DIAG_ACTIVE_V1_ = <?!= JSON.stringify(stagingUploadDiagEnabled) ?>;
+    var STAGING_UPLOAD_DIAG_TRACE_V1_ = '';
+    var STAGING_UPLOAD_DIAG_SEQ_V1_ = 0;
+    function stgUploadDiagTraceV1_() {
+      if (!STAGING_UPLOAD_DIAG_ACTIVE_V1_) return '';
+      if (STAGING_UPLOAD_DIAG_TRACE_V1_) return STAGING_UPLOAD_DIAG_TRACE_V1_;
+      var key = 'STAGING_A07_DIAG_TRACE_ONLY_V1';
+      try {
+        var stored = JSON.parse(window.localStorage.getItem(key) || 'null');
+        if (stored && /^A07-[0-9a-f]{24}$/.test(String(stored.id || '')) &&
+            Date.now() - Number(stored.at || 0) < 3 * 60 * 60 * 1000) {
+          STAGING_UPLOAD_DIAG_TRACE_V1_ = stored.id;
+          return STAGING_UPLOAD_DIAG_TRACE_V1_;
+        }
+      } catch (e) { }
+      var hex = '';
+      try {
+        var bytes = new Uint8Array(12);
+        window.crypto.getRandomValues(bytes);
+        for (var i = 0; i < bytes.length; i++) hex += ('0' + bytes[i].toString(16)).slice(-2);
+      } catch (eRandom) {
+        for (var j = 0; j < 24; j++) hex += Math.floor(Math.random() * 16).toString(16);
+      }
+      STAGING_UPLOAD_DIAG_TRACE_V1_ = 'A07-' + hex;
+      try {
+        window.localStorage.setItem(key, JSON.stringify({id:STAGING_UPLOAD_DIAG_TRACE_V1_,at:Date.now()}));
+      } catch (eStore) { }
+      return STAGING_UPLOAD_DIAG_TRACE_V1_;
+    }
+    function stgUploadDiagV1_(eventName, code) {
+      if (!STAGING_UPLOAD_DIAG_ACTIVE_V1_) return;
+      try {
+        if (!window.google || !google.script || !google.script.run) return;
+        // Never transmit token, account ID, PIN, filename, image, error text,
+        // form fields, URLs, or report content.
+        var entry = {traceId:stgUploadDiagTraceV1_(),event:eventName,
+          code:code || 'NONE',seq:++STAGING_UPLOAD_DIAG_SEQ_V1_,clientMs:Date.now()};
+        google.script.run.withSuccessHandler(function(){})
+          .withFailureHandler(function(){})
+          .catatStagingUploadDiagV1_(entry);
+      } catch (e) { /* Diagnostic failure cannot interrupt the portal. */ }
+    }
+    document.addEventListener('DOMContentLoaded',function(){stgUploadDiagV1_('PAGE_LOAD','NONE');});
+    window.addEventListener('pagehide',function(){stgUploadDiagV1_('PAGEHIDE','NONE');});
+    // ===== END STAGING UPLOAD DIAG V1 =====
 </script>
 </body>
 
