@@ -19639,6 +19639,9 @@ function buatBarisIndexLaporan2B0_(row, rowNumber, rowIndexHistoris) {
   var tanggal = tanggalValidIndexLaporan2B0_(row[C.TANGGAL_LAPORAN]);
   var periode = tanggal ? periodePelaporanResmiDariTanggalV36_(tanggal) : '';
   var anchor = ambilAnchorPeriodeIndex3C6_(rowIndexHistoris, row[C.ID_LAPORAN], row[C.ID_USER], rowNumber);
+  if (!anchor && !daftarTutupPeriodeLaporanResmiV36_().length) {
+    throw new Error('INDEX_BARU_DITOLAK_TANPA_KONFIGURASI_PERIODE_RESMI');
+  }
   if (anchor) {
     tanggal = anchor.tanggal;
     periode = anchor.periode;
@@ -20957,9 +20960,21 @@ function cekKonsistensiSumberIndexReadOnly3C6_(shSource, shIndex, jumlah) {
   var C = SHEET_COLUMNS.REKAP_KINERJA;
   var M = getIndexLaporanColumnMap2B0_();
   if (!(jumlah > 0)) return { valid: false, alasan: 'INDEX_KOSONG' };
+  var header = shIndex.getRange(1, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues()[0];
+  for (var h = 0; h < INDEX_LAPORAN_2B0_CONFIG.HEADERS.length; h++) {
+    if (String(header[h] || '').trim() !== INDEX_LAPORAN_2B0_CONFIG.HEADERS[h]) {
+      return { valid: false, alasan: 'INDEX_HEADER_BERUBAH' };
+    }
+  }
   var src = shSource.getRange(2, 1, jumlah, C.ID_USER + 1).getValues();
   var idx = shIndex.getRange(2, 1, jumlah, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues();
+  var ids = {};
   for (var i = 0; i < jumlah; i++) {
+    var idLaporan3C6 = normalizeId_(idx[i][M.ID_LAPORAN]);
+    if (!idLaporan3C6 || ids[idLaporan3C6]) {
+      return { valid: false, alasan: 'INDEX_ID_DUPLIKAT_ATAU_KOSONG_ROW_' + (i + 2) };
+    }
+    ids[idLaporan3C6] = true;
     var sr = src[i], ir = idx[i], rowNo = i + 2;
     if (Number(ir[M.ROW_REKAP]) !== rowNo ||
         normalizeId_(ir[M.ID_LAPORAN]) !== normalizeId_(sr[C.ID_LAPORAN]) ||
