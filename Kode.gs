@@ -15358,6 +15358,16 @@ function ambilDataRekapKlasemenFastCached_() {
   var lastRow = sh.getLastRow();
   var cacheKey = kunciCacheKlasemenFast3C5_(periodeAktif, lastRow);
 
+  // PATCH 3C-6: Jangan kembalikan cache bila indeks sudah rusak/stale.
+  // Tanpa pemeriksaan ini, cache lama dapat menyembunyikan kesalahan indeks.
+  if (!readRiwayatIndexAktif2B2A_()) throw new Error('KLASEMEN_INDEX_READ_NONAKTIF');
+  if (typeof bacaCircuitReadRiwayat2B2A_ === 'function') {
+    var circuit3C6 = bacaCircuitReadRiwayat2B2A_();
+    if (circuit3C6 && circuit3C6.aktif) throw new Error('KLASEMEN_INDEX_CIRCUIT_AKTIF');
+  }
+  var health3C6 = cekKesehatanRinganReadRiwayatIndex2B2A_();
+  if (!health3C6.valid) throw new Error('KLASEMEN_INDEX_UNAVAILABLE: ' + String(health3C6.alasan || ''));
+
   try {
     var cache = CacheService.getScriptCache();
     var raw = cache.get(cacheKey);
