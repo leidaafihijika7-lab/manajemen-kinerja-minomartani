@@ -19573,10 +19573,66 @@ function checksumRowsIndexLaporan2B0_(rows) {
   }).join('');
 }
 
-function buatBarisIndexLaporan2B0_(row, rowNumber) {
+
+/**
+ * PATCH 3C-6 — Jejak periode resmi bersifat immutable setelah diindeks.
+ * Sheet Index_Laporan adalah sumber identitas historis untuk laporan lama.
+ * Jika sheet atau identitas historis rusak/hilang, operasi berhenti (fail closed).
+ * Tidak mengubah periode berdasarkan tanggal pada Rekap_Kinerja yang mungkin diedit.
+ */
+function ambilAnchorPeriodeIndex3C6_(rowIndex, idLaporan, idUser, rowRekap) {
+  if (!rowIndex) return null;
+  var M = getIndexLaporanColumnMap2B0_();
+  if (Number(rowIndex[M.ROW_REKAP]) !== Number(rowRekap) ||
+      normalizeId_(rowIndex[M.ID_LAPORAN]) !== normalizeId_(idLaporan) ||
+      normalizeId_(rowIndex[M.ID_USER]) !== normalizeId_(idUser)) {
+    throw new Error('INDEX_HISTORIS_IDENTITAS_BERUBAH_ROW_' + rowRekap);
+  }
+  var periode = String(rowIndex[M.PERIODE_RESMI] || '').trim();
+  var tanggal = tanggalValidIndexLaporan2B0_(rowIndex[M.TANGGAL_LAPORAN]);
+  if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(periode) || !tanggal) {
+    throw new Error('INDEX_HISTORIS_PERIODE_ATAU_TANGGAL_TIDAK_VALID_ROW_' + rowRekap);
+  }
+  return { periode: periode, tanggal: tanggal };
+}
+
+function bacaAnchorIndexUntukRebuild3C6_() {
+  var sh = getSS_().getSheetByName(INDEX_LAPORAN_2B0_CONFIG.SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) throw new Error('INDEX_HISTORIS_TIDAK_TERSEDIA_REBUILD_DITOLAK');
+  var M = getIndexLaporanColumnMap2B0_();
+  var headers = sh.getRange(1, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues()[0];
+  for (var h = 0; h < INDEX_LAPORAN_2B0_CONFIG.HEADERS.length; h++) {
+    if (String(headers[h] || '').trim() !== INDEX_LAPORAN_2B0_CONFIG.HEADERS[h]) {
+      throw new Error('INDEX_HISTORIS_HEADER_TIDAK_VALID');
+    }
+  }
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues();
+  var anchors = {};
+  var ids = {};
+  for (var i = 0; i < rows.length; i++) {
+    var rowRekap = Number(rows[i][M.ROW_REKAP]);
+    var idLaporan = normalizeId_(rows[i][M.ID_LAPORAN]);
+    var idUser = normalizeId_(rows[i][M.ID_USER]);
+    if (rowRekap !== i + 2 || !idLaporan || !idUser || ids[idLaporan]) {
+      throw new Error('INDEX_HISTORIS_BARIS_DUPLIKAT_ATAU_RUSAK_' + (i + 2));
+    }
+    ids[idLaporan] = true;
+    // Validasi anchor sebelum membuat satu pun sheet sementara.
+    ambilAnchorPeriodeIndex3C6_(rows[i], idLaporan, idUser, rowRekap);
+    anchors[rowRekap] = rows[i];
+  }
+  return { anchors: anchors, lastRow: sh.getLastRow() };
+}
+
+function buatBarisIndexLaporan2B0_(row, rowNumber, rowIndexHistoris) {
   var C = SHEET_COLUMNS.REKAP_KINERJA;
   var tanggal = tanggalValidIndexLaporan2B0_(row[C.TANGGAL_LAPORAN]);
   var periode = tanggal ? periodePelaporanResmiDariTanggalV36_(tanggal) : '';
+  var anchor = ambilAnchorPeriodeIndex3C6_(rowIndexHistoris, row[C.ID_LAPORAN], row[C.ID_USER], rowNumber);
+  if (anchor) {
+    tanggal = anchor.tanggal;
+    periode = anchor.periode;
+  }
   var poinRaw = row[C.POIN_FINAL];
   var poin = poinRaw === '' || poinRaw === null || poinRaw === undefined ? '' : Number(poinRaw);
   if (poin !== '' && !isFinite(poin)) poin = String(poinRaw || '');
@@ -19615,6 +19671,8 @@ function bacaSumberIndexLaporan2B0_() {
 function auditRekapKinerjaUntukIndex_() {
   var startedAt = new Date();
   var source = bacaSumberIndexLaporan2B0_();
+  var historis = bacaAnchorIndexUntukRebuild3C6_();
+  if (historis.lastRow > source.lastRow) throw new Error('INDEX_HISTORIS_LEBIH_PANJANG_DARI_SUMBER');
   var knownUsers = idPegawaiDikenalIndexLaporan2B0_();
   var knownStatuses = statusReviewDikenalIndexLaporan2B0_();
   var seenId = {};
@@ -19687,7 +19745,11 @@ function auditRekapKinerjaUntukIndex_() {
       }
     }
 
-    expectedRows.push(buatBarisIndexLaporan2B0_(row, rowNumber));
+    var existing = historis.anchors[rowNumber] || null;
+    if (rowNumber <= historis.lastRow && !existing) {
+      throw new Error('INDEX_HISTORIS_ANCHOR_HILANG_ROW_' + rowNumber);
+    }
+    expectedRows.push(buatBarisIndexLaporan2B0_(row, rowNumber, existing));
   }
 
   report.checksumSumber = checksumRowsIndexLaporan2B0_(expectedRows);
@@ -20299,17 +20361,18 @@ function sinkronkanSatuRowIndexLaporan2B1Internal_(rowRekap, context, force) {
     var sourceRow = shRekap.getRange(rowRekap, 1, 1, lastCol).getValues()[0];
     var idLaporan = normalizeId_(sourceRow[SHEET_COLUMNS.REKAP_KINERJA.ID_LAPORAN]);
     if (!idLaporan) throw new Error('ID_LAPORAN kosong pada ROW_REKAP ' + rowRekap);
-    var expected = buatBarisIndexLaporan2B0_(sourceRow, rowRekap);
-
+    // Sinkronisasi boleh mengubah status/poin, bukan periode atau waktu asli.
     var targetRow = cariBarisIndexDenganRowRekap2B1_(shIndex, rowRekap);
     var indexLastRow = shIndex.getLastRow();
-    if (!targetRow) {
-      if (rowRekap === indexLastRow + 1) {
-        targetRow = rowRekap;
-      } else {
-        throw new Error('INDEX_ROW_GAP: row sumber ' + rowRekap + ', last row index ' + indexLastRow);
-      }
+    var existingIndex = null;
+    if (targetRow) {
+      existingIndex = shIndex.getRange(targetRow, 1, 1, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues()[0];
+    } else if (rowRekap === indexLastRow + 1) {
+      targetRow = rowRekap; // Hanya penambahan laporan benar-benar baru.
+    } else {
+      throw new Error('INDEX_ROW_GAP: row sumber ' + rowRekap + ', last row index ' + indexLastRow);
     }
+    var expected = buatBarisIndexLaporan2B0_(sourceRow, rowRekap, existingIndex);
 
     formatSatuBarisIndexLaporan2B1_(shIndex, targetRow);
     shIndex.getRange(targetRow, 1, 1, expected.length).setValues([expected]);
@@ -20873,6 +20936,38 @@ function pastikanHeaderIndexReadRiwayat2B2A_(shIndex) {
   return true;
 }
 
+
+/**
+ * PATCH 3C-6: pemeriksaan penuh baca-saja (tanpa tulis/index rebuild).
+ * Perbedaan tanggal sumber-vs-index disengaja: tanggal di indeks tetap
+ * original, sementara sumber mungkin pernah diedit secara administratif.
+ * PERIODE_RESMI adalah fakta historis, tidak boleh dihitung dari tanggal.
+ */
+function cekKonsistensiSumberIndexReadOnly3C6_(shSource, shIndex, jumlah) {
+  var C = SHEET_COLUMNS.REKAP_KINERJA;
+  var M = getIndexLaporanColumnMap2B0_();
+  if (!(jumlah > 0)) return { valid: false, alasan: 'INDEX_KOSONG' };
+  var src = shSource.getRange(2, 1, jumlah, C.ID_USER + 1).getValues();
+  var idx = shIndex.getRange(2, 1, jumlah, INDEX_LAPORAN_2B0_CONFIG.HEADERS.length).getValues();
+  for (var i = 0; i < jumlah; i++) {
+    var sr = src[i], ir = idx[i], rowNo = i + 2;
+    if (Number(ir[M.ROW_REKAP]) !== rowNo ||
+        normalizeId_(ir[M.ID_LAPORAN]) !== normalizeId_(sr[C.ID_LAPORAN]) ||
+        normalizeId_(ir[M.ID_USER]) !== normalizeId_(sr[C.ID_USER]) ||
+        String(ir[M.KATEGORI] || '').trim() !== String(sr[C.KATEGORI] || '').trim() ||
+        String(ir[M.STATUS_REVIEW] || '').trim() !== String(sr[C.STATUS_REVIEW] || '').trim() ||
+        String(ir[M.POIN_FINAL] === null ? '' : ir[M.POIN_FINAL]) !==
+          String(sr[C.POIN_FINAL] === null ? '' : sr[C.POIN_FINAL])) {
+      return { valid: false, alasan: 'INDEX_SUMBER_BERBEDA_ROW_' + rowNo };
+    }
+    if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(String(ir[M.PERIODE_RESMI] || '').trim()) ||
+        !tanggalValidIndexLaporan2B0_(ir[M.TANGGAL_LAPORAN])) {
+      return { valid: false, alasan: 'INDEX_ANCHOR_TIDAK_VALID_ROW_' + rowNo };
+    }
+  }
+  return { valid: true, alasan: '' };
+}
+
 function cekKesehatanRinganReadRiwayatIndex2B2A_() {
   var out = {
     valid: false,
@@ -20896,10 +20991,16 @@ function cekKesehatanRinganReadRiwayatIndex2B2A_() {
     pastikanHeaderIndexReadRiwayat2B2A_(shIndex);
     out.headerValid = true;
     out.queue = hitungStatusQueueIndexLaporan2B1_();
-    if (!out.dualWriteAktif) out.alasan = 'DUAL_WRITE_NONAKTIF';
-    else if (out.sourceRows !== out.indexRows) out.alasan = 'JUMLAH_BARIS_TIDAK_SAMA';
+    if (out.sourceRows !== out.indexRows) out.alasan = 'JUMLAH_BARIS_TIDAK_SAMA';
     else if (out.queue.pending || out.queue.gagal || out.queue.perluRebuild) out.alasan = 'QUEUE_TIDAK_BERSIH';
-    else out.valid = true;
+    else if (out.indexRows < 1) out.alasan = 'INDEX_KOSONG';
+    else {
+      // Status write bukan ukuran kesehatan baca. Cocokkan semua identitas,
+      // status dan poin agar sumber berubah saat write=false tetap terdeteksi.
+      var cek = cekKonsistensiSumberIndexReadOnly3C6_(shSource, shIndex, out.indexRows);
+      if (!cek.valid) out.alasan = cek.alasan;
+      else out.valid = true;
+    }
     return out;
   } catch (e) {
     out.alasan = 'HEALTH_ERROR: ' + String(e && e.message ? e.message : e);
