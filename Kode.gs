@@ -19636,16 +19636,15 @@ function bacaAnchorIndexUntukRebuild3C6_() {
 
 function buatBarisIndexLaporan2B0_(row, rowNumber, rowIndexHistoris) {
   var C = SHEET_COLUMNS.REKAP_KINERJA;
-  var tanggal = tanggalValidIndexLaporan2B0_(row[C.TANGGAL_LAPORAN]);
-  var periode = tanggal ? periodePelaporanResmiDariTanggalV36_(tanggal) : '';
+  // Anchor historis dibaca terlebih dahulu: tanggal sumber yang pernah
+  // diedit tidak dipakai untuk menghitung ulang periode laporan lama.
   var anchor = ambilAnchorPeriodeIndex3C6_(rowIndexHistoris, row[C.ID_LAPORAN], row[C.ID_USER], rowNumber);
+  var tanggal = anchor ? anchor.tanggal : tanggalValidIndexLaporan2B0_(row[C.TANGGAL_LAPORAN]);
   if (!anchor && !daftarTutupPeriodeLaporanResmiV36_().length) {
     throw new Error('INDEX_BARU_DITOLAK_TANPA_KONFIGURASI_PERIODE_RESMI');
   }
-  if (anchor) {
-    tanggal = anchor.tanggal;
-    periode = anchor.periode;
-  }
+  var periode = anchor ? anchor.periode
+    : (tanggal ? periodePelaporanResmiDariTanggalV36_(tanggal) : '');
   var poinRaw = row[C.POIN_FINAL];
   var poin = poinRaw === '' || poinRaw === null || poinRaw === undefined ? '' : Number(poinRaw);
   if (poin !== '' && !isFinite(poin)) poin = String(poinRaw || '');
