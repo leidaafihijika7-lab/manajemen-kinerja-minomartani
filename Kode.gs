@@ -1,6 +1,8 @@
 function doGet() {
   var template = HtmlService.createTemplateFromFile('Index');
   template.appVersion = APP_VERSION;
+  // Diagnostic switch is OFF unless staging property AND pinned staging DB match.
+  template.stagingUploadDiagEnabled = stagingUploadDiagEnabledV1_();
 
   return template
     .evaluate()
