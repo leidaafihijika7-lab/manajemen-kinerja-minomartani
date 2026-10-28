@@ -19590,7 +19590,7 @@ function ambilAnchorPeriodeIndex3C6_(rowIndex, idLaporan, idUser, rowRekap) {
   }
   var periode = String(rowIndex[M.PERIODE_RESMI] || '').trim();
   var tanggal = tanggalValidIndexLaporan2B0_(rowIndex[M.TANGGAL_LAPORAN]);
-  if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(periode) || !tanggal) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periode) || !tanggal) {
     throw new Error('INDEX_HISTORIS_PERIODE_ATAU_TANGGAL_TIDAK_VALID_ROW_' + rowRekap);
   }
   return { periode: periode, tanggal: tanggal };
@@ -20960,7 +20960,7 @@ function cekKonsistensiSumberIndexReadOnly3C6_(shSource, shIndex, jumlah) {
           String(sr[C.POIN_FINAL] === null ? '' : sr[C.POIN_FINAL])) {
       return { valid: false, alasan: 'INDEX_SUMBER_BERBEDA_ROW_' + rowNo };
     }
-    if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(String(ir[M.PERIODE_RESMI] || '').trim()) ||
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(ir[M.PERIODE_RESMI] || '').trim()) ||
         !tanggalValidIndexLaporan2B0_(ir[M.TANGGAL_LAPORAN])) {
       return { valid: false, alasan: 'INDEX_ANCHOR_TIDAK_VALID_ROW_' + rowNo };
     }
