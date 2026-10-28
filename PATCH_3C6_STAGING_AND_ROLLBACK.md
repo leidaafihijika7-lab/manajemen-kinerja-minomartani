@@ -23,9 +23,9 @@ Tanggal: 28 Oktober 2026. Status: **DRAFT — JANGAN DEPLOY KE PRODUKSI**.
 node tests/patch_3c6_guard.test.js
 ```
 
-Skenario: periode September tetap September setelah sunting sumber; waktu asli tetap; perubahan status dipertahankan; ID laporan/pegawai salah ditolak; periode salah ditolak; append dengan/tanpa cutoff; read sehat dengan write=false; poin/status stale; header corrupt; ID duplikat; queue pending; baris indeks hilang; rebuild tanpa indeks historis; snapshot historis valid; cache sehat; cache lama yang indeksnya rusak; circuit terbuka; read flag nonaktif.
+Skenario (termasuk jalur sinkronisasi baris dan audit sumber rebuild dengan mock): periode September tetap September setelah sunting sumber; waktu asli tetap; perubahan status dipertahankan; ID laporan/pegawai salah ditolak; periode salah ditolak; append dengan/tanpa cutoff; read sehat dengan write=false; poin/status stale; header corrupt; ID duplikat; queue pending; baris indeks hilang; rebuild tanpa indeks historis; snapshot historis valid; cache sehat; cache lama yang indeksnya rusak; circuit terbuka; read flag nonaktif.
 
-Pengujian terisolasi pada kode cabang: 22/22 PASS (28 Oktober 2026). Ini **bukan** uji Apps Script staging end-to-end.
+Pengujian terisolasi pada kode cabang: 26/26 PASS (28 Oktober 2026). Ini **bukan** uji Apps Script staging end-to-end.
 
 ## Gerbang uji integrasi STAGING (wajib)
 
