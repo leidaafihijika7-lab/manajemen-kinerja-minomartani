@@ -70,6 +70,7 @@ function runTests(code) {
   const defs = {
     SHEET_COLUMNS:{REKAP_KINERJA:C},
     INDEX_LAPORAN_2B0_CONFIG:{HEADERS, SHEET_NAME:'Index_Laporan', VERSION:'TEST'},
+    INDEX_LAPORAN_2B1_CONFIG:{LOCK_WAIT_MS:5000},
     getIndexLaporanColumnMap2B0_:()=>M,
     normalizeId_: normalize,
     tanggalValidIndexLaporan2B0_:date,
