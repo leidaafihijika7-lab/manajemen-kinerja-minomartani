@@ -24,6 +24,16 @@ var STAGING_A07_ACCOUNT_HEADERS_V1_ = [
   'wa','status','pin_salt','pin_hash_version','pin_updated_at'
 ];
 
+function pastikanPemilikStagingA07V1_() {
+  // Hanya identitas yang terverifikasi sebagai pelaksana/pemilik.
+  // Tidak menerima email kosong atau berbeda (fail closed).
+  var active = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  var effective = String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase();
+  if (!active || !effective || active !== effective) {
+    throw new Error('STAGING_A07_OWNER_VERIFICATION_FAILED');
+  }
+}
+
 function periksaTargetAkunUjiStagingA07V1_() {
   var props = PropertiesService.getScriptProperties();
   if (String(props.getProperty('SPREADSHEET_ID') || '').trim() !== STAGING_A07_ACCOUNT_DB_ID_V1_) {
@@ -75,18 +85,21 @@ function validasiPinA07V1_(value) {
  * Jalankan sebelum memasang izin CREATE_ONCE.
  */
 function periksaKesiapanAkunUjiStagingA07() {
+  pastikanPemilikStagingA07V1_();
   var sh = periksaTargetAkunUjiStagingA07V1_();
   var matches = cariBarisAkunUjiStagingA07V1_(sh);
   var props = PropertiesService.getScriptProperties();
   var pin = props.getProperty('STAGING_A07_TEST_PIN');
   var armed = props.getProperty('STAGING_A07_ACCOUNT_ACTION') === 'CREATE_ONCE';
-  return {
+  var result = {
     target:'STAGING_ONLY',username:STAGING_A07_ACCOUNT_USERNAME_V1_,
     nama:STAGING_A07_ACCOUNT_NAME_V1_,jabatan:STAGING_A07_ACCOUNT_ROLE_V1_,
     akses:STAGING_A07_ACCOUNT_ACCESS_V1_,duplicates:matches.length,
     pinSiap:validasiPinA07V1_(pin),izinSekaliPakai:armed,
     siap:matches.length===0 && validasiPinA07V1_(pin) && armed
   };
+  console.log(JSON.stringify(result)); // tidak ada PIN/hash
+  return result;
 }
 
 /**
@@ -99,6 +112,7 @@ function buatAkunUjiStagingA07() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw new Error('STAGING_A07_LOCK_BUSY');
   try {
+    pastikanPemilikStagingA07V1_();
     var sh = periksaTargetAkunUjiStagingA07V1_();
     var props = PropertiesService.getScriptProperties();
     if (props.getProperty('STAGING_A07_ACCOUNT_ACTION') !== 'CREATE_ONCE') {
@@ -130,11 +144,13 @@ function buatAkunUjiStagingA07() {
     // Cache akun bisa mengandung daftar lama; ini hanya membersihkan cache staging.
     try { bersihkanCacheDataPegawai_(); } catch (eCache) { }
 
-    return {sukses:true,database:'STAGING_ONLY',
+    var result = {sukses:true,database:'STAGING_ONLY',
       username:STAGING_A07_ACCOUNT_USERNAME_V1_,
       nama:STAGING_A07_ACCOUNT_NAME_V1_,jabatan:STAGING_A07_ACCOUNT_ROLE_V1_,
       akses:STAGING_A07_ACCOUNT_ACCESS_V1_,
       pesan:'Akun uji staging dibuat. PIN tidak pernah ditampilkan oleh fungsi.'};
+    console.log(JSON.stringify(result));
+    return result;
   } finally {
     lock.releaseLock();
   }
@@ -149,6 +165,7 @@ function nonaktifkanAkunUjiStagingA07() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw new Error('STAGING_A07_LOCK_BUSY');
   try {
+    pastikanPemilikStagingA07V1_();
     var sh = periksaTargetAkunUjiStagingA07V1_();
     var props = PropertiesService.getScriptProperties();
     if (props.getProperty('STAGING_A07_ACCOUNT_ACTION') !== 'DISABLE_ONCE') {
@@ -167,7 +184,9 @@ function nonaktifkanAkunUjiStagingA07() {
     SpreadsheetApp.flush();
     try { simpanStatusSessionPegawaiCache_(matches[0].id,false); } catch(eCache) {}
     try { bersihkanCacheDataPegawai_(); } catch(eCache2) {}
-    return {sukses:true,username:STAGING_A07_ACCOUNT_USERNAME_V1_,status:'Nonaktif'};
+    var result = {sukses:true,username:STAGING_A07_ACCOUNT_USERNAME_V1_,status:'Nonaktif'};
+    console.log(JSON.stringify(result));
+    return result;
   } finally {
     lock.releaseLock();
   }
