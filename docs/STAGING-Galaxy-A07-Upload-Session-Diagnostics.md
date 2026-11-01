@@ -12,7 +12,7 @@ pengiriman laporan, proses review, atau data pegawai. Tidak boleh diterapkan
 ke database/deployment produksi. Jangan gabungkan dengan PR indeks yang dipending.
 
 ## Berkas
-- `StagingUploadDiagV1.gs`: whitelist, log terstruktur, pengaman staging.
+- `StagingUploadDiagV1.gs`: whitelist, log terstruktur, pengaman staging, fungsi publik aman `catatStagingUploadDiagV1` untuk `google.script.run`, dan wrapper pengujian editor `ujiSanitasiStagingUploadDiagV1`.
 - `Kode.gs`: satu variabel flag template pada `doGet`.
 - `Index.html`: hanya panggilan diagnostik nonblocking di transisi kritis.
 
@@ -36,7 +36,7 @@ fitur tidak aktif. Properti **tidak diubah oleh commit** ini.
 3. Sinkronkan **hanya** tiga berkas di PR ini ke project staging, termasuk
    modul baru. Jangan merge branch ke `main` atau sinkronkan ke produksi.
 4. Pastikan kode dapat dievaluasi, serta jalankan
-   `ujiSanitasiStagingUploadDiagV1_` di **staging saja**.
+   `ujiSanitasiStagingUploadDiagV1` di **staging saja**.
    Harapan: 7/7 lulus. Fungsi uji tersebut tidak mengakses sheet.
 5. Set Script Property `STAGING_UPLOAD_DIAG_V1=ON` **hanya pada project staging**.
    Buka ulang URL STAGING `/dev` untuk uji sebagai editor, atau deployment
