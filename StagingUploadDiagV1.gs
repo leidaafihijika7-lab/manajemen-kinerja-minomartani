@@ -80,3 +80,24 @@ function ujiSanitasiStagingUploadDiagV1_() {
   return {passed:cases.filter(function(x){return x.pass;}).length,total:cases.length,cases:cases,
     mode:'PURE_SYNTHETIC_NO_SHEETS'};
 }
+
+/**
+ * Public entry point for the editor: safe synthetic tests (no Sheet/Drive writes).
+ * Private helper retains its underscore suffix.
+ */
+function ujiSanitasiStagingUploadDiagV1() {
+  var result = ujiSanitasiStagingUploadDiagV1_();
+  console.log(JSON.stringify(result));
+  if (!result || result.passed !== result.total) {
+    throw new Error('STAGING_A07_SANITIZATION_TEST_FAILED');
+  }
+  return result;
+}
+
+/**
+ * Public endpoint callable by google.script.run. Always applies the
+ * private staging gate and strict whitelist before emitting any log.
+ */
+function catatStagingUploadDiagV1(input) {
+  return catatStagingUploadDiagV1_(input);
+}
