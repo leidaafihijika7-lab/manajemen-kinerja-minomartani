@@ -23380,7 +23380,7 @@ function adminSpreadsheetFieldRawValue_(field) {
           code:code || 'NONE',seq:++STAGING_UPLOAD_DIAG_SEQ_V1_,clientMs:Date.now()};
         google.script.run.withSuccessHandler(function(){})
           .withFailureHandler(function(){})
-          .catatStagingUploadDiagV1_(entry);
+          .catatStagingUploadDiagV1(entry);
       } catch (e) { /* Diagnostic failure cannot interrupt the portal. */ }
     }
     document.addEventListener('DOMContentLoaded',function(){stgUploadDiagV1_('PAGE_LOAD','NONE');});
